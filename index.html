@@ -105,11 +105,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .grow.sf{border-left-color:silver}
 .sc-games .grow{background:#111}
 .sc-games .grow:hover{background:#1d1d1d}
-.g-main{display:grid;grid-template-columns:1fr auto auto;grid-template-rows:auto auto;gap:2px 8px;align-items:center;padding:7px 12px 6px}
-.g-rn{font-size:0.67rem;color:var(--text3);grid-column:1;grid-row:1}
-.g-score{font-size:0.83rem;font-weight:700;font-variant-numeric:tabular-nums;grid-column:2;grid-row:1;align-self:center;text-align:right;white-space:nowrap}
-.g-res{width:20px;height:20px;border-radius:3px;font-size:0.67rem;font-weight:700;display:flex;align-items:center;justify-content:center;grid-column:3;grid-row:1;align-self:center}
-.g-opp{font-size:0.85rem;font-weight:500;grid-column:1/4;grid-row:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.g-main{padding:7px 12px 5px}
+.g-rn{font-size:0.67rem;color:var(--text3);margin-bottom:2px}
+.g-opp{font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
 .sc-srow{display:flex;flex-direction:row;border-top:1px solid var(--border)}
 .g-stats{display:flex;flex-direction:row;border-top:1px solid var(--border)}
 .g-stats.empty{display:none}
@@ -207,10 +205,13 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .phq-lnk{display:inline-flex;align-items:center;gap:4px;margin:10px 14px;padding:5px 10px;border-radius:5px;border:1px solid var(--border);font-size:0.78rem;color:var(--text2);transition:border-color 0.12s,color 0.12s}
 .phq-lnk:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 
-.vcal{display:flex;flex-wrap:wrap;gap:5px;padding:10px 14px;border-bottom:1px solid var(--border)}
-.vcdt{padding:5px 9px;border-radius:5px;border:1px solid var(--border);font-size:0.78rem;cursor:pointer;transition:background 0.1s,border-color 0.1s;font-variant-numeric:tabular-nums}
-.vcdt:hover{background:var(--elevated)}
-.vcdt.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.vcm{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text2);padding:10px 14px 4px}
+.vcg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:2px 10px 8px}
+.vcd{text-align:center;font-size:0.6rem;color:var(--text3);padding:3px;font-weight:700}
+.vday{text-align:center;padding:7px 2px;border-radius:4px;font-size:0.82rem;cursor:pointer;font-variant-numeric:tabular-nums;background:none;border:none;color:var(--text);transition:background 0.1s}
+.vday:hover{background:var(--elevated)}
+.vtoday{color:var(--accent);font-weight:700}
+.vsel{background:var(--accent-dim);color:var(--accent)}
 .vcal-nav{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border)}
 .vcal-nav button{padding:4px 10px;border-radius:5px;border:1px solid var(--border);font-size:0.78rem;color:var(--text2);transition:all 0.1s}
 .vcal-nav button:hover{background:var(--elevated);color:var(--text)}
@@ -261,7 +262,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.7</span>
+      <span class="rail-ver">Beta 0.8</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -327,13 +328,17 @@ const el = id => document.getElementById(id);
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+function dayOfWeek(y,m,d){
+  // 0=Sun,1=Mon,...,6=Sat
+  const t=[0,3,2,5,0,3,5,1,4,6,2,4];
+  const yr=m<3?y-1:y;
+  return(yr+Math.floor(yr/4)-Math.floor(yr/100)+Math.floor(yr/400)+t[m-1]+d)%7;
+}
 function fmtDow(d){
   if(!d)return'';
   const[ys,ms,dys]=d.split('-');
   const y=parseInt(ys),m=parseInt(ms),dy=parseInt(dys);
-  const t=[0,3,2,5,0,3,5,1,4,6,2,4];
-  const yr=m<3?y-1:y;
-  const dow=(yr+Math.floor(yr/4)-Math.floor(yr/100)+Math.floor(yr/400)+t[m-1]+dy)%7;
+  const dow=dayOfWeek(y,m,dy);
   const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return`${days[dow]} ${dy} ${months[m-1]}`;
@@ -376,11 +381,24 @@ function storedPts(g,uuid){
 function storedStats(g,uuid){
   return[...(g.hp||[]),...(g.ap||[])].find(p=>p.profileID===uuid)||null;
 }
-function statCell(v,l,last){
-  return`<div style="flex:1;text-align:center;padding:6px 4px;${last?'':'border-right:1px solid #2e2e2e;'}min-width:0"><div style="font-size:0.82rem;font-weight:700;font-variant-numeric:tabular-nums;color:#fff;display:block">${v}</div><div style="font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.04em;display:block;margin-top:1px">${l}</div></div>`;
+function statCell(v,l,last,color){
+  return`<div style="flex:1;text-align:center;padding:6px 4px;${last?'':'border-right:1px solid #2e2e2e;'}min-width:0"><div style="font-size:0.82rem;font-weight:700;font-variant-numeric:tabular-nums;color:${color||'#fff'};display:block">${v}</div><div style="font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.04em;display:block;margin-top:1px">${l}</div></div>`;
 }
 function statRow(items){
-  return`<div style="display:flex;flex-direction:row;border-top:1px solid #2e2e2e">${items.map(([v,l],i)=>statCell(v,l,i===items.length-1)).join('')}</div>`;
+  return`<div style="display:flex;flex-direction:row;border-top:1px solid #2e2e2e">${items.map(([v,l,c],i)=>statCell(v,l,i===items.length-1,c)).join('')}</div>`;
+}
+function buildGameStatRow(g,ctx,ps){
+  const sc=(ctx.myS!=null&&ctx.oppS!=null)?`${ctx.myS}\u2013${ctx.oppS}`:'\u2014';
+  const res=resLetter(ctx.myS,ctx.oppS);
+  const rc=res==='W'?'#4caf50':res==='L'?'#f44336':res==='D'?'#ff9800':'#555';
+  const dot='\u00b7';
+  const fg=ps?((ps.pt2??0)+(ps.pt3??0)):dot;
+  return statRow([
+    [sc,'SCR',null],[res||'?','RES',rc],
+    [ps!=null?(ps.pts??0):dot,'PTS',null],[fg,'FG',null],
+    [ps!=null?(ps.pt1??0):dot,'FT',null],[ps!=null?(ps.pt3??0):dot,'3PT',null],
+    [ps!=null?(ps.fouls??0):dot,'FL',null],
+  ]);
 }
 function renderMiniStats(p){
   if(!p)return'';
@@ -555,7 +573,7 @@ function renderPlayer(p){
     const ppg=st.gp?(st.pts/st.gp).toFixed(1):'\u2014';
     h+=`<div class="sc">
       <div class="sc-hdr" data-cid="${esc(cid)}" data-si="${gi}" onclick="toggleGames(this)">
-        <div class="sc-info"><div class="sc-name">${esc(sn.sn)} \u00b7 ${esc(sn.club)}</div><div>${teamLink}</div></div>
+        <div class="sc-info"><div class="sc-name">${esc(sn.sn)} \u00b7 ${esc(primary.tn||sn.club)}</div><div>${teamLink}</div></div>
         <div class="chev">\u25b6</div>
       </div>
       ${statRow([[st.gp||0,'GP'],[st.pts||0,'PTS'],[ppg,'PPG'],[st.fg||0,'FG'],[st.ft||0,'FT'],[st.threePt||0,'3PT'],[st.fouls||0,'FL']])}
@@ -598,35 +616,25 @@ async function toggleGames(hdr){
     const oppN=(ctx.oppN||'\u2014').slice(0,30);
     const fc=finalClass(g.rn);
     const badgeH=(mode==='hidden-full'||mode==='hidden-partial')?'<span class="bdg bH" style="font-size:0.58rem;padding:0 4px">H</span>':'';
-    const resH=res?`<div class="g-res r${res}">${res}</div>`:`<div class="g-res rU">?</div>`;
-    const statsH=stored
-      ?`<div id="gstats-${esc(gid)}">${renderMiniStats(stored)}</div>`
-      :`<div id="gstats-${esc(gid)}" style="display:none"></div>`;
     return`<div class="grow${fc?' '+fc:''}" data-gid="${esc(gid)}" data-sid="${esc(sid)}">
       <div class="g-main">
         <div class="g-rn">${esc(g.rn||'')} ${g.d?esc(fmtD(g.d)):''}</div>
         <div class="g-opp">${badgeH}${esc(oppN)}</div>
-        ${sc?`<div class="g-score">${esc(sc)}</div>`:'<div class="g-score"></div>'}
-        ${resH}
       </div>
-      ${statsH}
+      <div id="gstats-${esc(gid)}">${buildGameStatRow(g,ctx,stored)}</div>
     </div>`;
   }).join('');
   ge.innerHTML=rows;
   ge.addEventListener('click',e=>{const r=e.target.closest('.grow');if(r)openSheet(r.dataset.gid,r.dataset.sid);});
   ge.dataset.loaded='1';
-  // Fetch box scores in parallel for all scored games without stored stats
-  pg.filter(([,g])=>typeof g.hs==='number'&&!storedStats(g,uuid)).forEach(([gid])=>{
-    const se=document.getElementById('gstats-'+gid);
-    if(se){se.classList.remove('empty');se.innerHTML='<div style="padding:3px 12px;font-size:0.68rem;color:var(--text3)">Fetching…</div>';}
+  // Fetch box scores in parallel and update player stat cells
+  pg.filter(([,g])=>typeof g.hs==='number'&&!storedStats(g,uuid)).forEach(([gid,g])=>{
     fetchBox(gid).then(bs=>{
       const el2=document.getElementById('gstats-'+gid);
-      if(!el2)return;
-      if(!bs){el2.innerHTML='';el2.classList.add('empty');return;}
+      if(!el2||!bs)return;
       const allP=[...(bs.h||[]),...(bs.a||[])];
       const mine=allP.find(p=>p.profileID===uuid);
-      if(mine){el2.style.display='';el2.innerHTML=renderMiniStats(mine);}
-      else{el2.innerHTML='';el2.style.display='none';}
+      if(mine)el2.innerHTML=buildGameStatRow(g,gameCtx(g,tid),mine);
     });
   });
 }
@@ -726,7 +734,7 @@ function buildVenueList(){renderVenues(S.venues,'');}
 function searchVenues(){
   const q=el('q-vn').value;
   const dateVal=el('q-vdate').value; // YYYY-MM-DD or ''
-  let list=S.venues;
+  let list=S.venues||[];
   if(q)list=list.filter(v=>tokenMatch(v.n,q));
   // Date filter: if date-venue index available, filter to venues active that date
   if(dateVal&&S.dateVenues[dateVal]){
@@ -760,77 +768,61 @@ async function loadVenue(vid,vname,preDate){
   showV('view-venue');
   const ve=el('view-venue');
   S.venueId=vid;
-  // Try to load dates index for this venue
   if(!S.venueDates[vid]){const d=await gj(BASE+'/venue-lookup/'+vid+'/dates.json');S.venueDates[vid]=d||null;}
-  const knownDates=S.venueDates[vid]; // array of YYYY-MM-DD strings, or null
-  const today=mkDate(new Date());
-  let h=`<div class="vhdr"><button class="vback" onclick="history.back()">\u2190</button>
-    <div><div class="vtitle">${esc(vname)}</div><div class="vsub">Select a date to view schedule</div></div></div>`;
-  if(knownDates){
-    // Show only known dates, grouped
-    h+=renderKnownDates(knownDates,vid,today);
-  }else{
-    // Fallback: show ±30 day calendar with week navigation
-    h+=renderCalRange(vid,today,0);
-  }
-  h+='<div id="vgrid-area"></div>';
-  ve.innerHTML=h;
-  const startDate=preDate||today;
-  loadVenueDay(vid,startDate,null);
-}
-
-function renderKnownDates(dates,vid,today){
-  // Group by month
-  const byMonth=new Map();
-  for(const d of dates){
-    const[y,m]=d.split('-');const k=`${y}-${m}`;
-    if(!byMonth.has(k))byMonth.set(k,[]);byMonth.get(k).push(d);
-  }
-  let h='<div class="vcal">';
-  for(const[ym,ds]of byMonth){
-    const[y,m]=ym.split('-');
-    const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1];
-    h+=`<div style="width:100%;font-size:0.67rem;color:var(--text3);padding:4px 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">${mn} ${y}</div>`;
-    for(const d of ds){
-      const[,mm,dy]=d.split('-');
-      const lbl=fmtDow(d);
-      h+=`<button class="vcdt${d===today?' on':''}" data-date="${d}" onclick="loadVenueDay('${esc(vid)}','${d}',this)">${esc(lbl)}</button>`;
-    }
-  }
-  return h+'</div>';
-}
-
-function renderCalRange(vid,today,offsetWeeks){
-  S.calOffset=offsetWeeks;
-  const base=new Date();
-  base.setDate(base.getDate()+offsetWeeks*7-14);
-  const dates=[];for(let i=0;i<30;i++){const d=new Date(base);d.setDate(d.getDate()+i);dates.push(mkDate(d));}
+  const knownDates=S.venueDates[vid];
   const todayStr=mkDate(new Date());
-  const fromD=fmtD(dates[0]),toD=fmtD(dates[dates.length-1]);
-  let h=`<div class="vcal-nav">
-    <button onclick="shiftCal('${esc(vid)}','${esc(todayStr)}',-1)">\u2190 Earlier</button>
-    <span>${esc(fromD)} \u2013 ${esc(toD)}</span>
-    <button onclick="shiftCal('${esc(vid)}','${esc(todayStr)}',1)">Later \u2192</button>
-  </div><div class="vcal">`;
-  for(const d of dates){
-    const lbl=fmtDow(d);
-    h+=`<button class="vcdt${d===todayStr?' on':''}" data-date="${d}" onclick="loadVenueDay('${esc(vid)}','${d}',this)">${esc(lbl)}</button>`;
+  const h=`<div class="vhdr"><button class="vback" onclick="history.back()">\u2190</button>
+    <div><div class="vtitle">${esc(vname)}</div><div class="vsub">Select a date</div></div></div>
+  <div id="cal-section"></div><div id="vgrid-area"></div>`;
+  ve.innerHTML=h;
+  const cs=el('cal-section');
+  if(cs)cs.innerHTML=knownDates?renderKnownDates(knownDates,vid,todayStr):renderCalRange(vid,todayStr,0);
+  S.calOffset=0;
+  selectVenueDate(vid,preDate||todayStr,null);
+}
+function dayOfWeekN(y,m,d){const t=[0,3,2,5,0,3,5,1,4,6,2,4];const yr=m<3?y-1:y;return(yr+Math.floor(yr/4)-Math.floor(yr/100)+Math.floor(yr/400)+t[m-1]+d)%7;}
+function groupByMonth(dates){const m=new Map();for(const d of dates){const ym=d.slice(0,7);if(!m.has(ym))m.set(ym,[]);m.get(ym).push(d);}return m;}
+function calGrid(byMonth,vid,todayStr){
+  const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DOW='<div class="vcg"><div class="vcd">M</div><div class="vcd">T</div><div class="vcd">W</div><div class="vcd">T</div><div class="vcd">F</div><div class="vcd">S</div><div class="vcd">S</div>';
+  let h='';
+  for(const[ym,ds]of byMonth){
+    const[y,m]=ym.split('-').map(Number);
+    h+=`<div class="vcm">${MN[m-1]} ${y}</div>${DOW}`;
+    const[,,fd]=ds[0].split('-').map(Number);
+    const pad=(dayOfWeekN(y,m,fd)+6)%7;
+    for(let i=0;i<pad;i++)h+='<div></div>';
+    for(const d of ds){
+      const[,,dy]=d.split('-');
+      const isSel=d===S.venueSelDate,isToday=d===todayStr;
+      h+=`<button class="vday${isToday?' vtoday':''}${isSel?' vsel':''}" data-date="${d}" onclick="selectVenueDate('${esc(vid)}','${d}',this)">${parseInt(dy)}</button>`;
+    }
+    h+='</div>';
   }
-  return h+'</div>';
+  return h;
 }
-
-function shiftCal(vid,today,dir){
-  const ve=el('view-venue');
-  const ga=el('vgrid-area');
-  if(ga)ga.innerHTML='';
-  const vname=ve.querySelector('.vtitle')?.textContent||'';
+function renderKnownDates(dates,vid,todayStr){return calGrid(groupByMonth(dates),vid,todayStr);}
+function renderCalRange(vid,todayStr,offsetWeeks){
+  S.calOffset=offsetWeeks;
+  const base=new Date();base.setDate(base.getDate()+offsetWeeks*7-14);
+  const dates=[];for(let i=0;i<30;i++){const d=new Date(base);d.setDate(d.getDate()+i);dates.push(mkDate(d));}
+  const from=fmtDow(dates[0]),to=fmtDow(dates[dates.length-1]);
+  return`<div class="vcal-nav"><button onclick="shiftCal('${esc(vid)}','${esc(todayStr)}',-1)">\u2190 Earlier</button><span>${esc(from)} \u2013 ${esc(to)}</span><button onclick="shiftCal('${esc(vid)}','${esc(todayStr)}',1)">Later \u2192</button></div>${calGrid(groupByMonth(dates),vid,todayStr)}`;
+}
+function selectVenueDate(vid,date,btn){
+  S.venueSelDate=date;
+  document.querySelectorAll('.vday').forEach(b=>b.classList.remove('vsel'));
+  if(btn)btn.classList.add('vsel');
+  else{const b=document.querySelector(`.vday[data-date="${date}"]`);if(b)b.classList.add('vsel');}
+  loadVenueDay(vid,date);
+}
+function shiftCal(vid,todayStr,dir){
   S.calOffset+=dir;
-  const cal=ve.querySelector('.vcal-nav')?.closest('div');
-  if(cal)cal.outerHTML=renderCalRange(vid,today,S.calOffset)+ve.querySelector('#vgrid-area')?.outerHTML||'';
+  const cs=el('cal-section');
+  if(cs)cs.innerHTML=renderCalRange(vid,todayStr,S.calOffset);
+  const ga=el('vgrid-area');if(ga)ga.innerHTML='';
 }
-
-async function loadVenueDay(vid,date,btn){
-  document.querySelectorAll('.vcdt').forEach(b=>b.classList.toggle('on',b?.dataset?.date===date));
+async function loadVenueDay(vid,date){
   const ga=el('vgrid-area');
   ga.innerHTML='<div class="load-row">Loading schedule\u2026</div>';
   const key=vid+'/'+date;
@@ -1032,13 +1024,17 @@ function applyBox(bs,g,gid,con){
   const uuid=S.playerUuid;
   if(!bs.h?.length&&!bs.a?.length){slot.textContent='No box score available.';return;}
   slot.outerHTML=renderBoxHtml(bs.h||[],bs.a||[],t1n,t2n,t1id,t2id,sid,uuid);
-  // Update game row pts if visible
+  // Update game row stats if visible
   if(uuid){
     const allP=[...(bs.h||[]),...(bs.a||[])];
     const mine=allP.find(p=>p.profileID===uuid);
     if(mine){
       const statsEl=document.getElementById('gstats-'+gid);
-      if(statsEl){statsEl.classList.remove('empty');statsEl.innerHTML=renderMiniStats(mine);}
+      if(statsEl){
+        const onH=(bs.h||[]).some(p=>p.profileID===uuid);
+        const myT=onH?(g.h||g.t1||''):(g.a||g.t2||'');
+        statsEl.innerHTML=buildGameStatRow(g,gameCtx(g,myT),mine);
+      }
     }
   }
 }
@@ -1088,4 +1084,26 @@ boot();
 
 </script>
 </body>
-</html>
+</htmlfunction dayOfWeekN(y,m,d){const t=[0,3,2,5,0,3,5,1,4,6,2,4];const yr=m<3?y-1:y;return(yr+Math.floor(yr/4)-Math.floor(yr/100)+Math.floor(yr/400)+t[m-1]+d)%7;}
+function groupByMonth(dates){const m=new Map();for(const d of dates){const ym=d.slice(0,7);if(!m.has(ym))m.set(ym,[]);m.get(ym).push(d);}return m;}
+function calGrid(byMonth,vid,todayStr){
+  const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DOW='<div class="vcg"><div class="vcd">M</div><div class="vcd">T</div><div class="vcd">W</div><div class="vcd">T</div><div class="vcd">F</div><div class="vcd">S</div><div class="vcd">S</div>';
+  let h='';
+  for(const[ym,ds]of byMonth){
+    const[y,m]=ym.split('-').map(Number);
+    h+=`<div class="vcm">${MN[m-1]} ${y}</div>${DOW}`;
+    const[,,fd]=ds[0].split('-').map(Number);
+    const pad=(dayOfWeekN(y,m,fd)+6)%7;
+    for(let i=0;i<pad;i++)h+='<div></div>';
+    for(const d of ds){
+      const[,,dy]=d.split('-');
+      const isSel=d===S.venueSelDate,isToday=d===todayStr;
+      h+=`<button class="vday${isToday?' vtoday':''}${isSel?' vsel':''}" data-date="${d}" onclick="selectVenueDate('${esc(vid)}','${d}',this)">${parseInt(dy)}</button>`;
+    }
+    h+='</div>';
+  }
+  return h;
+}
+function renderKnownDates(dates,vid,todayStr){return calGrid(groupByMonth(dates),vid,todayStr);}
+>
