@@ -42,6 +42,10 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 
 .panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .swrap{padding:8px;border-bottom:1px solid var(--border)}
+.swrap-hdr{display:flex;align-items:center;padding:5px 8px 0;gap:4px}
+.swrap-hdr span{font-size:0.72rem;color:var(--text2)}
+.rbtn{margin-left:auto;background:none;border:none;color:var(--text3);font-size:0.78rem;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1.2}
+.rbtn:hover{background:var(--elevated);color:var(--text1)}
 .sinput{width:100%;background:var(--elevated);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.88rem;outline:none;transition:border-color 0.15s}
 .sinput:focus{border-color:var(--accent)}
 .sinput::placeholder{color:var(--text3)}
@@ -85,9 +89,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .slist{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
 .sec-lbl{font-size:0.67rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:2px}
 .sc{background:var(--elevated);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.sc-hdr{padding:9px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.1s;user-select:none;background:var(--elevated)}
+.sc-hdr{border-left:3px solid transparent;padding:0;cursor:pointer;display:flex;align-items:center;gap:0;transition:background 0.1s;user-select:none;background:var(--elevated)}
 .sc-hdr:hover,.sc-hdr.open{background:#333}
-.sc-info{flex:1;min-width:0}
+.sc-info{flex:1;min-width:0;padding:7px 12px 6px}
 .sc-name{font-size:0.83rem;font-weight:600}
 .sc-grade{font-size:0.73rem;color:var(--accent);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:3px}
 .sc-grade:hover{opacity:0.8}
@@ -105,8 +109,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .grow.sf{border-left-color:silver}
 .sc-games .grow{background:#111}
 .sc-games .grow:hover{background:#1d1d1d}
-.g-main{padding:7px 12px 5px}
-.g-rn{font-size:0.67rem;color:var(--text3);margin-bottom:2px}
+.g-row{display:flex;align-items:center}
+.g-info{flex:1;padding:7px 12px 6px;min-width:0}
+.g-rn{font-size:0.67rem;color:var(--text3);margin-top:1px}
 .g-opp{font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
 .sc-srow{display:flex;flex-direction:row;border-top:1px solid var(--border)}
 .g-stats{display:flex;flex-direction:row;border-top:1px solid var(--border)}
@@ -206,7 +211,12 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .phq-lnk:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 
 .vcm{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text2);padding:10px 14px 4px}
-.vcg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:2px 10px 8px}
+.vcal-wrap{display:flex;flex-wrap:wrap;gap:20px 24px;padding:10px 14px}
+.vcal-col{min-width:180px;flex:1}
+.vcg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:2px 0 8px}
+.vcal-jump{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border)}
+.vcal-jump label{font-size:0.75rem;color:var(--text2);white-space:nowrap}
+.vcal-jump input{flex:1;max-width:160px}
 .vcd{text-align:center;font-size:0.6rem;color:var(--text3);padding:3px;font-weight:700}
 .vday{text-align:center;padding:7px 2px;border-radius:4px;font-size:0.82rem;cursor:pointer;font-variant-numeric:tabular-nums;background:none;border:none;color:var(--text);transition:background 0.1s}
 .vday:hover{background:var(--elevated)}
@@ -248,9 +258,23 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   .vback{display:inline!important}
 }
 @media(min-width:769px){
-  .vback{display:none!important}
   .shdl{display:none}
 }
+.lb-top-nav{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+.lb-tab-btn{background:none;border:none;color:var(--text2);font-size:0.82rem;cursor:pointer;padding:4px 10px;border-radius:16px}
+.lb-tab-btn:hover{color:var(--text1);background:var(--elevated)}
+.lb-tab-btn.on{color:var(--accent);font-weight:700}
+.lb-ctrl-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border)}
+.lb-stat{padding:4px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;border:1px solid var(--border);color:var(--text2);transition:all 0.12s}
+.lb-stat.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.lb-stat:hover:not(.on){background:var(--elevated);color:var(--text)}
+.lb-row{display:grid;grid-template-columns:2rem 1fr auto;gap:6px;padding:9px 14px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s}
+.lb-row:hover{background:var(--elevated)}
+.lb-rank{font-size:0.72rem;color:var(--text3);font-variant-numeric:tabular-nums}
+.lb-name{font-size:0.88rem;font-weight:500}
+.lb-club{font-size:0.72rem;color:var(--text2);margin-top:1px}
+.lb-val{font-size:1rem;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.lb-gp{font-size:0.68rem;color:var(--text3);text-align:right}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
@@ -262,29 +286,35 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.8</span>
+      <span class="rail-ver">Beta 0.27</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
       <button class="stab" data-tab="teams">Teams</button>
       <button class="stab" data-tab="venues">Venues</button>
+      <button class="stab" data-tab="leaders">Top</button>
     </div>
     <div id="pnl-players" class="panel">
+      <div class="swrap-hdr"><span>Player name</span><button class="rbtn" onclick="resetPlayer()">✕ Clear</button></div>
       <div class="swrap"><input id="q-pl" class="sinput" placeholder="Search players…" autocomplete="off" autocorrect="off" spellcheck="false"></div>
       <div id="res-pl" class="sresults"></div>
     </div>
     <div id="pnl-teams" class="panel hidden">
+      <div class="swrap-hdr"><span>Team</span><button class="rbtn" onclick="resetTeam()">✕ Clear</button></div>
       <div class="sseason"><select id="q-sn" class="sselect"><option value="">Select season…</option></select></div>
       <div class="swrap"><input id="q-tm" class="sinput" placeholder="Search teams… (e.g. spirit magic u14)" autocomplete="off" spellcheck="false"></div>
       <div id="res-tm" class="sresults"></div>
     </div>
     <div id="pnl-venues" class="panel hidden">
+      <div class="sseason"><select id="q-vsn" class="sselect"><option value="">All seasons</option></select></div>
+      <div class="swrap-hdr"><span>Venue</span><button class="rbtn" onclick="resetVenue()">✕ Clear</button></div>
       <div class="vfilters">
         <input id="q-vdate" type="date" class="sinput vfilter-date" title="Filter by date">
         <input id="q-vn" class="sinput" placeholder="Search venues…" autocomplete="off" spellcheck="false">
       </div>
       <div id="res-vn" class="sresults"></div>
     </div>
+    <div id="pnl-leaders" class="panel hidden"></div>
   </div>
 
   <div id="main">
@@ -293,6 +323,42 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div id="view-team" class="hidden"></div>
     <div id="view-venue" class="hidden"></div>
     <div id="view-opp" class="hidden"></div>
+    <div id="view-leaders" class="hidden">
+      <div id="lb-header" style="position:sticky;top:0;background:var(--surface);z-index:5;border-bottom:1px solid var(--border)">
+        <div class="lb-top-nav">
+          <span style="font-size:1rem;font-weight:700;letter-spacing:-0.5px;color:var(--text1)">StatTrack<sup style="font-size:0.55em;color:var(--accent)">BV</sup></span>
+          <div style="display:flex;gap:2px">
+            <button class="lb-tab-btn" onclick="switchFromTop('players')">Players</button>
+            <button class="lb-tab-btn" onclick="switchFromTop('teams')">Teams</button>
+            <button class="lb-tab-btn" onclick="switchFromTop('venues')">Venues</button>
+            <button class="lb-tab-btn on">Top</button>
+          </div>
+        </div>
+        <div class="lb-ctrl-row">
+          <select id="lb-season" class="sselect" style="flex:0 0 auto;max-width:200px"><option value="all">All-time</option></select>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="lb-stat on" data-stat="pts">PTS</button>
+            <button class="lb-stat" data-stat="ppg">PPG</button>
+            <button class="lb-stat" data-stat="gp">GP</button>
+            <button class="lb-stat" data-stat="threePt">3PT</button>
+            <button class="lb-stat" data-stat="fouls">F</button>
+          </div>
+          <div id="lb-mingp-wrap" class="hidden" style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:0.75rem;color:var(--text2);white-space:nowrap">Min GP</span>
+            <input id="lb-mingp" type="number" min="1" max="999" value="10" class="sinput" style="width:56px;padding:4px 8px;font-size:0.82rem">
+          </div>
+        </div>
+        <div id="lb-season-filters" class="lb-ctrl-row">
+          <select id="lb-org" class="sselect" style="flex:1;min-width:120px;font-size:0.75rem"><option value="">All orgs</option></select>
+          <select id="lb-comp" class="sselect" style="flex:1;min-width:120px;font-size:0.75rem"><option value="">All comps</option></select>
+          <select id="lb-grade" class="sselect" style="flex:1;min-width:100px;font-size:0.75rem"><option value="">All grades</option></select>
+          <select id="lb-age" class="sselect" style="flex:0 0 auto;font-size:0.75rem"><option value="">All ages</option></select>
+          <select id="lb-gender" class="sselect" style="flex:0 0 auto;font-size:0.75rem"><option value="">All</option></select>
+          <button class="rbtn" style="margin-left:0;opacity:1;font-size:0.72rem" onclick="resetLB()">✕ Reset</button>
+        </div>
+      </div>
+      <div id="lb-results"></div>
+    </div>
   </div>
 
   <div id="sov">
@@ -316,6 +382,7 @@ const WRKR = 'https://solitary-snowflake-cb3e.insanoflash.workers.dev';
 const S = {
   idx:null, venues:null, teamIdx:null,
   shards:{}, games:{}, players:{}, teamStats:{}, boxes:{}, venueDay:{}, venueDates:{}, dateVenues:{},
+  seasonVenueIdx:null, venueSeasonFilter:null, lbData:{}, lbScope:'all', lbStat:'pts', lbMinGP:10,
   playerUuid:null, teamId:null, teamSid:null, venueId:null,
   calOffset:0, // weeks offset from today for venue calendar
 };
@@ -327,6 +394,19 @@ async function gj(url){
 const el = id => document.getElementById(id);
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function resetPlayer(){const q=document.getElementById('q-pl');if(q)q.value='';const r=document.getElementById('res-pl');if(r){r.innerHTML='';r.style.display='none';}}
+function resetTeam(){const q=document.getElementById('q-tm');if(q)q.value='';const sn=document.getElementById('q-sn');if(sn)sn.selectedIndex=0;const r=document.getElementById('res-tm');if(r)r.innerHTML='';}
+function resetVenue(){const q=document.getElementById('q-vn');if(q)q.value='';const vd=document.getElementById('q-vdate');if(vd)vd.value='';const vs=document.getElementById('q-vsn');if(vs)vs.selectedIndex=0;const r=document.getElementById('res-vn');if(r)r.innerHTML='';const ga=document.getElementById('vgrid-area');if(ga)ga.innerHTML='';const cs=document.getElementById('cal-section');if(cs)cs.innerHTML='';}
+function resetLB(){const o=document.getElementById('lb-org');if(o)o.value='';const c=document.getElementById('lb-comp');if(c)c.value='';const g=document.getElementById('lb-grade');if(g)g.value='';const a=document.getElementById('lb-age');if(a)a.value='';const gn=document.getElementById('lb-gender');if(gn)gn.value='';const mg=document.getElementById('lb-mingp');if(mg)mg.value='10';renderLB(S.lbData[S.lbScope]?.[S.lbStat]||[],S.lbData[S.lbScope]||{});}
+// Recent searches (localStorage)
+function getRecent(k){try{return JSON.parse(localStorage.getItem('st_'+k)||'[]');}catch{return[];}}
+function addRecent(k,v){if(!v||v.length<2)return;let r=getRecent(k).filter(x=>x!==v);r.unshift(v);localStorage.setItem('st_'+k,JSON.stringify(r.slice(0,8)));}
+function showRecent(k,re,onSelect){
+  const r=getRecent(k);if(!r.length)return;
+  re.innerHTML=`<div class="ri-empty" style="font-size:0.7rem;color:var(--text3);padding:8px 14px 4px">Recent</div>`+
+    r.map(v=>`<div class="ri recent-item" data-v="${esc(v)}"><div class="ri-name" style="display:flex;align-items:center;gap:6px"><span style="color:var(--text3)">↩</span>${esc(v)}</div></div>`).join('');
+  re.querySelectorAll('.recent-item').forEach(item=>item.addEventListener('click',()=>onSelect(item.dataset.v)));
+}
 
 function dayOfWeek(y,m,d){
   // 0=Sun,1=Mon,...,6=Sat
@@ -382,10 +462,14 @@ function storedStats(g,uuid){
   return[...(g.hp||[]),...(g.ap||[])].find(p=>p.profileID===uuid)||null;
 }
 function statCell(v,l,last,color){
-  return`<div style="flex:1;text-align:center;padding:6px 4px;${last?'':'border-right:1px solid #2e2e2e;'}min-width:0"><div style="font-size:0.82rem;font-weight:700;font-variant-numeric:tabular-nums;color:${color||'#fff'};display:block">${v}</div><div style="font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.04em;display:block;margin-top:1px">${l}</div></div>`;
+  return`<div style="flex:1;text-align:center;padding:6px 4px;${last?'':'border-right:1px solid #2e2e2e;'}min-width:0;overflow:hidden"><div style="font-size:0.82rem;font-weight:700;font-variant-numeric:tabular-nums;color:${color||'#fff'};display:block;white-space:nowrap;overflow:hidden">${v}</div><div style="font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.04em;display:block;margin-top:1px">${l}</div></div>`;
 }
-function statRow(items){
-  return`<div style="display:flex;flex-direction:row;border-top:1px solid #2e2e2e">${items.map(([v,l,c],i)=>statCell(v,l,i===items.length-1,c)).join('')}</div>`;
+function expandSeason(el){const sc=el.closest('.sc');if(sc)toggleGames(sc.querySelector('.sc-hdr'));}
+function statRow(items,expandable,spacer){
+  const oc=expandable?'onclick="expandSeason(this)" ':'';
+  const cs=expandable?'cursor:pointer;':'';
+  const sp=spacer?'<div style="flex:1;min-width:0"></div>':'';
+  return`<div ${oc}style="${cs}display:flex;flex-direction:row;border-top:1px solid #2e2e2e">${sp}${items.map(([v,l,c],i)=>statCell(v,l,i===items.length-1,c)).join('')}</div>`;
 }
 function buildGameStatRow(g,ctx,ps){
   const sc=(ctx.myS!=null&&ctx.oppS!=null)?`${ctx.myS}\u2013${ctx.oppS}`:'\u2014';
@@ -393,12 +477,12 @@ function buildGameStatRow(g,ctx,ps){
   const rc=res==='W'?'#4caf50':res==='L'?'#f44336':res==='D'?'#ff9800':'#555';
   const dot='\u00b7';
   const fg=ps?((ps.pt2??0)+(ps.pt3??0)):dot;
-  return statRow([
-    [sc,'SCR',null],[res||'?','RES',rc],
+  const cells=[
+    [sc,'',null],[res||'?','',rc],
     [ps!=null?(ps.pts??0):dot,'PTS',null],[fg,'FG',null],
     [ps!=null?(ps.pt1??0):dot,'FT',null],[ps!=null?(ps.pt3??0):dot,'3PT',null],
-    [ps!=null?(ps.fouls??0):dot,'FL',null],
-  ]);
+    [ps!=null?(ps.fouls??0):dot,'F',null]];
+  return cells.map(([v,l,c],i)=>statCell(v,l,i===cells.length-1,c)).join('');
 }
 function renderMiniStats(p){
   if(!p)return'';
@@ -429,6 +513,32 @@ function sortSeasonsDesc(arr){
 }
 
 // Merge regs with same (sid, tid) within a player's season list
+function abbreviateGrades(grades){
+  if(grades.length<=1)return grades[0]||'';
+  const sp=grades.map(g=>g.split(' '));
+  let pLen=0;
+  outer:for(let i=0;i<sp[0].length;i++){
+    for(let j=1;j<sp.length;j++){if(sp[j][i]!==sp[0][i])break outer;}
+    pLen=i+1;
+  }
+  const pre=sp[0].slice(0,pLen).join(' ');
+  const suf=sp.map(s=>s.slice(pLen).join(' ')).filter(Boolean);
+  if(!pre)return grades.join(' / ');
+  return(pre+(suf.length?' '+suf.join(' / '):'')).trim();
+}
+function gradeAbbrev(gn, allRegGrades){
+  // Show only the suffix of gn after stripping common prefix of all reg grades
+  if(!gn||allRegGrades.length<=1)return gn||'';
+  const sp=allRegGrades.map(g=>g.split(' '));
+  let pLen=0;
+  outer:for(let i=0;i<sp[0].length;i++){
+    for(let j=1;j<sp.length;j++){if(!sp[j][i]||sp[j][i]!==sp[0][i])break outer;}
+    pLen=i+1;
+  }
+  const prefix=sp[0].slice(0,pLen).join(' ');
+  const suffix=gn.startsWith(prefix)?gn.slice(prefix.length).trim():gn;
+  return suffix||gn;
+}
 function groupRegs(seasons){
   const result=[];
   for(const sn of sortSeasonsDesc(seasons)){
@@ -447,11 +557,16 @@ function groupRegs(seasons){
 
 /* ── Navigation / history ── */
 function showV(id){
-  ['view-home','view-player','view-team','view-venue','view-opp'].forEach(v=>el(v).classList.toggle('hidden',v!==id));
-  if(window.innerWidth<=768){
+  ['view-home','view-player','view-team','view-venue','view-opp','view-leaders'].forEach(v=>el(v).classList.toggle('hidden',v!==id));
+  // leaders always fullscreen regardless of device; mobile also fullscreen for non-home
+  const fullscreen=id==='view-leaders'||window.innerWidth<=768;
+  if(fullscreen){
     const home=id==='view-home';
     el('rail').classList.toggle('mob-hide',!home);
     el('main').classList.toggle('mob-show',!home);
+  }else{
+    el('rail').classList.remove('mob-hide');
+    el('main').classList.remove('mob-show');
   }
 }
 function goHome(){
@@ -486,12 +601,19 @@ async function boot(){
   S.idx=idx; S.venues=venues||[];
   buildSeasonPicker();
   buildVenueList();
+  buildVenueSeasonPicker();
+  buildLBSeasonPicker();
 }
 
 /* ── Tabs ── */
 function switchTab(tab){
   document.querySelectorAll('.stab').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
-  ['players','teams','venues'].forEach(t=>el('pnl-'+t).classList.toggle('hidden',t!==tab));
+  ['players','teams','venues','leaders'].forEach(t=>el('pnl-'+t).classList.toggle('hidden',t!==tab));
+  if(tab==='leaders'){showV('view-leaders');loadLB();}
+}
+function switchFromTop(tab){
+  switchTab(tab);
+  showV('view-home');
 }
 
 /* ── Player search ── */
@@ -508,7 +630,7 @@ async function searchPlayers(q){
   }
   if(!hits.length){re.innerHTML='<div class="ri-empty">No players found</div>';return;}
   re.innerHTML=hits.slice(0,40).map(h=>`<div class="ri" data-u="${esc(h.id)}"><div class="ri-name">${esc(h.k)}</div><div class="ri-sub">${esc(h.c||'\u2014')} \u00b7 ${esc(h.t||'')}</div></div>`).join('');
-  re.querySelectorAll('.ri').forEach(r=>r.addEventListener('click',()=>{loadPlayer(r.dataset.u);if(window.innerWidth<=768)el('rail').classList.add('mob-hide');}));
+  re.querySelectorAll('.ri').forEach(r=>r.addEventListener('click',()=>{addRecent('players',q);loadPlayer(r.dataset.u);if(window.innerWidth<=768)el('rail').classList.add('mob-hide');}));
 }
 
 /* ── Player profile ── */
@@ -567,16 +689,23 @@ function renderPlayer(p){
       threePt:(a.threePt||0)+(s.threePt||0),fouls:(a.fouls||0)+(s.fouls||0)
     };},{});
     // All grade names joined — no assumption about order
-    const allGrades=[...new Set(regs.map(r=>r.gn||r.tn||'?'))].join(' / ');
+    const allGrades=abbreviateGrades([...new Set(regs.map(r=>r.gn||r.tn||'?'))]);
     const cid=`sc-${gi}`;
     const teamLink=`<span class="sc-grade" onclick="event.stopPropagation();loadTeam('${esc(tid)}','${esc(sn.sid)}')">${esc(allGrades)} \u2192</span>`;
     const ppg=st.gp?(st.pts/st.gp).toFixed(1):'\u2014';
     h+=`<div class="sc">
       <div class="sc-hdr" data-cid="${esc(cid)}" data-si="${gi}" onclick="toggleGames(this)">
-        <div class="sc-info"><div class="sc-name">${esc(sn.sn)} \u00b7 ${esc(primary.tn||sn.club)}</div><div>${teamLink}</div></div>
-        <div class="chev">\u25b6</div>
+        <div class="sc-info" class="sc-info">
+          <div style="display:flex;align-items:flex-start;gap:5px">
+            <span class="chev" style="flex-shrink:0;margin-top:3px">\u25b6</span>
+            <div style="min-width:0">
+              <div class="sc-name">${esc(sn.sn)} \u00b7 ${esc(primary.tn||sn.club)}</div>
+              <div>${teamLink}</div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:7;min-width:0;display:flex;flex-direction:row">${[[st.gp||0,'GP',null],[ppg,'PPG',null],[st.pts||0,'PTS',null],[st.fg||0,'FG',null],[st.ft||0,'FT',null],[st.threePt||0,'3PT',null],[st.fouls||0,'F',null]].map(([v,l,c],i)=>statCell(v,l,i===6,c)).join('')}</div>
       </div>
-      ${statRow([[st.gp||0,'GP'],[st.pts||0,'PTS'],[ppg,'PPG'],[st.fg||0,'FG'],[st.ft||0,'FT'],[st.threePt||0,'3PT'],[st.fouls||0,'FL']])}
       <div class="sc-games" id="${esc(cid)}-g"></div>
     </div>`;
   });
@@ -607,6 +736,7 @@ async function toggleGames(hdr){
     .filter(([,g])=>(g.p||[]).some(p=>p.id===uuid))
     .sort(([,a],[,b])=>(b.d||'').localeCompare(a.d||''));
   if(!pg.length){ge.innerHTML='<div class="load-row">No game records found.</div>';ge.dataset.loaded='1';return;}
+  const allRegGradeNames=regs.map(r=>r.gn||r.tn||'').filter(Boolean);
   const rows=pg.map(([gid,g])=>{
     const ctx=gameCtx(g,tid);
     const res=resLetter(ctx.myS,ctx.oppS);
@@ -616,12 +746,15 @@ async function toggleGames(hdr){
     const oppN=(ctx.oppN||'\u2014').slice(0,30);
     const fc=finalClass(g.rn);
     const badgeH=(mode==='hidden-full'||mode==='hidden-partial')?'<span class="bdg bH" style="font-size:0.58rem;padding:0 4px">H</span>':'';
+    const gradeTag=regs.length>1&&g.gn?`<span style="font-size:0.62rem;color:var(--accent);font-weight:600;margin-right:6px;flex-shrink:0;white-space:nowrap">${esc(gradeAbbrev(g.gn,allRegGradeNames))}</span>`:'';    
     return`<div class="grow${fc?' '+fc:''}" data-gid="${esc(gid)}" data-sid="${esc(sid)}">
-      <div class="g-main">
-        <div class="g-rn">${esc(g.rn||'')} ${g.d?esc(fmtD(g.d)):''}</div>
-        <div class="g-opp">${badgeH}${esc(oppN)}</div>
+      <div class="g-row">
+        <div class="g-info">
+          <div class="g-opp">${gradeTag}${badgeH}${esc(oppN)}</div>
+          <div class="g-rn">${esc(g.rn||'')}${g.d?' \u00b7 '+esc(fmtD(g.d)):''}</div>
+        </div>
+        <div id="gstats-${esc(gid)}" style="flex:7;min-width:0;display:flex;flex-direction:row">${buildGameStatRow(g,ctx,stored)}</div>
       </div>
-      <div id="gstats-${esc(gid)}">${buildGameStatRow(g,ctx,stored)}</div>
     </div>`;
   }).join('');
   ge.innerHTML=rows;
@@ -666,10 +799,10 @@ async function searchTeams(q){
   if(!sorted.length){re.innerHTML='<div class="ri-empty">No teams found</div>';return;}
   re.innerHTML=sorted.slice(0,50).map(t=>{
     const si=S.idx?.seasons?.[t.sid];
-    const sub=si?.name||sn;
+    const sub=[t.comp,t.grade].filter(Boolean).join(' · ')||si?.name||sn;
     return`<div class="ri" data-tid="${esc(t.id)}" data-sid="${esc(t.sid)}"><div class="ri-name">${esc(t.n)}</div><div class="ri-sub">${esc(sub)}</div></div>`;
   }).join('');
-  re.querySelectorAll('.ri').forEach(r=>r.addEventListener('click',()=>{loadTeam(r.dataset.tid,r.dataset.sid);if(window.innerWidth<=768)el('rail').classList.add('mob-hide');}));
+  re.querySelectorAll('.ri').forEach(r=>r.addEventListener('click',()=>{addRecent('teams',q||sn);loadTeam(r.dataset.tid,r.dataset.sid);if(window.innerWidth<=768)el('rail').classList.add('mob-hide');}));
 }
 
 /* ── Team focus ── */
@@ -700,7 +833,36 @@ function renderTeam(td,tid,sid){
   <div id="r${tesc}" class="tpane on">`;
   if(!roster.length){h+='<div class="empty">No roster data</div>';}
   else{
-    h+=`<table class="rtbl"><thead><tr><th>Player</th><th>GP</th><th>PTS</th><th>PPG</th><th>FG</th><th>FT</th><th>3PT</th></tr></thead><tbody>`;
+    const sortBy=(col)=>{
+      const ve2=el('view-team');
+      const cur=ve2.dataset.sortCol||'pts'; const dir=parseInt(ve2.dataset.sortDir||'-1');
+      const newDir=(col===cur)?-dir:-1;
+      ve2.dataset.sortCol=col; ve2.dataset.sortDir=newDir;
+      const sorted2=Object.entries(td.roster||{}).sort(([,a],[,b])=>{
+        const av=col==='ppg'?((a.pts||0)/(a.gp||1)):(a[col]||0);
+        const bv=col==='ppg'?((b.pts||0)/(b.gp||1)):(b[col]||0);
+        return(bv-av)*newDir;
+      });
+      const tbody=ve2.querySelector('#rtbl-body');
+      if(!tbody)return;
+      tbody.innerHTML=sorted2.map(([uuid,pr])=>{const ppg=avg(pr.pts||0,pr.gp||0);return`<tr onclick="loadPlayer('${esc(uuid)}')"><td>${esc(pr.name||'#'+uuid.slice(0,8))}</td><td>${pr.gp||0}</td><td>${pr.pts||0}</td><td>${ppg}</td><td>${pr.fg||0}</td><td>${pr.ft||0}</td><td>${pr.threePt||0}</td></tr>`;}).join('');
+      ve2.querySelectorAll('.rtbl th[data-col]').forEach(th=>{
+        th.style.color=th.dataset.col===col?'var(--accent)':'';
+        th.textContent=th.dataset.col===col?(newDir===-1?th.dataset.label+' ↓':th.dataset.label+' ↑'):th.dataset.label;
+      });
+    };
+    const thStyle='cursor:pointer;user-select:none';
+    h+=`<table class="rtbl"><thead><tr>
+      <th>Player</th>
+      <th data-col="gp" data-label="GP" style="${thStyle}" onclick="el('view-team')._sort('gp')">GP</th>
+      <th data-col="pts" data-label="PTS" style="${thStyle};color:var(--accent)" onclick="el('view-team')._sort('pts')">PTS ↓</th>
+      <th data-col="ppg" data-label="PPG" style="${thStyle}" onclick="el('view-team')._sort('ppg')">PPG</th>
+      <th data-col="fg" data-label="FG" style="${thStyle}" onclick="el('view-team')._sort('fg')">FG</th>
+      <th data-col="ft" data-label="FT" style="${thStyle}" onclick="el('view-team')._sort('ft')">FT</th>
+      <th data-col="3pt" data-label="3PT" style="${thStyle}" onclick="el('view-team')._sort('threePt')">3PT</th>
+    </tr></thead><tbody id="rtbl-body">`;
+    el('view-team').dataset.sortCol='pts'; el('view-team').dataset.sortDir='-1';
+    el('view-team')._sort=sortBy;
     for(const[uuid,pr]of roster){
       h+=`<tr onclick="loadPlayer('${esc(uuid)}')"><td>${esc(pr.name||'#'+uuid.slice(0,8))}</td><td>${pr.gp||0}</td><td>${pr.pts||0}</td><td>${avg(pr.pts||0,pr.gp||0)}</td><td>${pr.fg||0}</td><td>${pr.ft||0}</td><td>${pr.threePt||0}</td></tr>`;
     }
@@ -729,6 +891,35 @@ function switchTTab(btn,showId,hideId){
   if(sp)sp.classList.add('on');if(hp)hp.classList.remove('on');
 }
 
+
+/* ── Venue season filter ── */
+async function buildVenueSeasonPicker(){
+  if(!S.idx)return;
+  // Populate season picker for venues (all season names, newest first)
+  const nm=new Map();
+  for(const s of Object.values(S.idx.seasons)){
+    if(!nm.has(s.name))nm.set(s.name,{name:s.name,active:false,sids:[]});
+    nm.get(s.name).sids.push(s.id);
+    if(!s.locked)nm.get(s.name).active=true;
+  }
+  const sorted=[...nm.values()].sort((a,b)=>{
+    if(a.active!==b.active)return a.active?-1:1;
+    const ya=a.name.match(/\d{4}/)?.[0]||'0',yb=b.name.match(/\d{4}/)?.[0]||'0';
+    return parseInt(yb)-parseInt(ya);
+  });
+  const sel=el('q-vsn');
+  sel.innerHTML='<option value="">All seasons</option>'+sorted.map(s=>`<option value="${esc(JSON.stringify(s.sids))}">${esc(s.name)}${s.active?' \u25cf':''}</option>`).join('');
+}
+async function onVenueSeasonChange(){
+  const val=el('q-vsn').value;
+  if(!val){S.venueSeasonFilter=null;searchVenues();return;}
+  let sids;try{sids=JSON.parse(val);}catch{sids=[];}
+  if(!S.seasonVenueIdx){S.seasonVenueIdx=await gj(BASE+'/season-venue-index.json')||{};}
+  const vids=new Set();
+  for(const sid of sids)(S.seasonVenueIdx[sid]||[]).forEach(v=>vids.add(v));
+  S.venueSeasonFilter=vids.size?vids:null;
+  searchVenues();
+}
 /* ── Venue search ── */
 function buildVenueList(){renderVenues(S.venues,'');}
 function searchVenues(){
@@ -736,6 +927,7 @@ function searchVenues(){
   const dateVal=el('q-vdate').value; // YYYY-MM-DD or ''
   let list=S.venues||[];
   if(q)list=list.filter(v=>tokenMatch(v.n,q));
+  if(S.venueSeasonFilter)list=list.filter(v=>S.venueSeasonFilter.has(v.id));
   // Date filter: if date-venue index available, filter to venues active that date
   if(dateVal&&S.dateVenues[dateVal]){
     const active=new Set(S.dateVenues[dateVal]);
@@ -757,6 +949,7 @@ function renderVenues(list,q){
   if(!list.length){re.innerHTML='<div class="ri-empty">No venues found</div>';return;}
   re.innerHTML=list.slice(0,60).map(v=>`<div class="ri" data-vid="${esc(v.id)}" data-vn="${esc(v.n)}"><div class="ri-name">${esc(v.n)}</div></div>`).join('');
   re.querySelectorAll('.ri').forEach(r=>r.addEventListener('click',()=>{
+    addRecent('venues',r.dataset.vn);
     const preDate=el('q-vdate').value||null;
     loadVenue(r.dataset.vid,r.dataset.vn,preDate);
     if(window.innerWidth<=768)el('rail').classList.add('mob-hide');
@@ -784,11 +977,11 @@ function dayOfWeekN(y,m,d){const t=[0,3,2,5,0,3,5,1,4,6,2,4];const yr=m<3?y-1:y;
 function groupByMonth(dates){const m=new Map();for(const d of dates){const ym=d.slice(0,7);if(!m.has(ym))m.set(ym,[]);m.get(ym).push(d);}return m;}
 function calGrid(byMonth,vid,todayStr){
   const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const DOW='<div class="vcg"><div class="vcd">M</div><div class="vcd">T</div><div class="vcd">W</div><div class="vcd">T</div><div class="vcd">F</div><div class="vcd">S</div><div class="vcd">S</div>';
-  let h='';
+  const DOW='<div class="vcd">M</div><div class="vcd">T</div><div class="vcd">W</div><div class="vcd">T</div><div class="vcd">F</div><div class="vcd">S</div><div class="vcd">S</div>';
+  let h='<div class="vcal-wrap">';
   for(const[ym,ds]of byMonth){
     const[y,m]=ym.split('-').map(Number);
-    h+=`<div class="vcm">${MN[m-1]} ${y}</div>${DOW}`;
+    h+=`<div class="vcal-col" id="vcal-m-${y}-${String(m).padStart(2,'0')}"><div class="vcm">${MN[m-1]} ${y}</div><div class="vcg">${DOW}`;
     const[,,fd]=ds[0].split('-').map(Number);
     const pad=(dayOfWeekN(y,m,fd)+6)%7;
     for(let i=0;i<pad;i++)h+='<div></div>';
@@ -797,17 +990,70 @@ function calGrid(byMonth,vid,todayStr){
       const isSel=d===S.venueSelDate,isToday=d===todayStr;
       h+=`<button class="vday${isToday?' vtoday':''}${isSel?' vsel':''}" data-date="${d}" onclick="selectVenueDate('${esc(vid)}','${d}',this)">${parseInt(dy)}</button>`;
     }
-    h+='</div>';
+    h+='</div></div>';
   }
-  return h;
+  return h+'</div>';
 }
-function renderKnownDates(dates,vid,todayStr){return calGrid(groupByMonth(dates),vid,todayStr);}
+function renderKnownDates(dates,vid,todayStr,pageIdx){
+  const byMonth=groupByMonth(dates);
+  const months=[...byMonth.keys()];
+  if(!months.length)return'<div class="empty">No dates on record.</div>';
+  const total=months.length;
+  if(pageIdx==null){
+    // Find month nearest to today, put it in the middle of the 3-month window
+    const todayYM=todayStr?todayStr.slice(0,7):'';
+    let nearest=total-1;
+    for(let i=0;i<months.length;i++){if(months[i]>=todayYM){nearest=i;break;}}
+    pageIdx=Math.max(0,Math.min(nearest-1,total-3)); // nearest as middle
+  }
+  pageIdx=Math.max(0,Math.min(pageIdx,total-1));
+  const visible=months.slice(pageIdx,pageIdx+3);
+  const pageMap=new Map(visible.map(m=>[m,byMonth.get(m)]));
+  const hasPrev=pageIdx>0;
+  const hasNext=pageIdx+3<total;
+  // Jump input: find page containing selected month
+  const jumpHtml=`<div class="vcal-jump"><label>Jump to:</label><input type="month" class="sinput" oninput="vCalJump('${esc(vid)}','${esc(todayStr||'')}',this.value)"></div>`;
+  const nav=`<div class="vcal-nav"><button ${hasPrev?'':'disabled'} onclick="vCalPage('${esc(vid)}','${esc(todayStr||'')}',${Math.max(0,pageIdx-3)})">← Earlier</button><span style="font-size:0.78rem;color:var(--text2)">${visible[0].replace('-',' / ')} – ${visible[visible.length-1].replace('-',' / ')}</span><button ${hasNext?'':'disabled'} onclick="vCalPage('${esc(vid)}','${esc(todayStr||'')}',${Math.min(total-3,pageIdx+3)})">Later →</button></div>`;
+  return jumpHtml+nav+calGrid(pageMap,vid,todayStr);
+}
+function vCalPage(vid,todayStr,pageIdx){
+  const dates=S.venueDates[vid]||[];
+  const cs=document.getElementById('cal-section');
+  if(cs)cs.innerHTML=renderKnownDates(dates,vid,todayStr,pageIdx);
+  const ga=document.getElementById('vgrid-area');if(ga)ga.innerHTML='';
+}
+function vCalJump(vid,todayStr,monthVal){
+  if(!monthVal)return;
+  const byMonth=groupByMonth(S.venueDates[vid]||[]);
+  const months=[...byMonth.keys()];
+  // Find the first page that includes this month (or nearest)
+  const target=monthVal.slice(0,7);
+  let best=Math.max(0,months.length-3);
+  for(let i=0;i<months.length;i++){if(months[i]>=target){best=Math.max(0,i-1);break;}}
+  vCalPage(vid,todayStr,best);
+}
+function jumpToMonth(vid,todayStr,monthVal,isKnown){
+  if(!monthVal)return;
+  if(isKnown){vCalJump(vid,todayStr,monthVal);return;}
+  // Range calendar
+  const today=mkDate(new Date());
+  const[y,m]=monthVal.split('-');
+  const target=new Date(parseInt(y),parseInt(m)-1,1);
+  const now=new Date();
+  const weeksOff=Math.round((target-now)/(7*24*3600*1000));
+  S.calOffset=weeksOff;
+  const cs=el('cal-section');
+  if(cs)cs.innerHTML=renderCalRange(vid,todayStr||today,S.calOffset);
+  const ga=el('vgrid-area');if(ga)ga.innerHTML='';
+}
 function renderCalRange(vid,todayStr,offsetWeeks){
   S.calOffset=offsetWeeks;
   const base=new Date();base.setDate(base.getDate()+offsetWeeks*7-14);
   const dates=[];for(let i=0;i<30;i++){const d=new Date(base);d.setDate(d.getDate()+i);dates.push(mkDate(d));}
   const from=fmtDow(dates[0]),to=fmtDow(dates[dates.length-1]);
-  return`<div class="vcal-nav"><button onclick="shiftCal('${esc(vid)}','${esc(todayStr)}',-1)">\u2190 Earlier</button><span>${esc(from)} \u2013 ${esc(to)}</span><button onclick="shiftCal('${esc(vid)}','${esc(todayStr)}',1)">Later \u2192</button></div>${calGrid(groupByMonth(dates),vid,todayStr)}`;
+  return`<div class="vcal-nav"><button onclick="shiftCal('${esc(vid)}','${esc(todayStr)}',-1)">\u2190 Earlier</button><span>${esc(from)} \u2013 ${esc(to)}</span><button onclick="shiftCal('${esc(vid)}','${esc(todayStr)}',1)">Later \u2192</button></div>
+<div class="vcal-jump"><label>Jump to:</label><input type="month" class="sinput" oninput="jumpToMonth('${esc(vid)}','${esc(todayStr)}',this.value)"></div>
+${calGrid(groupByMonth(dates),vid,todayStr)}`;
 }
 function selectVenueDate(vid,date,btn){
   S.venueSelDate=date;
@@ -1070,15 +1316,120 @@ async function openOpp(tid,sid,fromUuid){
   ve.innerHTML=h;
 }
 
+
+/* ── Leaderboard ── */
+async function buildLBSeasonPicker(){
+  if(!S.idx)return;
+  const nm=new Map();
+  for(const s of Object.values(S.idx.seasons)){
+    if(!nm.has(s.name))nm.set(s.name,{name:s.name,active:false,sid:s.id});
+    if(!s.locked)nm.get(s.name).active=true;
+  }
+  const sorted=[...nm.values()].sort((a,b)=>{
+    if(a.active!==b.active)return a.active?-1:1;
+    const ya=a.name.match(/\d{4}/)?.[0]||'0',yb=b.name.match(/\d{4}/)?.[0]||'0';
+    return parseInt(yb)-parseInt(ya);
+  });
+  const sel=el('lb-season');
+  sel.innerHTML='<option value="all">All-time</option>'+sorted.map(s=>`<option value="${esc(s.sid)}">${esc(s.name)}${s.active?' \u25cf':''}</option>`).join('');
+}
+function switchLBStat(stat){
+  S.lbStat=stat;
+  document.querySelectorAll('.lb-stat').forEach(b=>b.classList.toggle('on',b.dataset.stat===stat));
+  el('lb-mingp-wrap').classList.toggle('hidden',stat!=='ppg');
+  loadLB();
+}
+async function loadLB(){
+  const ve=el('view-leaders');
+  if(el('lb-results'))el('lb-results').innerHTML='<div class="load-row">Loading…</div>';else ve.innerHTML='<div class="load-row">Loading…</div>';
+  const scope=el('lb-season').value;
+  S.lbScope=scope;
+  const key=scope==='all'?'all':scope;
+  if(!S.lbData[key]){
+    const url=scope==='all'?BASE+'/leaderboard/all-time.json':BASE+'/leaderboard/season/'+scope+'.json';
+    S.lbData[key]=await gj(url);
+  }
+  const data=S.lbData[key];
+  if(!data){ve.innerHTML='<div class="empty">No leaderboard data available.</div>';return;}
+  // Show/hide season filters
+  const isAll=scope==='all';
+
+  const entries=(data[S.lbStat]||[]);
+  // Populate grade/age filters for season scope
+  {
+    const allEntries4filter=entries;
+    const orgs=[...new Set(allEntries4filter.map(e=>e.org).filter(Boolean))].sort();
+    const comps=[...new Set(allEntries4filter.map(e=>e.comp).filter(Boolean))].sort();
+    const grades=[...new Set(allEntries4filter.map(e=>e.grade).filter(Boolean))].sort();
+    const ages=[...new Set(allEntries4filter.map(e=>e.age).filter(Boolean))].sort();
+    const genders=[...new Set(allEntries4filter.map(e=>e.gender).filter(Boolean))].sort();
+    const oSel=el('lb-org'),cSel=el('lb-comp'),gSel=el('lb-grade'),aSel=el('lb-age'),gnSel=el('lb-gender');
+    const oVal=oSel.value,cVal=cSel.value,gVal=gSel.value,aVal=aSel.value,gnVal=gnSel.value;
+    oSel.innerHTML='<option value="">All orgs</option>'+orgs.map(o=>`<option value="${esc(o)}"${o===oVal?' selected':''}>${esc(o)}</option>`).join('');
+    cSel.innerHTML='<option value="">All comps</option>'+comps.map(c=>`<option value="${esc(c)}"${c===cVal?' selected':''}>${esc(c)}</option>`).join('');
+    gSel.innerHTML='<option value="">All grades</option>'+grades.map(g=>`<option${g===gVal?' selected':''}>${esc(g)}</option>`).join('');
+    aSel.innerHTML='<option value="">All ages</option>'+ages.map(a=>`<option${a===aVal?' selected':''}>${esc(a)}</option>`).join('');
+    const genderLabel=g=>g==='Male'?'M':g==='Female'?'F':g==='Boys'?'Boys':g==='Girls'?'Girls':esc(g);
+    gnSel.innerHTML='<option value="">All</option>'+genders.map(g=>`<option value="${esc(g)}"${g===gnVal?' selected':''}>${genderLabel(g)}</option>`).join('');
+  }
+  renderLB(entries,data);
+}
+function renderLB(allEntries,data){
+  const scope=el('lb-season')?.value||'all';
+  let entries=[...allEntries];
+  // Apply filters
+  if(scope!=='all'){
+    const org=el('lb-org')?.value,comp=el('lb-comp')?.value,grade=el('lb-grade')?.value,age=el('lb-age')?.value,gender=el('lb-gender')?.value;
+    if(org)entries=entries.filter(e=>e.org===org);
+    if(comp)entries=entries.filter(e=>e.comp===comp);
+    if(grade)entries=entries.filter(e=>e.grade===grade);
+    if(age)entries=entries.filter(e=>e.age===age);
+    if(gender)entries=entries.filter(e=>e.gender===gender);
+  }
+  // Min GP for PPG
+  if(S.lbStat==='ppg'){
+    const minGP=parseInt(el('lb-mingp')?.value||'10');
+    entries=entries.filter(e=>(e.gp||0)>=minGP);
+  }
+  // Sort by v descending (data already sorted but re-sort after filter)
+  entries.sort((a,b)=>b.v-a.v);
+  const ve=el('lb-results');
+  const statLbl={'pts':'PTS','ppg':'PPG','gp':'GP','threePt':'3PT','fouls':'F'}[S.lbStat]||S.lbStat;
+  const scopeName=scope==='all'?'All-time':el('lb-season')?.querySelector(`option[value="${scope}"]`)?.textContent||scope;
+  if(!entries.length){(el('lb-results')||el('view-leaders')).innerHTML=`<div class="empty">No entries match the current filters.</div>`;return;}
+  ve.innerHTML=`<div style="padding:8px 14px;font-size:0.75rem;color:var(--text2)">${esc(statLbl)} — ${entries.length} player${entries.length!==1?'s':''}</div>`+
+    entries.slice(0,200).map((e,i)=>{
+      const sub=[e.club,e.grade].filter(Boolean).join(' \u00b7 ');
+      const gpInfo=S.lbStat==='ppg'?`<div class="lb-gp">${e.gp} GP</div>`:'';
+      return`<div class="lb-row" data-uuid="${esc(e.uuid)}">
+        <div class="lb-rank">${i+1}</div>
+        <div><div class="lb-name">${esc(e.name||'Player #'+e.uuid.slice(0,10))}</div><div class="lb-club">${esc(sub)}</div></div>
+        <div>${gpInfo}<div class="lb-val">${typeof e.v==='number'?e.v.toLocaleString('en-AU',{maximumFractionDigits:1}):e.v}</div></div>
+      </div>`;
+    }).join('');
+  ve.querySelectorAll('.lb-row[data-uuid]').forEach(r=>r.addEventListener('click',()=>loadPlayer(r.dataset.uuid)));
+}
 /* ── Events ── */
 document.querySelectorAll('.stab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 el('q-pl').addEventListener('input',debounce(e=>searchPlayers(e.target.value.trim()),250));
+el('q-pl').addEventListener('focus',()=>{if(!el('q-pl').value.trim())showRecent('players',el('res-pl'),v=>{el('q-pl').value=v;searchPlayers(v);});});
 el('q-sn').addEventListener('change',()=>searchTeams(el('q-tm').value.trim()));
 el('q-tm').addEventListener('input',debounce(e=>searchTeams(e.target.value.trim()),250));
+el('q-tm').addEventListener('focus',()=>{if(!el('q-tm').value.trim()&&el('q-sn').value)showRecent('teams',el('res-tm'),v=>{el('q-tm').value=v;searchTeams(v);});});
 el('q-vn').addEventListener('input',debounce(()=>searchVenues(),200));
+el('q-vn').addEventListener('focus',()=>{if(!el('q-vn').value.trim())showRecent('venues',el('res-vn'),v=>{el('q-vn').value=v;searchVenues();});});
 el('q-vdate').addEventListener('change',()=>onVenueDateChange());
 el('sh-close').addEventListener('click',closeSheet);
 el('sbk').addEventListener('click',closeSheet);
+el('lb-season').addEventListener('change',()=>loadLB());
+document.querySelectorAll('.lb-stat').forEach(b=>b.addEventListener('click',()=>switchLBStat(b.dataset.stat)));
+el('lb-mingp').addEventListener('change',()=>renderLB(S.lbData[S.lbScope]?.[S.lbStat]||[],S.lbData[S.lbScope]||{}));
+el('lb-grade').addEventListener('change',()=>renderLB(S.lbData[S.lbScope]?.[S.lbStat]||[],S.lbData[S.lbScope]||{}));
+el('lb-age').addEventListener('change',()=>renderLB(S.lbData[S.lbScope]?.[S.lbStat]||[],S.lbData[S.lbScope]||{}));
+el('lb-org').addEventListener('change',()=>renderLB(S.lbData[S.lbScope]?.[S.lbStat]||[],S.lbData[S.lbScope]||{}));
+el('lb-comp').addEventListener('change',()=>renderLB(S.lbData[S.lbScope]?.[S.lbStat]||[],S.lbData[S.lbScope]||{}));
+el('lb-gender').addEventListener('change',()=>renderLB(S.lbData[S.lbScope]?.[S.lbStat]||[],S.lbData[S.lbScope]||{}));
+el('q-vsn').addEventListener('change',()=>onVenueSeasonChange());
 
 boot();
 
@@ -1088,11 +1439,11 @@ boot();
 function groupByMonth(dates){const m=new Map();for(const d of dates){const ym=d.slice(0,7);if(!m.has(ym))m.set(ym,[]);m.get(ym).push(d);}return m;}
 function calGrid(byMonth,vid,todayStr){
   const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const DOW='<div class="vcg"><div class="vcd">M</div><div class="vcd">T</div><div class="vcd">W</div><div class="vcd">T</div><div class="vcd">F</div><div class="vcd">S</div><div class="vcd">S</div>';
-  let h='';
+  const DOW='<div class="vcd">M</div><div class="vcd">T</div><div class="vcd">W</div><div class="vcd">T</div><div class="vcd">F</div><div class="vcd">S</div><div class="vcd">S</div>';
+  let h='<div class="vcal-wrap">';
   for(const[ym,ds]of byMonth){
     const[y,m]=ym.split('-').map(Number);
-    h+=`<div class="vcm">${MN[m-1]} ${y}</div>${DOW}`;
+    h+=`<div class="vcal-col" id="vcal-m-${y}-${String(m).padStart(2,'0')}"><div class="vcm">${MN[m-1]} ${y}</div><div class="vcg">${DOW}`;
     const[,,fd]=ds[0].split('-').map(Number);
     const pad=(dayOfWeekN(y,m,fd)+6)%7;
     for(let i=0;i<pad;i++)h+='<div></div>';
@@ -1101,9 +1452,60 @@ function calGrid(byMonth,vid,todayStr){
       const isSel=d===S.venueSelDate,isToday=d===todayStr;
       h+=`<button class="vday${isToday?' vtoday':''}${isSel?' vsel':''}" data-date="${d}" onclick="selectVenueDate('${esc(vid)}','${d}',this)">${parseInt(dy)}</button>`;
     }
-    h+='</div>';
+    h+='</div></div>';
   }
-  return h;
+  return h+'</div>';
 }
-function renderKnownDates(dates,vid,todayStr){return calGrid(groupByMonth(dates),vid,todayStr);}
+function renderKnownDates(dates,vid,todayStr,pageIdx){
+  const byMonth=groupByMonth(dates);
+  const months=[...byMonth.keys()];
+  if(!months.length)return'<div class="empty">No dates on record.</div>';
+  const total=months.length;
+  if(pageIdx==null){
+    // Find month nearest to today, put it in the middle of the 3-month window
+    const todayYM=todayStr?todayStr.slice(0,7):'';
+    let nearest=total-1;
+    for(let i=0;i<months.length;i++){if(months[i]>=todayYM){nearest=i;break;}}
+    pageIdx=Math.max(0,Math.min(nearest-1,total-3)); // nearest as middle
+  }
+  pageIdx=Math.max(0,Math.min(pageIdx,total-1));
+  const visible=months.slice(pageIdx,pageIdx+3);
+  const pageMap=new Map(visible.map(m=>[m,byMonth.get(m)]));
+  const hasPrev=pageIdx>0;
+  const hasNext=pageIdx+3<total;
+  // Jump input: find page containing selected month
+  const jumpHtml=`<div class="vcal-jump"><label>Jump to:</label><input type="month" class="sinput" oninput="vCalJump('${esc(vid)}','${esc(todayStr||'')}',this.value)"></div>`;
+  const nav=`<div class="vcal-nav"><button ${hasPrev?'':'disabled'} onclick="vCalPage('${esc(vid)}','${esc(todayStr||'')}',${Math.max(0,pageIdx-3)})">← Earlier</button><span style="font-size:0.78rem;color:var(--text2)">${visible[0].replace('-',' / ')} – ${visible[visible.length-1].replace('-',' / ')}</span><button ${hasNext?'':'disabled'} onclick="vCalPage('${esc(vid)}','${esc(todayStr||'')}',${Math.min(total-3,pageIdx+3)})">Later →</button></div>`;
+  return jumpHtml+nav+calGrid(pageMap,vid,todayStr);
+}
+function vCalPage(vid,todayStr,pageIdx){
+  const dates=S.venueDates[vid]||[];
+  const cs=document.getElementById('cal-section');
+  if(cs)cs.innerHTML=renderKnownDates(dates,vid,todayStr,pageIdx);
+  const ga=document.getElementById('vgrid-area');if(ga)ga.innerHTML='';
+}
+function vCalJump(vid,todayStr,monthVal){
+  if(!monthVal)return;
+  const byMonth=groupByMonth(S.venueDates[vid]||[]);
+  const months=[...byMonth.keys()];
+  // Find the first page that includes this month (or nearest)
+  const target=monthVal.slice(0,7);
+  let best=Math.max(0,months.length-3);
+  for(let i=0;i<months.length;i++){if(months[i]>=target){best=Math.max(0,i-1);break;}}
+  vCalPage(vid,todayStr,best);
+}
+function jumpToMonth(vid,todayStr,monthVal,isKnown){
+  if(!monthVal)return;
+  if(isKnown){vCalJump(vid,todayStr,monthVal);return;}
+  // Range calendar
+  const today=mkDate(new Date());
+  const[y,m]=monthVal.split('-');
+  const target=new Date(parseInt(y),parseInt(m)-1,1);
+  const now=new Date();
+  const weeksOff=Math.round((target-now)/(7*24*3600*1000));
+  S.calOffset=weeksOff;
+  const cs=el('cal-section');
+  if(cs)cs.innerHTML=renderCalRange(vid,todayStr||today,S.calOffset);
+  const ga=el('vgrid-area');if(ga)ga.innerHTML='';
+}
 >
