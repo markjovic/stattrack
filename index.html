@@ -316,7 +316,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.41</span>
+      <span class="rail-ver">Beta 0.43</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1691,7 +1691,10 @@ async function openTeamOpp(myTid,oppTid,sid,isUpcoming){
         if(enc)enc.outerHTML='<span class="onone">No previous meetings</span>';
       }else{
         const nOpp=result.length;
-        if(enc)enc.outerHTML=`<span class="oenc">${total} meeting${total>1?'s':''} vs ${nOpp} player${nOpp>1?'s':''}</span>`;
+        const allGames=result.flatMap(e=>e.games);
+        const myTidFn=sid=>getTidForSeason(S.players[r.uuid],sid);
+        const wld=wldSummary(allGames,r.uuid,myTidFn);
+        if(enc)enc.outerHTML=`<span style="display:flex;align-items:center;gap:8px;flex-shrink:0">${wld}<span class="oenc">${total}G vs ${nOpp}P</span></span>`;
         row.style.cursor='pointer';
         row.onclick=()=>toggleTeamOppDetail(row,result,r.uuid);
       }
@@ -1719,6 +1722,24 @@ function getPlayerGameStats(g, uuid) {
   return null;
 }
 
+function wldSummary(games, myUuid, myTidFn) {
+  let w = 0, l = 0, d = 0;
+  for (const { g, sid } of games) {
+    const myTid = myTidFn ? myTidFn(sid) : g.h;
+    const ctx = gameCtx(g, myTid);
+    const r = resLetter(ctx.myS, ctx.oppS);
+    if (r === 'W') w++;
+    else if (r === 'L') l++;
+    else if (ctx.myS != null) d++;
+  }
+  if (!w && !l && !d) return '';
+  const parts = [];
+  if (w) parts.push(`<span style="color:var(--win)">${w}W</span>`);
+  if (l) parts.push(`<span style="color:var(--loss)">${l}L</span>`);
+  if (d) parts.push(`<span style="color:var(--draw)">${d}D</span>`);
+  return `<span style="font-size:0.7rem;display:flex;gap:4px;flex-shrink:0">${parts.join('')}</span>`;
+}
+
 function toggleTeamOppDetail(row, result, myUuid) {
   let detail = row.nextElementSibling;
   if (detail && detail.classList.contains('opp-detail')) {
@@ -1735,7 +1756,9 @@ function toggleTeamOppDetail(row, result, myUuid) {
     const oppRow = document.createElement('div');
     oppRow.className = 'opp-opp-row';
     const gameDetailId = `opp-games-${row.id}-${ri}`;
-    oppRow.innerHTML = `<span class="opp-opp-name">${esc(opp?.name||'#'+oppUuid.slice(0,8))}</span><span class="opp-opp-enc">${games.length} game${games.length>1?'s':''}</span>`;
+    const myTidFn = sid => getTidForSeason(S.players[myUuid], sid);
+    const wld = wldSummary(games, myUuid, myTidFn);
+    oppRow.innerHTML = `<span class="opp-opp-name">${esc(opp?.name||'#'+oppUuid.slice(0,8))}</span>${wld}<span class="opp-opp-enc">${games.length}G</span>`;
 
     const gameDetail = document.createElement('div');
     gameDetail.className = 'opp-game-detail hidden';
