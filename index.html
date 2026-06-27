@@ -267,6 +267,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .opp-game-score{font-weight:500;min-width:48px;text-align:center;flex-shrink:0}
 .opp-game-res{min-width:18px;text-align:center;flex-shrink:0;font-weight:500}
 .opp-game-stats{font-size:0.7rem;color:var(--text3);flex-shrink:0}
+.sstat{flex:1;text-align:center;padding:6px 4px;border-left:1px solid #2e2e2e;min-width:0;overflow:hidden}
+.ssv{font-size:0.75rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden}
+.ssl{font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.04em;margin-top:1px}
 
 .empty{padding:36px 18px;text-align:center;color:var(--text3);font-size:0.85rem}
 
@@ -316,7 +319,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.45</span>
+      <span class="rail-ver">Beta 0.48</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -383,6 +386,10 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
             <button class="lb-stat lb-alltime-only" data-stat="finalsPerSeason">Finals/Ssn</button>
             <button class="lb-stat lb-alltime-only" data-stat="maxGamePTS">Best PTS</button>
             <button class="lb-stat lb-alltime-only" data-stat="maxGameThreePt">Best 3PT</button>
+            <button class="lb-stat" data-stat="wins">Wins</button>
+            <button class="lb-stat" data-stat="losses">Losses</button>
+            <button class="lb-stat" data-stat="draws">Draws</button>
+            <button class="lb-stat" data-stat="winPct">Win%</button>
           </div>
           <div id="lb-mingp-wrap" class="hidden" style="display:flex;align-items:center;gap:6px">
             <span style="font-size:0.75rem;color:var(--text2);white-space:nowrap">Min GP</span>
@@ -841,6 +848,8 @@ function renderPlayer(p){
   const gp=cs.gp||0,pts=cs.pts||0,fg=cs.fg||0,ft=cs.ft||0,tp=cs.threePt||0,fouls=cs.fouls||0;
   const foulOuts=cs.foulOuts||0,finals=cs.finals||0,gfApps=cs.gfApps||0,gfWins=cs.gfWins||0;
   const finalsPS=cs.finalsPerSeason??null;
+  const careerW=cs.wins||0,careerL=cs.losses||0,careerD=cs.draws||0;
+  const winPct=cs.winPct!=null?Math.round(cs.winPct*100)+'%':null;
   const upcoming=(p.teams||[]).filter(t=>t.status==='UPCOMING');
   const club=(p.seasons||[])[0]?.club||'';
   const groups=groupRegs(p.seasons||[]);
@@ -857,7 +866,8 @@ function renderPlayer(p){
     <div class="cstat"><div class="csv">${avg(pts,gp)}</div><div class="csl">PPG</div></div>
     <div class="cstat"><div class="csv">${tp}</div><div class="csl">3PT</div></div>
     <div class="cstat"><div class="csv">${fouls}</div><div class="csl">F</div></div>${foulOuts>0?`
-    <div class="cstat"><div class="csv">${foulOuts}</div><div class="csl">FO</div></div>`:''}${finals>0?`
+    <div class="cstat"><div class="csv">${foulOuts}</div><div class="csl">FO</div></div>`:''}${careerW||careerL?`
+    <div class="cstat"><div class="csv" style="font-size:0.75rem;display:flex;gap:3px">${careerW?`<span style="color:var(--win)">${careerW}W</span>`:''}${careerL?`<span style="color:var(--loss)">${careerL}L</span>`:''}${careerD?`<span style="color:var(--draw)">${careerD}D</span>`:''}</div><div class="csl">${winPct??''}</div></div>`:''}${finals>0?`
     <div class="cstat"><div class="csv">${finals}</div><div class="csl">Finals</div></div>`:''}${gfApps>0?`
     <div class="cstat"><div class="csv">${gfApps}</div><div class="csl">GF</div></div>`:''}${gfWins>0?`
     <div class="cstat"><div class="csv">${gfWins}</div><div class="csl">GFW</div></div>`:''}${finalsPS!==null?`
@@ -890,6 +900,10 @@ function renderPlayer(p){
     const cid=`sc-${gi}`;
     const teamLink=`<span class="sc-grade" onclick="event.stopPropagation();loadTeam('${esc(tid)}','${esc(sn.sid)}')">${esc(allGrades)} \u2192</span>`;
     const ppg=st.gp?(st.pts/st.gp).toFixed(1):'\u2014';
+    const regW=regs.reduce((a,r)=>a+(r.stats?.wins||0),0);
+    const regL=regs.reduce((a,r)=>a+(r.stats?.losses||0),0);
+    const regD=regs.reduce((a,r)=>a+(r.stats?.draws||0),0);
+    const regWinPct=(regW+regL+regD)>0?Math.round(regW/(regW+regL+regD)*100)+'%':null;
     // Medal: use reg-level stats; fall back to career if all regs show zero (data not yet written by matrix)
     const medalGfWins=st.gfWins>0?st.gfWins:(groups.length===1?gfWins:0);
     const medalGfApps=st.gfApps>0?st.gfApps:(groups.length===1?gfApps:0);
@@ -906,7 +920,7 @@ function renderPlayer(p){
             </div>
           </div>
         </div>
-        <div style="flex:7;min-width:0;display:flex;flex-direction:row">${[[st.gp||0,'GP',null],[ppg,'PPG',null],[st.pts||0,'PTS',null],[st.fg||0,'FG',null],[st.ft||0,'FT',null],[st.threePt||0,'3PT',null],[st.fouls||0,'F',null]].map(([v,l,c],i)=>statCell(v,l,i===6,c)).join('')}</div>
+        <div style="flex:7;min-width:0;display:flex;flex-direction:row">${[[st.gp||0,'GP',null],[ppg,'PPG',null],[st.pts||0,'PTS',null],[st.fg||0,'FG',null],[st.ft||0,'FT',null],[st.threePt||0,'3PT',null],[st.fouls||0,'F',null]].map(([v,l,c],i)=>statCell(v,l,i===6,c)).join('')}${regW||regL?`<div class="sstat"><div class="ssv" style="font-size:0.68rem;display:flex;gap:2px">${regW?`<span style="color:var(--win)">${regW}W</span>`:''}${regL?`<span style="color:var(--loss)">${regL}L</span>`:''}${regD?`<span style="color:var(--draw)">${regD}D</span>`:''}</div><div class="ssl">${regWinPct??''}</div></div>`:''}</div>
       </div>
       <div class="sc-games" id="${esc(cid)}-g"></div>
     </div>`;
@@ -1841,7 +1855,7 @@ async function buildLBSeasonPicker(){
 function switchLBStat(stat){
   S.lbStat=stat;
   document.querySelectorAll('.lb-stat').forEach(b=>b.classList.toggle('on',b.dataset.stat===stat));
-  el('lb-mingp-wrap').classList.toggle('hidden',!['ppg','threePtPG','foulsPG','foulOutsPG','finalsPerSeason'].includes(stat));
+  el('lb-mingp-wrap').classList.toggle('hidden',!['ppg','threePtPG','foulsPG','foulOutsPG','finalsPerSeason','winPct'].includes(stat));
   // finalsPerSeason is all-time only — hide button when per-season scope
   const isSeasonScope=el('lb-season')?.value!=='all';
   el('view-leaders')?.querySelectorAll('.lb-alltime-only').forEach(b=>b.classList.toggle('hidden',isSeasonScope));
@@ -1955,14 +1969,14 @@ function renderLB(allEntries,data){
   // Sort by v descending (data already sorted but re-sort after filter) (data already sorted but re-sort after filter)
   entries.sort((a,b)=>b.v-a.v);
   const ve=el('lb-results');
-  const statLbl={'pts':'PTS','ppg':'PPG','gp':'GP','threePt':'3PT','threePtPG':'3PT/G','fouls':'F','foulsPG':'F/G','foulOuts':'Foul-outs','foulOutsPG':'FO/G','finals':'Finals','gfApps':'GF Apps','gfWins':'GF Wins','finalsPerSeason':'Finals/Ssn','maxGamePTS':'Best Game PTS','maxGameThreePt':'Best Game 3PT'}[S.lbStat]||S.lbStat;
+  const statLbl={'pts':'PTS','ppg':'PPG','gp':'GP','threePt':'3PT','threePtPG':'3PT/G','fouls':'F','foulsPG':'F/G','foulOuts':'Foul-outs','foulOutsPG':'FO/G','finals':'Finals','gfApps':'GF Apps','gfWins':'GF Wins','finalsPerSeason':'Finals/Ssn','maxGamePTS':'Best Game PTS','maxGameThreePt':'Best Game 3PT','wins':'Wins','losses':'Losses','draws':'Draws','winPct':'Win%'}[S.lbStat]||S.lbStat;
   const scopeName=scope==='all'?'All-time':el('lb-season')?.querySelector(`option[value="${scope}"]`)?.textContent||scope;
   if(!entries.length){(el('lb-results')||el('view-leaders')).innerHTML=`<div class="empty">No entries match the current filters.</div>`;return;}
   ve.innerHTML=`<div style="padding:8px 14px;font-size:0.75rem;color:var(--text2)">${esc(statLbl)} — ${entries.length} player${entries.length!==1?'s':''}</div>`+
     entries.slice(0,200).map((e,i)=>{
       const sub=[e.club,e.grade].filter(Boolean).join(' \u00b7 ');
       const gpInfo=e.gp?`<div class="lb-gp">${e.gp} GP</div>`:'';
-      const dispVal=typeof e.v==='number'?e.v.toLocaleString('en-AU',{maximumFractionDigits:1}):e.v;
+      const dispVal=S.lbStat==='winPct'?e.v+'%':typeof e.v==='number'?e.v.toLocaleString('en-AU',{maximumFractionDigits:1}):e.v;
       return`<div class="lb-row" data-uuid="${esc(e.uuid)}">
         <div class="lb-rank">${i+1}</div>
         <div><div class="lb-name">${esc(e.name||'Player #'+e.uuid.slice(0,10))}</div><div class="lb-club">${esc(sub)}</div></div>
@@ -2050,10 +2064,11 @@ async function buildOppStats(uuid, btn) {
 
       for (const oppUuid of oppUuids) {
         if (!oppUuid || oppUuid === uuid) continue;
-        if (!oppRecord[oppUuid]) oppRecord[oppUuid] = { w: 0, l: 0, d: 0 };
+        if (!oppRecord[oppUuid]) oppRecord[oppUuid] = { w: 0, l: 0, d: 0, games: [] };
         if (res === 'W') oppRecord[oppUuid].w++;
         else if (res === 'L') oppRecord[oppUuid].l++;
         else oppRecord[oppUuid].d++;
+        oppRecord[oppUuid].games.push({ gid, sid, g });
       }
     }
   }
@@ -2072,6 +2087,12 @@ async function buildOppStats(uuid, btn) {
     return;
   }
 
+  // Store game data keyed by oppUuid for expandable rows
+  const oppGames = {};
+  for (const e of entries) oppGames[e.oppUuid] = e.games || [];
+  S._oppStatGames = S._oppStatGames || {};
+  S._oppStatGames[uuid] = oppGames;
+
   entries.sort((a, b) => b.winPct - a.winPct || b.total - a.total);
   const best  = entries.slice(0, 5);
   const worst = entries.slice(-5).reverse();
@@ -2086,11 +2107,13 @@ async function buildOppStats(uuid, btn) {
 
   function oppRow(e) {
     const pct = Math.round(e.winPct * 100) + '%';
-    return `<div class="orow" style="cursor:pointer" onclick="loadPlayer('${esc(e.oppUuid)}')">
+    const rowId = 'osr-' + e.oppUuid;
+    const detailId = 'osd-' + e.oppUuid;
+    return `<div class="orow" style="cursor:pointer" id="${rowId}" onclick="toggleOppStatGames('${esc(e.oppUuid)}','${esc(uuid)}')">
       <span class="oname" id="oppn-${esc(e.oppUuid)}">#${esc(e.oppUuid.slice(0,8))}</span>
       ${wldBadge(e)}
       <span style="font-size:0.72rem;color:var(--text2);min-width:36px;text-align:right;flex-shrink:0">${pct}</span>
-    </div>`;
+    </div><div id="${detailId}" class="opp-game-detail hidden"></div>`;
   }
 
   let h = '<div style="font-size:0.75rem;color:var(--text3);padding:6px 0 2px">Best win % (min 2 games)</div>';
@@ -2107,6 +2130,62 @@ async function buildOppStats(uuid, btn) {
       document.querySelectorAll('#oppn-' + oppUuid).forEach(el => { el.textContent = opp.name; });
     });
   }
+}
+async function toggleOppStatGames(oppUuid, myUuid) {
+  const row = document.getElementById('osr-' + oppUuid);
+  const detail = document.getElementById('osd-' + oppUuid);
+  if (!detail) return;
+
+  // Toggle if already built
+  if (detail.children.length) {
+    detail.classList.toggle('hidden');
+    row.classList.toggle('expanded');
+    return;
+  }
+
+  const games = S._oppStatGames?.[myUuid]?.[oppUuid] || [];
+  if (!games.length) { detail.innerHTML = '<div style="padding:4px 14px 4px 28px;font-size:0.75rem;color:var(--text3)">No game details available.</div>'; detail.classList.remove('hidden'); return; }
+
+  const myPlayer = S.players[myUuid];
+  games.sort((a, b) => (b.g.d || '').localeCompare(a.g.d || ''));
+
+  for (const { gid, sid, g } of games) {
+    const myTid = getTidForSeason(myPlayer, sid);
+    const ctx = gameCtx(g, myTid || g.h);
+    const score = ctx.myS != null ? `${ctx.myS}\u2013${ctx.oppS}` : '\u2014';
+    const res = resLetter(ctx.myS, ctx.oppS);
+    const resColor = res === 'W' ? 'var(--win)' : res === 'L' ? 'var(--loss)' : 'var(--text2)';
+    const fc = finalClass(g.rn);
+    const statsSpanId = 'oss-' + gid;
+
+    const gameRow = document.createElement('div');
+    gameRow.className = 'opp-game-row';
+    gameRow.style.paddingLeft = '28px';
+    gameRow.innerHTML = `
+      <span class="opp-game-date">${esc(g.d?.slice(0,10)||'')}</span>
+      <span class="opp-game-grade">${esc(g.gn||'')}${fc?` <span style="color:gold;font-size:0.65rem">${esc(g.rn)}</span>`:''}</span>
+      <span class="opp-game-score">${esc(score)}</span>
+      <span class="opp-game-res" style="color:${resColor}">${res}</span>
+      <span class="opp-game-stats" id="${statsSpanId}">Loading\u2026</span>`;
+    gameRow.onclick = () => openGame(gid, g, null, sid);
+    detail.appendChild(gameRow);
+
+    // Fetch box score for stats
+    fetchBox(gid).then(bs => {
+      const sp = document.getElementById(statsSpanId);
+      if (!sp) return;
+      if (!bs) { sp.textContent = ''; return; }
+      const allP = [...(bs.h||[]), ...(bs.a||[])];
+      const myBs  = allP.find(p => p.profileID === myUuid);
+      const oppBs = allP.find(p => p.profileID === oppUuid);
+      const myS2  = myBs  ? `${myBs.pts??''}pts ${myBs.fouls??''}f`  : '';
+      const oppS2 = oppBs ? `${oppBs.pts??''}pts ${oppBs.fouls??''}f` : '';
+      sp.textContent = `${myS2?`Me: ${myS2}`:''}${myS2&&oppS2?' \u00b7 ':''}${oppS2?`Them: ${oppS2}`:''}`;
+    });
+  }
+
+  detail.classList.remove('hidden');
+  row.classList.add('expanded');
 }
 
 </script>
