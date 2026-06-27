@@ -319,7 +319,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.52</span>
+      <span class="rail-ver">Beta 0.53</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2047,16 +2047,18 @@ async function buildOppStats(uuid, btn) {
       const res = resLetter(ctx.myS, ctx.oppS);
       if (ctx.myS == null) continue; // no score
 
+      // Determine which side the player is on — skip game if we can't tell
       const isHome = g.h === myTid;
-      // Prefer hp/ap side arrays; fall back to g.p with .id field
+      const isAway = g.a === myTid;
+      if (!isHome && !isAway) continue; // myTid doesn't match either side — skip
       const oppSide = isHome ? (g.ap || []) : (g.hp || []);
       const mySide  = isHome ? (g.hp || []) : (g.ap || []);
       let oppUuids;
       if (oppSide.length) {
         oppUuids = oppSide.map(p => p.profileID).filter(Boolean);
       } else if (g.p?.length) {
+        // g.p has all players — exclude anyone on my side
         const myIds = new Set(mySide.map(p => p.profileID).filter(Boolean));
-        // g.p entries are objects {id:uuid} based on game file schema
         oppUuids = (g.p || []).map(p => (typeof p === 'string' ? p : p.id)).filter(id => id && !myIds.has(id) && id !== uuid);
       } else {
         continue;
@@ -2164,7 +2166,7 @@ async function buildOppStats(uuid, btn) {
   const searchDetailId = 'opp-search-detail-' + uuid;
   h += `<div style="margin-top:12px;border-top:0.5px solid var(--border);padding-top:10px">
     <div style="font-size:0.75rem;color:var(--text3);margin-bottom:6px">Look up any opponent</div>
-    <select id="${searchId}" style="width:100%;font-size:0.82rem;padding:5px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary)">
+    <select id="${searchId}" class="sselect">
       <option value="">Loading names\u2026</option>
     </select>
     <div id="${searchDetailId}" class="opp-game-detail hidden" style="margin-top:4px"></div>
