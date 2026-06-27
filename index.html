@@ -302,7 +302,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.37</span>
+      <span class="rail-ver">Beta 0.38</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -381,7 +381,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
           <select id="lb-age" class="sselect" style="flex:0 0 auto;font-size:0.75rem"><option value="">All ages</option></select>
           <select id="lb-grade" class="sselect lb-per-season" style="flex:1;min-width:100px;font-size:0.75rem"><option value="">All grades</option></select>
           <select id="lb-gender" class="sselect" style="flex:0 0 auto;font-size:0.75rem"><option value="">All</option></select>
-          <button class="rbtn" style="margin-left:0;opacity:1;font-size:0.72rem" onclick="resetLB()">✕ Reset</button>
+          <button class="rbtn" style="margin-left:0;font-size:0.72rem;border:0.5px solid var(--border-strong);padding:3px 10px;border-radius:var(--radius);color:var(--text-primary);opacity:1" onclick="resetLB()">✕ Reset</button>
         </div>
       </div>
       <div id="lb-results"></div>
@@ -1342,7 +1342,16 @@ async function openSheet(gid,sid){
     const histBtn=document.createElement('button');
     histBtn.className='lb-stat';histBtn.style.cssText='margin:8px 14px;font-size:0.72rem';
     histBtn.textContent='⇔ Opposition history';
-    histBtn.onclick=()=>{closeSheet();openTeamOpp(htid,atid,sid,false);};
+    histBtn.onclick=()=>{
+      closeSheet();
+      // Determine which side the current player is on so their team is always "my team"
+      const uuid=S.playerUuid;
+      const player=uuid?S.players[uuid]:null;
+      const playerTid=player?getTidForSeason(player,sid):null;
+      const myTid=playerTid===(atid)?atid:htid;
+      const oppTid=myTid===htid?atid:htid;
+      openTeamOpp(myTid,oppTid,sid,false);
+    };
     sb.insertBefore(histBtn,sb.firstChild);
   }
 }
@@ -1508,7 +1517,7 @@ async function openOpp(oppTid,sid,fromUuid){
   // Load opposing team roster
   if(!S.teamStats[sid]){const d=await gj(BASE+'/team-stats/bv/'+sid+'.json');S.teamStats[sid]=d||{};}
   const td=S.teamStats[sid];
-  const oppTeam=td?.teams?.[oppTid];
+  const oppTeam=td?.[oppTid];
   const oppRoster=Object.keys(oppTeam?.roster||{});
   const oppTeamName=oppTeam?.meta?.name||'Opposing Team';
   // Get current player (should be cached)
