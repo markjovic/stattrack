@@ -248,11 +248,25 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .ggame.up .gs{color:var(--accent)}
 .vdate-hdr{padding:8px 14px;font-size:0.78rem;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border);background:var(--surface)}
 
-.orow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
-.oname{flex:1;font-size:0.86rem;cursor:pointer;color:var(--text)}
-.oname:hover{color:var(--accent)}
-.oenc{font-size:0.73rem;color:var(--accent)}
-.onone{font-size:0.73rem;color:var(--text3)}
+.orow{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--border);cursor:pointer}
+.orow:hover{background:var(--elevated)}
+.orow.expanded{background:var(--elevated)}
+.oname{flex:1;font-size:0.86rem;color:var(--text)}
+.oenc{font-size:0.73rem;color:var(--accent);flex-shrink:0}
+.onone{font-size:0.73rem;color:var(--text3);flex-shrink:0}
+.opp-detail{border-bottom:0.5px solid var(--border);background:var(--surface-1)}
+.opp-opp-row{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 28px;border-bottom:0.5px solid var(--border);cursor:pointer}
+.opp-opp-row:hover{background:var(--elevated)}
+.opp-opp-name{flex:1;font-size:0.82rem;color:var(--text)}
+.opp-opp-enc{font-size:0.72rem;color:var(--accent)}
+.opp-game-detail{background:var(--surface-0)}
+.opp-game-row{display:flex;align-items:center;gap:10px;padding:5px 14px 5px 42px;border-bottom:0.5px solid var(--border);font-size:0.75rem;color:var(--text2);cursor:pointer}
+.opp-game-row:hover{background:var(--elevated)}
+.opp-game-date{color:var(--text2);min-width:80px;flex-shrink:0}
+.opp-game-grade{flex:1;color:var(--text2)}
+.opp-game-score{font-weight:500;min-width:48px;text-align:center;flex-shrink:0}
+.opp-game-res{min-width:18px;text-align:center;flex-shrink:0;font-weight:500}
+.opp-game-stats{font-size:0.7rem;color:var(--text3);flex-shrink:0}
 
 .empty{padding:36px 18px;text-align:center;color:var(--text3);font-size:0.85rem}
 
@@ -302,7 +316,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.39</span>
+      <span class="rail-ver">Beta 0.41</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1679,7 +1693,7 @@ async function openTeamOpp(myTid,oppTid,sid,isUpcoming){
         const nOpp=result.length;
         if(enc)enc.outerHTML=`<span class="oenc">${total} meeting${total>1?'s':''} vs ${nOpp} player${nOpp>1?'s':''}</span>`;
         row.style.cursor='pointer';
-        row.onclick=()=>toggleTeamOppDetail(row,result);
+        row.onclick=()=>toggleTeamOppDetail(row,result,r.uuid);
       }
     });
   }
@@ -1695,26 +1709,86 @@ async function resolveTeamOppGames(r){
   }
   return results;
 }
-function toggleTeamOppDetail(row,result){
-  let detail=row.querySelector('.opp-team-detail');
-  if(detail){detail.classList.toggle('hidden');return;}
-  let dh='<div class="opp-team-detail">';
-  for(let ri=0;ri<result.length;ri++){
-    const{opp,games}=result[ri];
-    const subId='opp-sub-'+row.id+'-'+ri;
-    dh+='<div class="opp-opp-row"><span class="oname">'+esc(opp?.name||'Player')+'</span>';
-    const togFn='document.getElementById("'+subId+'").classList.toggle("hidden")';
-    dh+='<span class="oenc" style="cursor:pointer" onclick="'+togFn+'">'+games.length+' meeting'+(games.length>1?'s':'')+'</span></div>';
-    dh+='<div id="'+subId+'" class="opp-games hidden">';
-    for(const{gid,sid,g}of games){
-      const score=g.hs!=null?g.hs+'–'+g.as:'';
-      const onclick2='openGame(\"'+esc(gid)+'\",null,null,\"'+esc(sid)+'\")';
-      dh+='<div class="opp-game-row" onclick="'+onclick2+'">'+esc(g.d?.slice(0,10)||'')+' · '+esc(g.gn||'')+' · '+score+'</div>';
-    }
-    dh+='</div>';
+function getPlayerGameStats(g, uuid) {
+  // Returns {pts, fg, ft, tp, fouls} for a player from box score data if available
+  const sides = [g.hp||[], g.ap||[]];
+  for (const side of sides) {
+    const p = side.find(p => p.profileID === uuid);
+    if (p) return { pts: p.pts??'', fouls: p.fouls??'' };
   }
-  dh+='</div>';
-  row.insertAdjacentHTML('beforeend',dh);
+  return null;
+}
+
+function toggleTeamOppDetail(row, result, myUuid) {
+  let detail = row.nextElementSibling;
+  if (detail && detail.classList.contains('opp-detail')) {
+    detail.classList.toggle('hidden');
+    row.classList.toggle('expanded');
+    return;
+  }
+  row.classList.add('expanded');
+  const detailEl = document.createElement('div');
+  detailEl.className = 'opp-detail';
+
+  for (let ri = 0; ri < result.length; ri++) {
+    const { opp, games, oppUuid } = result[ri];
+    const oppRow = document.createElement('div');
+    oppRow.className = 'opp-opp-row';
+    const gameDetailId = `opp-games-${row.id}-${ri}`;
+    oppRow.innerHTML = `<span class="opp-opp-name">${esc(opp?.name||'#'+oppUuid.slice(0,8))}</span><span class="opp-opp-enc">${games.length} game${games.length>1?'s':''}</span>`;
+
+    const gameDetail = document.createElement('div');
+    gameDetail.className = 'opp-game-detail hidden';
+    gameDetail.id = gameDetailId;
+
+    for (const { gid, sid, g } of games) {
+      const myTid = getTidForSeason(S.players[myUuid], sid);
+      const ctx = gameCtx(g, myTid || g.h);
+      const score = ctx.myS != null ? `${ctx.myS}–${ctx.oppS}` : '—';
+      const res = resLetter(ctx.myS, ctx.oppS);
+      const resColor = res === 'W' ? 'var(--win)' : res === 'L' ? 'var(--loss)' : 'var(--text2)';
+      const myStats = getPlayerGameStats(g, myUuid);
+      const oppStats = getPlayerGameStats(g, oppUuid);
+      const myStr = myStats ? `${myStats.pts}pts ${myStats.fouls}f` : '';
+      const oppStr = oppStats ? `${oppStats.pts}pts ${oppStats.fouls}f` : '';
+      const fc = finalClass(g.rn);
+      const statsSpanId = `opp-gstats-${gid}`;
+      const gameRow = document.createElement('div');
+      gameRow.className = 'opp-game-row';
+      gameRow.innerHTML = `
+        <span class="opp-game-date">${esc(g.d?.slice(0,10)||'')}</span>
+        <span class="opp-game-grade">${esc(g.gn||'')}${fc?` <span style="color:gold;font-size:0.65rem">${esc(g.rn)}</span>`:''}</span>
+        <span class="opp-game-score">${esc(score)}</span>
+        <span class="opp-game-res" style="color:${resColor}">${res}</span>
+        <span class="opp-game-stats" id="${statsSpanId}">${myStr?`Me: ${myStr}`:''}${myStr&&oppStr?' · ':''}${oppStr?`Them: ${oppStr}`:''}${!myStr&&!oppStr?'Loading…':''}</span>`;
+      gameRow.onclick = () => openGame(gid, g, null, sid);
+
+      // Fetch box score and update stats span if not already in game file
+      if (!myStr && !oppStr) {
+        fetchBox(gid).then(bs => {
+          if (!bs) {
+            const sp = document.getElementById(statsSpanId);
+            if (sp) sp.textContent = '';
+            return;
+          }
+          const allP = [...(bs.h||[]), ...(bs.a||[])];
+          const myBs  = allP.find(p => p.profileID === myUuid);
+          const oppBs = allP.find(p => p.profileID === oppUuid);
+          const myS2  = myBs  ? `${myBs.pts??''}pts ${myBs.fouls??''}f`  : '';
+          const oppS2 = oppBs ? `${oppBs.pts??''}pts ${oppBs.fouls??''}f` : '';
+          const sp = document.getElementById(statsSpanId);
+          if (sp) sp.textContent = `${myS2?`Me: ${myS2}`:''}${myS2&&oppS2?' · ':''}${oppS2?`Them: ${oppS2}`:''}`;
+        });
+      }
+      gameDetail.appendChild(gameRow);
+    }
+
+    oppRow.onclick = () => { gameDetail.classList.toggle('hidden'); oppRow.classList.toggle('expanded'); };
+    detailEl.appendChild(oppRow);
+    detailEl.appendChild(gameDetail);
+  }
+
+  row.after(detailEl);
 }
 
 
