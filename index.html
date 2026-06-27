@@ -319,7 +319,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.48</span>
+      <span class="rail-ver">Beta 0.50</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2157,16 +2157,22 @@ async function toggleOppStatGames(oppUuid, myUuid) {
     const resColor = res === 'W' ? 'var(--win)' : res === 'L' ? 'var(--loss)' : 'var(--text2)';
     const fc = finalClass(g.rn);
     const statsSpanId = 'oss-' + gid;
+    const myTeamName  = myTid === g.h ? (g.hn||'') : (g.an||'');
+    const oppTeamName = myTid === g.h ? (g.an||'') : (g.hn||'');
+    const venue = g.vn ? `<span style="color:var(--text3);font-size:0.68rem">${esc(g.vn)}</span>` : '';
 
     const gameRow = document.createElement('div');
     gameRow.className = 'opp-game-row';
-    gameRow.style.paddingLeft = '28px';
+    gameRow.style.cssText = 'padding-left:28px;flex-wrap:nowrap;overflow:hidden;gap:8px';
     gameRow.innerHTML = `
-      <span class="opp-game-date">${esc(g.d?.slice(0,10)||'')}</span>
-      <span class="opp-game-grade">${esc(g.gn||'')}${fc?` <span style="color:gold;font-size:0.65rem">${esc(g.rn)}</span>`:''}</span>
-      <span class="opp-game-score">${esc(score)}</span>
-      <span class="opp-game-res" style="color:${resColor}">${res}</span>
-      <span class="opp-game-stats" id="${statsSpanId}">Loading\u2026</span>`;
+      <span class="opp-game-date" style="flex-shrink:0">${esc(g.d?.slice(0,10)||'')}</span>
+      <span style="flex-shrink:0;font-size:0.72rem;color:var(--text2)">${esc(g.rn||'')}${fc?` <span style="color:gold;font-size:0.65rem">${esc(g.rn)}</span>`:''}</span>
+      <span class="opp-game-grade" style="flex-shrink:0">${esc(g.gn||'')}</span>
+      ${myTeamName||oppTeamName?`<span style="font-size:0.7rem;color:var(--text2);flex-shrink:0;white-space:nowrap">${esc(myTeamName)} <span style="color:var(--text3)">vs</span> ${esc(oppTeamName)}</span>`:''}
+      ${venue?`<span style="color:var(--text3);font-size:0.68rem;flex-shrink:0;white-space:nowrap">${esc(g.vn||'')}</span>`:''}
+      <span class="opp-game-score" style="flex-shrink:0">${esc(score)}</span>
+      <span class="opp-game-res" style="color:${resColor};flex-shrink:0">${res}</span>
+      <span class="opp-game-stats" id="${statsSpanId}" style="flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading\u2026</span>`;
     gameRow.onclick = () => openGame(gid, g, null, sid);
     detail.appendChild(gameRow);
 
