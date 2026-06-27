@@ -319,7 +319,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.55</span>
+      <span class="rail-ver">Beta 0.56</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2061,10 +2061,11 @@ async function buildOppStats(uuid, btn) {
   const player = S.players[uuid];
   if (!player) { container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Player data not available.</div>'; btn.disabled=false; return; }
 
-  // Load all season game files
+  // Load all season game files and team-stats (needed to classify g.p[] players by side)
   const sids = [...new Set((player.seasons || []).map(s => s.sid).filter(Boolean))];
   for (const sid of sids) {
-    if (!S.games[sid]) S.games[sid] = await gj(BASE + '/games/bv/' + sid + '.json') || { games: {} };
+    if (!S.games[sid])     S.games[sid]     = await gj(BASE + '/games/bv/' + sid + '.json')     || { games: {} };
+    if (!S.teamStats[sid]) S.teamStats[sid]  = await gj(BASE + '/team-stats/bv/' + sid + '.json') || {};
   }
 
   // For each game the player was in, tally opponents and results
@@ -2095,22 +2096,25 @@ async function buildOppStats(uuid, btn) {
         // hp/ap present — reliable side information
         oppUuids = oppSide.map(p => p.profileID).filter(Boolean);
       } else if (g.p?.length) {
-        // No hp/ap — use g.p but cross-reference cached player files to determine sides.
-        // For each player in g.p, check their reg tid for this season.
-        // If their tid matches myTid → teammate (exclude).
-        // If their tid matches the other team → opponent (include).
-        // If their file isn't cached or tid is unknown → exclude (safer than wrong inclusion).
+        // No hp/ap — use g.p with team-stats rosters to determine sides.
+        // Team-stats[sid][tid].roster is a map of uuid→stats for each registered player.
         const otherTid = isHome ? g.a : g.h;
+        const td = S.teamStats[sid] || {};
+        const myRosterSet  = new Set(Object.keys(td[myTid]?.roster  || {}));
+        const oppRosterSet = new Set(Object.keys(td[otherTid]?.roster || {}));
         oppUuids = [];
         for (const entry of g.p) {
           const pid = typeof entry === 'string' ? entry : entry.id;
           if (!pid || pid === uuid) continue;
+          if (oppRosterSet.has(pid))  { oppUuids.push(pid); continue; }
+          // If not in either known roster, fall back to cached player file
+          if (myRosterSet.has(pid))   continue; // confirmed teammate
           const cached = S.players[pid];
-          if (!cached) continue; // not loaded — skip rather than guess
-          const pidTid = getTidForSeason(cached, sid);
-          if (pidTid === otherTid) oppUuids.push(pid);
-          // if pidTid === myTid → teammate, skip
-          // if pidTid is null or neither team → skip
+          if (cached) {
+            const pidTid = getTidForSeason(cached, sid);
+            if (pidTid === otherTid) oppUuids.push(pid);
+          }
+          // truly unknown — exclude
         }
       } else {
         continue;
