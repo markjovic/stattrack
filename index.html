@@ -316,7 +316,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.43</span>
+      <span class="rail-ver">Beta 0.44</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -912,6 +912,7 @@ function renderPlayer(p){
     </div>`;
   });
   h+='</div>';
+  h+=`<div class="slist"><div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">Opponent stats <button class="rbtn" style="border:0.5px solid var(--border-strong);padding:3px 10px;border-radius:var(--radius);color:var(--text-primary);font-size:0.72rem" onclick="buildOppStats('${esc(uuid)}',this)">Compute ↗</button></div><div id="opp-stats-${esc(uuid)}"><div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Click Compute to analyse head-to-head records.</div></div></div>`;
   ve.innerHTML=h;
   // Store groups on element for toggleGames
   ve._groups=groups;
@@ -1998,6 +1999,113 @@ el('q-vsn').addEventListener('change',()=>onVenueSeasonChange());
 
 boot();
 
+
+async function buildOppStats(uuid, btn) {
+  const container = document.getElementById('opp-stats-' + uuid);
+  if (!container) return;
+  btn.disabled = true;
+  btn.textContent = 'Computing…';
+  container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Loading game data…</div>';
+
+  const player = S.players[uuid];
+  if (!player) { container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Player data not available.</div>'; return; }
+
+  // Build a map of gameId → {sid, g} from all the player's seasons
+  const gameMap = {};
+  const sids = [...new Set((player.seasons || []).map(s => s.sid).filter(Boolean))];
+  for (const sid of sids) {
+    if (!S.games[sid]) S.games[sid] = await gj(BASE + '/games/bv/' + sid + '.json') || { games: {} };
+    for (const [gid, g] of Object.entries(S.games[sid]?.games || {})) {
+      gameMap[gid] = { sid, g };
+    }
+  }
+
+  // For each game the player was in, collect opponents and results
+  const oppRecord = {}; // oppUuid → {w, l, d, gameIds}
+  const playerGames = new Set(player.games || []);
+
+  for (const gid of playerGames) {
+    const entry = gameMap[gid];
+    if (!entry) continue;
+    const { sid, g } = entry;
+
+    // Get my team for this season
+    const myTid = getTidForSeason(player, sid);
+    if (!myTid) continue;
+
+    // Determine result from my perspective
+    const ctx = gameCtx(g, myTid);
+    const res = resLetter(ctx.myS, ctx.oppS);
+    if (!res && ctx.myS == null) continue; // no score, skip
+
+    // Get all opponent UUIDs from p[] (players on opposing side)
+    const isHome = g.h === myTid;
+    const oppSide = isHome ? (g.ap || []) : (g.hp || []);
+    // Also use g.p[] if side arrays not available, filtered to exclude my team players
+    const myRoster = new Set((isHome ? (g.hp || []) : (g.ap || [])).map(p => p.profileID).filter(Boolean));
+    const oppUuids = oppSide.length
+      ? oppSide.map(p => p.profileID).filter(Boolean)
+      : (g.p || []).filter(id => !myRoster.has(id));
+
+    for (const oppUuid of oppUuids) {
+      if (oppUuid === uuid) continue;
+      if (!oppRecord[oppUuid]) oppRecord[oppUuid] = { w: 0, l: 0, d: 0, gids: [] };
+      if (res === 'W') oppRecord[oppUuid].w++;
+      else if (res === 'L') oppRecord[oppUuid].l++;
+      else oppRecord[oppUuid].d++;
+      oppRecord[oppUuid].gids.push(gid);
+    }
+  }
+
+  const entries = Object.entries(oppRecord)
+    .map(([oppUuid, rec]) => {
+      const total = rec.w + rec.l + rec.d;
+      const winPct = total > 0 ? rec.w / total : 0;
+      return { oppUuid, ...rec, total, winPct };
+    })
+    .filter(e => e.total >= 2); // minimum 2 games for meaningful stat
+
+  if (!entries.length) {
+    container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Not enough data (need at least 2 games vs same opponent).</div>';
+    btn.textContent = 'Compute ↗'; btn.disabled = false;
+    return;
+  }
+
+  entries.sort((a, b) => b.winPct - a.winPct || b.total - a.total);
+  const best = entries.slice(0, 5);
+  const worst = entries.slice(-5).reverse();
+
+  function renderOppRow(e, nameEl) {
+    const wld = `<span style="font-size:0.7rem;display:flex;gap:4px">` +
+      (e.w ? `<span style="color:var(--win)">${e.w}W</span>` : '') +
+      (e.l ? `<span style="color:var(--loss)">${e.l}L</span>` : '') +
+      (e.d ? `<span style="color:var(--draw)">${e.d}D</span>` : '') +
+      `</span>`;
+    const pct = Math.round(e.winPct * 100) + '%';
+    return `<div class="orow" style="cursor:pointer" onclick="loadPlayer('${esc(e.oppUuid)}')">
+      <span class="oname" id="oppn-${esc(e.oppUuid)}">${nameEl}</span>
+      ${wld}
+      <span style="font-size:0.72rem;color:var(--text2);min-width:32px;text-align:right">${pct}</span>
+    </div>`;
+  }
+
+  let h = '';
+  h += '<div style="font-size:0.75rem;color:var(--text3);padding:6px 0 2px">Best win % (min 2 games)</div>';
+  for (const e of best) h += renderOppRow(e, '#' + e.oppUuid.slice(0, 8));
+  h += '<div style="font-size:0.75rem;color:var(--text3);padding:10px 0 2px">Worst win % (min 2 games)</div>';
+  for (const e of worst) h += renderOppRow(e, '#' + e.oppUuid.slice(0, 8));
+  container.innerHTML = h;
+  btn.textContent = 'Refresh ↗'; btn.disabled = false;
+
+  // Progressively load opponent names
+  const allShown = [...new Set([...best, ...worst].map(e => e.oppUuid))];
+  for (const oppUuid of allShown) {
+    loadPlayerFile(oppUuid).then(opp => {
+      if (!opp?.name) return;
+      document.querySelectorAll(`#oppn-${oppUuid}`).forEach(el => { el.textContent = opp.name; });
+    });
+  }
+}
 
 </script>
 </body>
