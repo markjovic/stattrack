@@ -302,7 +302,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.38</span>
+      <span class="rail-ver">Beta 0.39</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1577,20 +1577,20 @@ function getTidForSeason(player,sid){
 async function resolveOppGames(r,myGameSet){
   const{opp,shared,fromUuid,oppTid,myPlayer}=r;
   if(!shared.length)return[];
-  // Build gid→sid map from already-cached game files
+  // Build gid→sid map from already-cached game files (.games subkey)
   const gidSid={};
-  for(const[sid,games]of Object.entries(S.games||{})){
-    for(const gid of Object.keys(games))gidSid[gid]=sid;
+  for(const[sid,gf]of Object.entries(S.games||{})){
+    for(const gid of Object.keys(gf?.games||{}))gidSid[gid]=sid;
   }
-  // For shared gids not yet mapped, search player's seasons lazily
+  // For shared gids not yet mapped, load game files lazily
   const unmapped=shared.filter(gid=>!gidSid[gid]);
   if(unmapped.length){
     const sids=[...new Set((myPlayer?.seasons||[]).map(sn=>sn.sid).filter(Boolean))];
     for(const sid of sids){
       if(!unmapped.length)break;
-      if(!S.games[sid])S.games[sid]=await gj(BASE+'/games/bv/'+sid+'.json')||{};
-      for(const gid of Object.keys(S.games[sid]||{})){
-        if(unmapped.includes(gid)){gidSid[gid]=sid;}
+      if(!S.games[sid])S.games[sid]=await gj(BASE+'/games/bv/'+sid+'.json')||{games:{}};
+      for(const gid of Object.keys(S.games[sid]?.games||{})){
+        if(unmapped.includes(gid))gidSid[gid]=sid;
       }
       unmapped.splice(0,unmapped.length,...unmapped.filter(gid=>!gidSid[gid]));
     }
@@ -1600,7 +1600,7 @@ async function resolveOppGames(r,myGameSet){
   for(const gid of shared){
     const sid=gidSid[gid];
     if(!sid)continue;
-    const g=(S.games[sid]||{})[gid];
+    const g=S.games[sid]?.games?.[gid];
     if(!g)continue;
     const myTid=getTidForSeason(myPlayer,sid);
     const oppTidInGame=getTidForSeason(opp,sid);
