@@ -1845,10 +1845,7 @@ function renderLB(allEntries,data){
     const minGP=parseInt(el('lb-mingp')?.value||'10');
     entries=entries.filter(e=>(e.gp||0)>=minGP);
   }
-  // Filter out corrupt entries: no name, or name matches season pattern (e.g. "Winter 2022")
-  const SEASON_RE=/^(Winter|Summer|Spring|Autumn|Spring|Fall)\s+\d{4}/i;
-  entries=entries.filter(e=>e.name&&!SEASON_RE.test(e.name));
-  // Sort by v descending (data already sorted but re-sort after filter)
+  // Sort by v descending (data already sorted but re-sort after filter) (data already sorted but re-sort after filter)
   entries.sort((a,b)=>b.v-a.v);
   const ve=el('lb-results');
   const statLbl={'pts':'PTS','ppg':'PPG','gp':'GP','threePt':'3PT','threePtPG':'3PT/G','fouls':'F','foulsPG':'F/G','foulOuts':'Foul-outs','foulOutsPG':'FO/G','finals':'Finals','gfApps':'GF Apps','gfWins':'GF Wins','finalsPerSeason':'Finals/Ssn','maxGamePTS':'Best Game PTS','maxGameThreePt':'Best Game 3PT'}[S.lbStat]||S.lbStat;
