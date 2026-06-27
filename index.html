@@ -302,7 +302,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.36</span>
+      <span class="rail-ver">Beta 0.37</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -830,6 +830,7 @@ function renderPlayer(p){
   const upcoming=(p.teams||[]).filter(t=>t.status==='UPCOMING');
   const club=(p.seasons||[])[0]?.club||'';
   const groups=groupRegs(p.seasons||[]);
+  let h='';
   h+=`<div class="vhdr"><button class="vback" onclick="history.back()">\u2190</button>
     <div class="avi">${esc(inits(p.name))}</div>
     <div style="flex:1;min-width:0"><div class="vtitle">${esc(p.name||'Player #'+uuid.slice(0,10))}</div>
@@ -1844,6 +1845,9 @@ function renderLB(allEntries,data){
     const minGP=parseInt(el('lb-mingp')?.value||'10');
     entries=entries.filter(e=>(e.gp||0)>=minGP);
   }
+  // Filter out corrupt entries: no name, or name matches season pattern (e.g. "Winter 2022")
+  const SEASON_RE=/^(Winter|Summer|Spring|Autumn|Spring|Fall)\s+\d{4}/i;
+  entries=entries.filter(e=>e.name&&!SEASON_RE.test(e.name));
   // Sort by v descending (data already sorted but re-sort after filter)
   entries.sort((a,b)=>b.v-a.v);
   const ve=el('lb-results');
