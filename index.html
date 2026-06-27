@@ -319,7 +319,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.53</span>
+      <span class="rail-ver">Beta 0.55</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2014,6 +2014,43 @@ el('q-vsn').addEventListener('change',()=>onVenueSeasonChange());
 boot();
 
 
+// Shared game row builder used by both expanded rows and search detail
+function buildGameRow(gid, sid, g, myUuid2, oppUuid2) {
+  const myTid2 = getTidForSeason(S.players[myUuid2], sid);
+  const ctx2 = gameCtx(g, myTid2 || g.h);
+  const score2 = ctx2.myS != null ? `${ctx2.myS}\u2013${ctx2.oppS}` : '\u2014';
+  const res2 = resLetter(ctx2.myS, ctx2.oppS);
+  const resColor2 = res2 === 'W' ? 'var(--win)' : res2 === 'L' ? 'var(--loss)' : 'var(--text2)';
+  const fc2 = finalClass(g.rn);
+  const statsId2 = 'ogsr-' + gid + '-' + myUuid2.slice(0,4);
+  const myTN = myTid2 === g.h ? (g.hn||'') : (g.an||'');
+  const oppTN = myTid2 === g.h ? (g.an||'') : (g.hn||'');
+  const row2 = document.createElement('div');
+  row2.className = 'opp-game-row';
+  row2.style.cssText = 'flex-wrap:nowrap;overflow:hidden;gap:8px';
+  row2.innerHTML = `
+    <span class="opp-game-date" style="flex-shrink:0">${esc(g.d?.slice(0,10)||'')}</span>
+    <span style="flex-shrink:0;font-size:0.72rem;color:var(--text2)">${esc(g.rn||'')}</span>
+    <span class="opp-game-grade" style="flex-shrink:0">${esc(g.gn||'')}${fc2?` <span style="color:gold;font-size:0.65rem">${esc(g.rn)}</span>`:''}</span>
+    ${myTN||oppTN?`<span style="font-size:0.7rem;color:var(--text2);flex-shrink:0;white-space:nowrap">${esc(myTN)} <span style="color:var(--text3)">vs</span> ${esc(oppTN)}</span>`:''}
+    ${g.vn?`<span style="color:var(--text3);font-size:0.68rem;flex-shrink:0;white-space:nowrap">${esc(g.vn)}</span>`:''}
+    <span class="opp-game-score" style="flex-shrink:0">${esc(score2)}</span>
+    <span class="opp-game-res" style="color:${resColor2};flex-shrink:0">${res2}</span>
+    <span class="opp-game-stats" id="${statsId2}" style="flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading\u2026</span>`;
+  row2.onclick = () => openGame(gid, g, null, sid);
+  fetchBox(gid).then(bs => {
+    const sp = document.getElementById(statsId2);
+    if (!sp) return;
+    if (!bs) { sp.textContent = ''; return; }
+    const allP2 = [...(bs.h||[]), ...(bs.a||[])];
+    const myBs2  = allP2.find(p => p.profileID === myUuid2);
+    const oppBs2 = allP2.find(p => p.profileID === oppUuid2);
+    const myS3  = myBs2  ? `${myBs2.pts??''}pts ${myBs2.fouls??''}f` : '';
+    const oppS3 = oppBs2 ? `${oppBs2.pts??''}pts ${oppBs2.fouls??''}f` : '';
+    sp.textContent = `${myS3?`Me: ${myS3}`:''}${myS3&&oppS3?' \u00b7 ':''}${oppS3?`Them: ${oppS3}`:''}`;
+  });
+  return row2;
+}
 async function buildOppStats(uuid, btn) {
   const container = document.getElementById('opp-stats-' + uuid);
   if (!container) return;
@@ -2055,11 +2092,26 @@ async function buildOppStats(uuid, btn) {
       const mySide  = isHome ? (g.hp || []) : (g.ap || []);
       let oppUuids;
       if (oppSide.length) {
+        // hp/ap present — reliable side information
         oppUuids = oppSide.map(p => p.profileID).filter(Boolean);
       } else if (g.p?.length) {
-        // g.p has all players — exclude anyone on my side
-        const myIds = new Set(mySide.map(p => p.profileID).filter(Boolean));
-        oppUuids = (g.p || []).map(p => (typeof p === 'string' ? p : p.id)).filter(id => id && !myIds.has(id) && id !== uuid);
+        // No hp/ap — use g.p but cross-reference cached player files to determine sides.
+        // For each player in g.p, check their reg tid for this season.
+        // If their tid matches myTid → teammate (exclude).
+        // If their tid matches the other team → opponent (include).
+        // If their file isn't cached or tid is unknown → exclude (safer than wrong inclusion).
+        const otherTid = isHome ? g.a : g.h;
+        oppUuids = [];
+        for (const entry of g.p) {
+          const pid = typeof entry === 'string' ? entry : entry.id;
+          if (!pid || pid === uuid) continue;
+          const cached = S.players[pid];
+          if (!cached) continue; // not loaded — skip rather than guess
+          const pidTid = getTidForSeason(cached, sid);
+          if (pidTid === otherTid) oppUuids.push(pid);
+          // if pidTid === myTid → teammate, skip
+          // if pidTid is null or neither team → skip
+        }
       } else {
         continue;
       }
@@ -2118,43 +2170,7 @@ async function buildOppStats(uuid, btn) {
     </div><div id="${detailId}" class="opp-game-detail hidden"></div>`;
   }
 
-  // Shared game row builder used by both expanded rows and search detail
-  function buildGameRow(gid, sid, g, myUuid2, oppUuid2) {
-    const myTid2 = getTidForSeason(S.players[myUuid2], sid);
-    const ctx2 = gameCtx(g, myTid2 || g.h);
-    const score2 = ctx2.myS != null ? `${ctx2.myS}\u2013${ctx2.oppS}` : '\u2014';
-    const res2 = resLetter(ctx2.myS, ctx2.oppS);
-    const resColor2 = res2 === 'W' ? 'var(--win)' : res2 === 'L' ? 'var(--loss)' : 'var(--text2)';
-    const fc2 = finalClass(g.rn);
-    const statsId2 = 'ogsr-' + gid + '-' + myUuid2.slice(0,4);
-    const myTN = myTid2 === g.h ? (g.hn||'') : (g.an||'');
-    const oppTN = myTid2 === g.h ? (g.an||'') : (g.hn||'');
-    const row2 = document.createElement('div');
-    row2.className = 'opp-game-row';
-    row2.style.cssText = 'flex-wrap:nowrap;overflow:hidden;gap:8px';
-    row2.innerHTML = `
-      <span class="opp-game-date" style="flex-shrink:0">${esc(g.d?.slice(0,10)||'')}</span>
-      <span style="flex-shrink:0;font-size:0.72rem;color:var(--text2)">${esc(g.rn||'')}</span>
-      <span class="opp-game-grade" style="flex-shrink:0">${esc(g.gn||'')}${fc2?` <span style="color:gold;font-size:0.65rem">${esc(g.rn)}</span>`:''}</span>
-      ${myTN||oppTN?`<span style="font-size:0.7rem;color:var(--text2);flex-shrink:0;white-space:nowrap">${esc(myTN)} <span style="color:var(--text3)">vs</span> ${esc(oppTN)}</span>`:''}
-      ${g.vn?`<span style="color:var(--text3);font-size:0.68rem;flex-shrink:0;white-space:nowrap">${esc(g.vn)}</span>`:''}
-      <span class="opp-game-score" style="flex-shrink:0">${esc(score2)}</span>
-      <span class="opp-game-res" style="color:${resColor2};flex-shrink:0">${res2}</span>
-      <span class="opp-game-stats" id="${statsId2}" style="flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading\u2026</span>`;
-    row2.onclick = () => openGame(gid, g, null, sid);
-    fetchBox(gid).then(bs => {
-      const sp = document.getElementById(statsId2);
-      if (!sp) return;
-      if (!bs) { sp.textContent = ''; return; }
-      const allP2 = [...(bs.h||[]), ...(bs.a||[])];
-      const myBs2  = allP2.find(p => p.profileID === myUuid2);
-      const oppBs2 = allP2.find(p => p.profileID === oppUuid2);
-      const myS3  = myBs2  ? `${myBs2.pts??''}pts ${myBs2.fouls??''}f` : '';
-      const oppS3 = oppBs2 ? `${oppBs2.pts??''}pts ${oppBs2.fouls??''}f` : '';
-      sp.textContent = `${myS3?`Me: ${myS3}`:''}${myS3&&oppS3?' \u00b7 ':''}${oppS3?`Them: ${oppS3}`:''}`;
-    });
-    return row2;
-  }
+
 
   let h = '<div style="font-size:0.75rem;color:var(--text3);padding:6px 0 2px">Best win % (min 2 games)</div>';
   for (const e of best)  h += oppRow(e);
