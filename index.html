@@ -322,7 +322,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.61</span>
+      <span class="rail-ver">Beta 0.62</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -589,7 +589,18 @@ async function openGameId(gameId){
 function renderMode(g){
   if(g.bye)return'bye';if(g.forfeit)return'forfeit';if(g.cancelled)return'cancelled';if(g.abandoned)return'abandoned';
   if(g.hidden){return g.hp?.length?'hidden-full':'hidden-partial';}
-  if(g.profileOnly)return'profileOnly';if(g.legacy)return'legacy';
+  if(g.profileOnly)return'profileOnly';
+  // legacy only wins when there is genuinely NO score. Corrected 2026-07-31:
+  // this used to be an unguarded `if(g.legacy)return'legacy'` ABOVE the score
+  // test, so a legacy game holding a real scoreline rendered as
+  // 'HISTORICAL RECORD - Data unavailable'. That was not an edge case: 3,120 of
+  // the 3,262 games carrying the flag hold a score, because the flag is stale
+  // (its classifier was removed in the 2026-07-16 cleanup, and every fixture
+  // write since has merged over the entry without clearing it). The data-side
+  // repair is scripts/repair-legacy-flags.js; this guard is the client-side
+  // complement and stays correct whichever runs first. The ~142 genuinely
+  // scoreless ones still render 'legacy', which is the honest answer for them.
+  if(g.legacy && typeof g.hs!=='number')return'legacy';
   if(typeof g.hs==='number')return'normal';return'unknown';
 }
 function gameCtx(g,tid){
