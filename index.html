@@ -322,7 +322,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.68</span>
+      <span class="rail-ver">Beta 0.69</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1025,16 +1025,22 @@ function renderPlayer(p){
   }
   h+='<div class="slist"><div class="sec-lbl">Season history</div>';
   groups.forEach(({sn,tid,regs},gi)=>{
-    // Use last reg as team link target (most stable); sum ALL regs for stats
+    // Use last reg as team link target (most stable).
     const primary=regs[regs.length-1];
+    // Sibling regs sharing a tid carry IDENTICAL season-cumulative stat blocks (the
+    // pipeline's sibling sync keeps them in step), so SUMMING them doubles every stat
+    // for regraded players (B→BRES etc: gp 13 rendered as 26). Take the per-stat MAX
+    // across the group — identity for single regs and for synced siblings, and the
+    // documented correct resolution for any sibling the sync hasn't reached (same rule
+    // the W/L/D block below has always applied via regs[0]). Do NOT change back to a sum.
     const st=regs.reduce((a,r)=>{const s=r.stats||{};return{
-      gp:(a.gp||0)+(s.gp||0),pts:(a.pts||0)+(s.pts||0),
-      fg:(a.fg||0)+(s.fg||0),ft:(a.ft||0)+(s.ft||0),
-      threePt:(a.threePt||0)+(s.threePt||0),fouls:(a.fouls||0)+(s.fouls||0),
-      foulOuts:(a.foulOuts||0)+(s.foulOuts??0),
-      finals:(a.finals||0)+(s.finals??0),
-      gfApps:(a.gfApps||0)+(s.gfApps??0),
-      gfWins:(a.gfWins||0)+(s.gfWins??0)
+      gp:Math.max(a.gp||0,s.gp||0),pts:Math.max(a.pts||0,s.pts||0),
+      fg:Math.max(a.fg||0,s.fg||0),ft:Math.max(a.ft||0,s.ft||0),
+      threePt:Math.max(a.threePt||0,s.threePt||0),fouls:Math.max(a.fouls||0,s.fouls||0),
+      foulOuts:Math.max(a.foulOuts||0,s.foulOuts??0),
+      finals:Math.max(a.finals||0,s.finals??0),
+      gfApps:Math.max(a.gfApps||0,s.gfApps??0),
+      gfWins:Math.max(a.gfWins||0,s.gfWins??0)
     };},{});
     // All grade names joined — no assumption about order
     const allGrades=abbreviateGrades([...new Set(regs.map(r=>r.gn||r.tn||'?'))]);
