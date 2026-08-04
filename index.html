@@ -322,7 +322,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.71</span>
+      <span class="rail-ver">Beta 0.72</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -981,29 +981,29 @@ function renderGradeSnapshot(seasons){
   return h+'</div>';
 }
 
-// Finals row (StatTrack 0.71). Data: sports.Basketball.finalsStats
-// {gp, boxedGp, pts, threePt, fouls, wins, losses, draws} from build-finals-stats.js.
-// ONE row, mirroring the career strip's columns: GP PTS PPG 3PT F record.
-// Box lines are only stored for ~0.15% of games (hidden reconstructions) until the
-// spectator finals backfill runs, so scoring cells render "\u2014" when boxedGp === 0 —
-// NEVER zeros, which would read as a player scoring nothing in their finals. PPG uses
-// boxedGp as the denominator (the scoring rate where measured). W/L is attributed from
-// scores + side and is complete today.
-function renderFinalsPanel(cs){
+// Finals row (StatTrack 0.72). ONE row under the career strip, COLUMN-ALIGNED with
+// it: .cstat is flex:1, so alignment is purely a matter of equal cell counts in the
+// same order. The career strip's optional cells (FO, record, Finals, GF, GFW, F/Ssn)
+// are mirrored here — finals record under the career record, empty placeholder cells
+// under columns with no finals equivalent. The caller passes which optional cells the
+// strip rendered; change one, change both.
+// Gate: renders ONLY when finalsStats.gp > 0 (pipeline also deletes the block at 0,
+// so all-forfeit-finals players show nothing). Scoring cells render "\u2014" when no
+// box lines exist (boxedGp === 0) — never zeros; PPG divides by boxedGp.
+function renderFinalsPanel(cs,cols){
   const f=cs.finalsStats;
   if(!f||!(f.gp>0))return'';
+  cols=cols||{};
   const bg=f.boxedGp||0;
   const box=(v)=>bg>0?v:'\u2014';
   const ppg=bg>0?(f.pts/bg).toFixed(1):'\u2014';
+  const cell=(v,l)=>`<div class="cstat"><div class="csv">${v}</div><div class="csl">${l}</div></div>`;
+  const blank='<div class="cstat"></div>';
   const rec=(f.wins||f.losses||f.draws)?`${f.wins?`<span style="color:var(--win)">${f.wins}W</span>`:''}${f.losses?`<span style="color:var(--loss)">${f.losses}L</span>`:''}${f.draws?`<span style="color:var(--draw)">${f.draws}D</span>`:''}`:'\u2014';
+  const recCell=`<div class="cstat"><div class="csv" style="font-size:0.75rem;display:flex;gap:4px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${rec}</div><div class="csl">${(f.wins+f.losses)>0?Math.round(100*f.wins/(f.wins+f.losses))+'%':''}</div></div>`;
   const partial=bg>0&&bg<f.gp?`<div style="padding:2px 2px 0;font-size:0.62rem;color:var(--text3)">scoring from ${bg} of ${f.gp} finals with box scores</div>`:'';
   return `<div class="sec-lbl" style="margin-top:2px">Finals</div><div class="cstats">
-    <div class="cstat"><div class="csv">${f.gp}</div><div class="csl">GP</div></div>
-    <div class="cstat"><div class="csv">${box(f.pts)}</div><div class="csl">PTS</div></div>
-    <div class="cstat"><div class="csv">${ppg}</div><div class="csl">PPG</div></div>
-    <div class="cstat"><div class="csv">${box(f.threePt||0)}</div><div class="csl">3PT</div></div>
-    <div class="cstat"><div class="csv">${box(f.fouls||0)}</div><div class="csl">F</div></div>
-    <div class="cstat"><div class="csv" style="font-size:0.75rem;display:flex;gap:4px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${rec}</div><div class="csl">${(f.wins+f.losses)>0?Math.round(100*f.wins/(f.wins+f.losses))+'%':''}</div></div>
+    ${cell(f.gp,'GP')}${cell(box(f.pts),'PTS')}${cell(ppg,'PPG')}${cell(box(f.threePt||0),'3PT')}${cell(box(f.fouls||0),'F')}${cols.fo?blank:''}${cols.rec?recCell:''}${cols.fin?blank:''}${cols.gf?blank:''}${cols.gfw?blank:''}${cols.fssn?blank:''}
   </div>${partial}`;
 }
 
@@ -1041,7 +1041,7 @@ function renderPlayer(p){
     <div class="cstat"><div class="csv">${gfWins}</div><div class="csl">GFW</div></div>`:''}${finalsPS!==null?`
     <div class="cstat"><div class="csv">${finalsPS.toFixed(2)}</div><div class="csl">F/Ssn</div></div>`:''}
   </div>`;
-  h+=renderFinalsPanel(cs);
+  h+=renderFinalsPanel(cs,{fo:foulOuts>0,rec:!!(careerW||careerL),fin:finals>0,gf:gfApps>0,gfw:gfWins>0,fssn:finalsPS!==null});
   if(upcoming.length){
     h+=`<div class="upsec"><div class="uplbl">\u26a1 Upcoming</div>`;
     for(const t of upcoming){
