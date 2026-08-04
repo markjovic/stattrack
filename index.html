@@ -322,7 +322,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.69</span>
+      <span class="rail-ver">Beta 0.70</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -981,6 +981,27 @@ function renderGradeSnapshot(seasons){
   return h+'</div>';
 }
 
+// Finals performance vs career (StatTrack 0.70). Data: sports.Basketball.finalsStats
+// {gp,pts,threePt,fouls}, written by build-finals-stats.js (forfeits excluded).
+// Renders nothing until the full finals run has populated the block.
+function renderFinalsPanel(cs){
+  const f=cs.finalsStats;
+  if(!f||!(f.gp>0))return'';
+  const cGp=cs.gp||0,cPts=cs.pts||0,cTp=cs.threePt||0,cF=cs.fouls||0;
+  const cPpg=cGp?cPts/cGp:0,fPpg=f.gp?f.pts/f.gp:0;
+  const d=Math.round((fPpg-cPpg)*10)/10;
+  const up=d>0;
+  const verdict=d===0?'Matches career scoring in finals':`${up?'+':''}${d.toFixed(1)} PPG in finals vs career`;
+  const hdr=['GP','PPG','PTS','3PT','F'].map(l=>`<div style="flex:1;text-align:center;font-size:0.62rem;color:var(--text3);letter-spacing:0.04em">${l}</div>`).join('');
+  const row=(lbl,vals,hl)=>`<div style="display:flex;align-items:center;padding:6px 0;border-top:0.5px solid var(--border-strong)"><div style="flex:2;font-size:0.72rem;color:${hl?'var(--text-primary)':'var(--text3)'};font-weight:${hl?'600':'400'}">${lbl}</div>${vals.map(v=>`<div style="flex:1;text-align:center;font-variant-numeric:tabular-nums;font-size:0.8rem;${hl?'font-weight:600':''}">${v}</div>`).join('')}</div>`;
+  return `<div class="slist"><div class="sec-lbl">Finals performance</div><div style="padding:2px 2px 8px">
+    <div style="display:flex;align-items:center;padding:2px 0"><div style="flex:2"></div>${hdr}</div>
+    ${row('Career',[cGp,cPpg.toFixed(1),cPts,cTp,cF],false)}
+    ${row('Finals',[f.gp,fPpg.toFixed(1),f.pts,f.threePt||0,f.fouls||0],true)}
+    <div style="padding-top:7px;font-size:0.72rem;color:${up?'var(--win)':'var(--text3)'};font-weight:${up?'600':'400'}">${up?'\ud83d\udd25 ':''}${verdict}</div>
+  </div></div>`;
+}
+
 function renderPlayer(p){
   const ve=el('view-player');
   const uuid=p.uuid;
@@ -1015,6 +1036,7 @@ function renderPlayer(p){
     <div class="cstat"><div class="csv">${gfWins}</div><div class="csl">GFW</div></div>`:''}${finalsPS!==null?`
     <div class="cstat"><div class="csv">${finalsPS.toFixed(2)}</div><div class="csl">F/Ssn</div></div>`:''}
   </div>`;
+  h+=renderFinalsPanel(cs);
   if(upcoming.length){
     h+=`<div class="upsec"><div class="uplbl">\u26a1 Upcoming</div>`;
     for(const t of upcoming){
