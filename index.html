@@ -322,7 +322,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.70</span>
+      <span class="rail-ver">Beta 0.71</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -981,25 +981,30 @@ function renderGradeSnapshot(seasons){
   return h+'</div>';
 }
 
-// Finals performance vs career (StatTrack 0.70). Data: sports.Basketball.finalsStats
-// {gp,pts,threePt,fouls}, written by build-finals-stats.js (forfeits excluded).
-// Renders nothing until the full finals run has populated the block.
+// Finals row (StatTrack 0.71). Data: sports.Basketball.finalsStats
+// {gp, boxedGp, pts, threePt, fouls, wins, losses, draws} from build-finals-stats.js.
+// ONE row, mirroring the career strip's columns: GP PTS PPG 3PT F record.
+// Box lines are only stored for ~0.15% of games (hidden reconstructions) until the
+// spectator finals backfill runs, so scoring cells render "\u2014" when boxedGp === 0 —
+// NEVER zeros, which would read as a player scoring nothing in their finals. PPG uses
+// boxedGp as the denominator (the scoring rate where measured). W/L is attributed from
+// scores + side and is complete today.
 function renderFinalsPanel(cs){
   const f=cs.finalsStats;
   if(!f||!(f.gp>0))return'';
-  const cGp=cs.gp||0,cPts=cs.pts||0,cTp=cs.threePt||0,cF=cs.fouls||0;
-  const cPpg=cGp?cPts/cGp:0,fPpg=f.gp?f.pts/f.gp:0;
-  const d=Math.round((fPpg-cPpg)*10)/10;
-  const up=d>0;
-  const verdict=d===0?'Matches career scoring in finals':`${up?'+':''}${d.toFixed(1)} PPG in finals vs career`;
-  const hdr=['GP','PPG','PTS','3PT','F'].map(l=>`<div style="flex:1;text-align:center;font-size:0.62rem;color:var(--text3);letter-spacing:0.04em">${l}</div>`).join('');
-  const row=(lbl,vals,hl)=>`<div style="display:flex;align-items:center;padding:6px 0;border-top:0.5px solid var(--border-strong)"><div style="flex:2;font-size:0.72rem;color:${hl?'var(--text-primary)':'var(--text3)'};font-weight:${hl?'600':'400'}">${lbl}</div>${vals.map(v=>`<div style="flex:1;text-align:center;font-variant-numeric:tabular-nums;font-size:0.8rem;${hl?'font-weight:600':''}">${v}</div>`).join('')}</div>`;
-  return `<div class="slist"><div class="sec-lbl">Finals performance</div><div style="padding:2px 2px 8px">
-    <div style="display:flex;align-items:center;padding:2px 0"><div style="flex:2"></div>${hdr}</div>
-    ${row('Career',[cGp,cPpg.toFixed(1),cPts,cTp,cF],false)}
-    ${row('Finals',[f.gp,fPpg.toFixed(1),f.pts,f.threePt||0,f.fouls||0],true)}
-    <div style="padding-top:7px;font-size:0.72rem;color:${up?'var(--win)':'var(--text3)'};font-weight:${up?'600':'400'}">${up?'\ud83d\udd25 ':''}${verdict}</div>
-  </div></div>`;
+  const bg=f.boxedGp||0;
+  const box=(v)=>bg>0?v:'\u2014';
+  const ppg=bg>0?(f.pts/bg).toFixed(1):'\u2014';
+  const rec=(f.wins||f.losses||f.draws)?`${f.wins?`<span style="color:var(--win)">${f.wins}W</span>`:''}${f.losses?`<span style="color:var(--loss)">${f.losses}L</span>`:''}${f.draws?`<span style="color:var(--draw)">${f.draws}D</span>`:''}`:'\u2014';
+  const partial=bg>0&&bg<f.gp?`<div style="padding:2px 2px 0;font-size:0.62rem;color:var(--text3)">scoring from ${bg} of ${f.gp} finals with box scores</div>`:'';
+  return `<div class="sec-lbl" style="margin-top:2px">Finals</div><div class="cstats">
+    <div class="cstat"><div class="csv">${f.gp}</div><div class="csl">GP</div></div>
+    <div class="cstat"><div class="csv">${box(f.pts)}</div><div class="csl">PTS</div></div>
+    <div class="cstat"><div class="csv">${ppg}</div><div class="csl">PPG</div></div>
+    <div class="cstat"><div class="csv">${box(f.threePt||0)}</div><div class="csl">3PT</div></div>
+    <div class="cstat"><div class="csv">${box(f.fouls||0)}</div><div class="csl">F</div></div>
+    <div class="cstat"><div class="csv" style="font-size:0.75rem;display:flex;gap:4px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${rec}</div><div class="csl">${(f.wins+f.losses)>0?Math.round(100*f.wins/(f.wins+f.losses))+'%':''}</div></div>
+  </div>${partial}`;
 }
 
 function renderPlayer(p){
