@@ -322,7 +322,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.72</span>
+      <span class="rail-ver">Beta 0.73</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -997,14 +997,40 @@ function renderFinalsPanel(cs,cols){
   const bg=f.boxedGp||0;
   const box=(v)=>bg>0?v:'\u2014';
   const ppg=bg>0?(f.pts/bg).toFixed(1):'\u2014';
-  const cell=(v,l)=>`<div class="cstat"><div class="csv">${v}</div><div class="csl">${l}</div></div>`;
+  const cell=(v,l,id)=>`<div class="cstat"><div class="csv"${id?` id="${id}"`:''}>${v}</div><div class="csl">${l}</div></div>`;
   const blank='<div class="cstat"></div>';
   const rec=(f.wins||f.losses||f.draws)?`${f.wins?`<span style="color:var(--win)">${f.wins}W</span>`:''}${f.losses?`<span style="color:var(--loss)">${f.losses}L</span>`:''}${f.draws?`<span style="color:var(--draw)">${f.draws}D</span>`:''}`:'\u2014';
   const recCell=`<div class="cstat"><div class="csv" style="font-size:0.75rem;display:flex;gap:4px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${rec}</div><div class="csl">${(f.wins+f.losses)>0?Math.round(100*f.wins/(f.wins+f.losses))+'%':''}</div></div>`;
-  const partial=bg>0&&bg<f.gp?`<div style="padding:2px 2px 0;font-size:0.62rem;color:var(--text3)">scoring from ${bg} of ${f.gp} finals with box scores</div>`:'';
+  const partial=bg>0&&bg<f.gp?`scoring from ${bg} of ${f.gp} finals with box scores`:'';
   return `<div class="sec-lbl" style="margin-top:2px">Finals</div><div class="cstats">
-    ${cell(f.gp,'GP')}${cell(box(f.pts),'PTS')}${cell(ppg,'PPG')}${cell(box(f.threePt||0),'3PT')}${cell(box(f.fouls||0),'F')}${cols.fo?blank:''}${cols.rec?recCell:''}${cols.fin?blank:''}${cols.gf?blank:''}${cols.gfw?blank:''}${cols.fssn?blank:''}
-  </div>${partial}`;
+    ${cell(f.gp,'GP')}${cell(box(f.pts),'PTS','fsv-pts')}${cell(ppg,'PPG','fsv-ppg')}${cell(box(f.threePt||0),'3PT','fsv-3pt')}${cell(box(f.fouls||0),'F','fsv-f')}${cols.fo?blank:''}${cols.rec?recCell:''}${cols.fin?blank:''}${cols.gf?blank:''}${cols.gfw?blank:''}${cols.fssn?blank:''}
+  </div><div id="fs-note" style="padding:2px 2px 0;font-size:0.62rem;color:var(--text3)">${partial}</div>`;
+}
+
+// Finals SCORING is hydrated at runtime, not stored. Box lines live in the spectator
+// API (proxied by the Worker) and are only persisted for hidden-game reconstructions —
+// 10 of 6,501 games in a live season file. build-finals-stats writes the finals GIDS
+// onto the player; this fetches exactly those games (5-ish per player, cached in
+// S.boxes and shared with the game sheet) and sums the player's own lines. Same
+// zero-data-cost pattern as the 0.65/0.66 opposition views.
+async function hydrateFinals(uuid,f){
+  const gids=f&&f.gids;
+  if(!gids||!gids.length)return;
+  const note=document.getElementById('fs-note');
+  if(note&&!(f.boxedGp>0))note.textContent='loading finals box scores\u2026';
+  const boxes=await Promise.all(gids.map(g=>fetchBox(g)));
+  if(S.playerUuid!==uuid)return;                       // navigated away mid-fetch
+  let n=0,pts=0,tp=0,fl=0;
+  for(const bs of boxes){
+    if(!bs)continue;
+    const mine=[...(bs.h||[]),...(bs.a||[])].find(x=>matchP(x.profileID,uuid));
+    if(!mine)continue;
+    n++;pts+=mine.pts||0;tp+=mine.pt3||0;fl+=mine.fouls||0;
+  }
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  if(!n){if(note)note.textContent='no box scores available for these finals';return;}
+  set('fsv-pts',pts);set('fsv-ppg',(pts/n).toFixed(1));set('fsv-3pt',tp);set('fsv-f',fl);
+  if(note)note.textContent=n<gids.length?`scoring from ${n} of ${gids.length} finals with box scores`:'';
 }
 
 function renderPlayer(p){
@@ -1106,6 +1132,7 @@ function renderPlayer(p){
   ve.innerHTML=h;
   // Store groups on element for toggleGames
   ve._groups=groups;
+  if(cs.finalsStats)hydrateFinals(uuid,cs.finalsStats);
 }
 
 async function toggleGames(hdr){
