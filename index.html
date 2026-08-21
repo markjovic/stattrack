@@ -71,6 +71,16 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .vback{color:var(--accent);font-size:0.83rem;padding:3px 0;white-space:nowrap;flex-shrink:0;margin-top:2px}
 .vback:hover{opacity:0.75}
 .vtitle{font-size:1.05rem;font-weight:600;line-height:1.3}
+/* The player's uuid, on the page (2026-08-21). PlayHQ issues more than one profile
+   for some people — Tahlia Parker has an api-id file carrying the credits with no
+   season names, and a spectator-id file carrying the full names, holding 385 of the
+   same games between them. Two pages titled identically, and no way to tell which
+   is which without opening devtools. It is also the id the PlayHQ link uses, so it
+   is exactly what you need when one of the two resolves and the other does not.
+   Click to copy. */
+.vuuid{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.62rem;color:var(--text3);
+  margin-top:3px;cursor:pointer;user-select:all;letter-spacing:-0.2px}
+.vuuid:hover{color:var(--text2)}
 .vsub{font-size:0.78rem;color:var(--text2);margin-top:2px}
 
 .avi{width:44px;height:44px;border-radius:50%;background:var(--elevated);border:2px solid var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:0.95rem;font-weight:700;color:var(--accent);flex-shrink:0}
@@ -341,7 +351,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.76</span>
+      <span class="rail-ver">Beta 0.77</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1087,6 +1097,7 @@ function renderPlayer(p){
     <div class="avi">${esc(inits(p.name))}</div>
     <div style="flex:1;min-width:0"><div class="vtitle">${esc(displayName(p,uuid))}${privBadge(p)}</div>
     <div class="vsub">${esc([p.gender,club].filter(Boolean).join(' \u00b7 '))}</div>
+    <div class="vuuid" title="Click to copy" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(uuid)}')">${esc(uuid)}</div>
     ${isPrivate(p)?'':`<a class="phq-lnk" href="https://www.playhq.com/public/profile/${esc(uuid)}/statistics" target="_blank" rel="noopener" style="display:inline-flex;margin:4px 0 0;padding:3px 8px;font-size:0.72rem">View on PlayHQ \u2197</a>`}
     </div></div>`;
   // A PRIVATE profile publishes no statistics, so every OFFICIAL cell shows an em
