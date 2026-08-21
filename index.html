@@ -76,6 +76,14 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .avi{width:44px;height:44px;border-radius:50%;background:var(--elevated);border:2px solid var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:0.95rem;font-weight:700;color:var(--accent);flex-shrink:0}
 
 .cstats{display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+/* Recorded-appearance bar (2026-08-21). Sits UNDER .cstats, separated by a dashed
+   rule so it reads as a second source rather than another PlayHQ column. Accent
+   colour marks it as ours; PlayHQ's row stays full-brightness above it. */
+.recbar{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;
+  padding:7px 12px 9px;background:var(--surface);border-top:1px dashed var(--border)}
+.recbar-l{font-size:0.62rem;color:var(--text3);letter-spacing:.06em;text-transform:uppercase}
+.recbar-v{font-size:0.92rem;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+.recbar-n{font-size:0.66rem;color:var(--text2)}
 .cstat{flex:1;min-width:56px;padding:11px 6px;text-align:center;border-right:1px solid var(--border)}
 .cstat:last-child{border-right:none}
 .csv{font-size:1.05rem;font-weight:700;font-variant-numeric:tabular-nums}
@@ -1072,12 +1080,18 @@ function renderPlayer(p){
     <div class="vsub">${esc([p.gender,club].filter(Boolean).join(' \u00b7 '))}</div>
     ${isPrivate(p)?'':`<a class="phq-lnk" href="https://www.playhq.com/public/profile/${esc(uuid)}/statistics" target="_blank" rel="noopener" style="display:inline-flex;margin:4px 0 0;padding:3px 8px;font-size:0.72rem">View on PlayHQ \u2197</a>`}
     </div></div>`;
+  // A PRIVATE profile publishes no statistics, so every OFFICIAL cell shows an em
+  // dash rather than 0 (decision 2026-08-21). A zero is a claim that they played
+  // none and scored none; a dash says PlayHQ publishes nothing. 3,140 players
+  // currently read as though they never played. The recorded-appearance line below
+  // is then the only figure they carry, which is the point of showing it.
+  const OFF=v=>isPrivate(p)?'\u2014':v;
   h+=`<div class="cstats">
-    <div class="cstat"><div class="csv">${gp}</div><div class="csl">GP</div></div>
-    <div class="cstat"><div class="csv">${pts}</div><div class="csl">PTS</div></div>
-    <div class="cstat"><div class="csv">${avg(pts,gp)}</div><div class="csl">PPG</div></div>
-    <div class="cstat"><div class="csv">${tp}</div><div class="csl">3PT</div></div>
-    <div class="cstat"><div class="csv">${fouls}</div><div class="csl">F</div></div>${foulOuts>0?`
+    <div class="cstat"><div class="csv">${OFF(gp)}</div><div class="csl">GP</div></div>
+    <div class="cstat"><div class="csv">${OFF(pts)}</div><div class="csl">PTS</div></div>
+    <div class="cstat"><div class="csv">${OFF(avg(pts,gp))}</div><div class="csl">PPG</div></div>
+    <div class="cstat"><div class="csv">${OFF(tp)}</div><div class="csl">3PT</div></div>
+    <div class="cstat"><div class="csv">${OFF(fouls)}</div><div class="csl">F</div></div>${foulOuts>0?`
     <div class="cstat"><div class="csv">${foulOuts}</div><div class="csl">FO</div></div>`:''}${careerW||careerL?`
     <div class="cstat"><div class="csv" style="font-size:0.75rem;display:flex;gap:4px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${careerW?`<span style="color:var(--win)">${careerW}W</span>`:''}${careerL?`<span style="color:var(--loss)">${careerL}L</span>`:''}${careerD?`<span style="color:var(--draw)">${careerD}D</span>`:''}</div><div class="csl">${winPct??''}</div></div>`:''}${finals>0?`
     <div class="cstat"><div class="csv">${finals}</div><div class="csl">Finals</div></div>`:''}${gfApps>0?`
@@ -1085,6 +1099,34 @@ function renderPlayer(p){
     <div class="cstat"><div class="csv">${gfWins}</div><div class="csl">GFW</div></div>`:''}${finalsPS!==null?`
     <div class="cstat"><div class="csv">${finalsPS.toFixed(2)}</div><div class="csl">F/Ssn</div></div>`:''}
   </div>`;
+  // ── OFFICIAL vs RECORDED (design decision 2026-08-21) ──────────────────────
+  // Two independent numbers live on every player and nothing reconciled them:
+  //   cs.gp      PlayHQ's credited career total (summed from reg.stats.gp)
+  //   p.games[]  appearances built from p[] team sheets
+  // For 39,834 non-private players games[] is LARGER, by 82,424 appearances. The
+  // rosters were verified against PlayHQ's own API on 2026-08-18 and
+  // publicProfileTeams confirms no registration exists for those teams, so both
+  // numbers are right — a fill-in plays a real game for a team they never joined.
+  //
+  // PlayHQ stays canonical: its row above is unmodified and no leaderboard changes
+  // source. This line sits BESIDE it. It is free — games[].length is already loaded
+  // — and exact, which is why only APPEARANCES appear here. Recorded SCORING needs
+  // every box score fetched through the Worker, so it belongs on the season card
+  // where a fetch already happens.
+  //
+  // Private profiles: cstats renders \u2014 for every official stat rather than 0,
+  // because a zero claims they played none while a dash says PlayHQ publishes
+  // nothing. This line is then the only figure they have.
+  const recApps=Array.isArray(p.games)?p.games.length:0;
+  if(recApps||isPrivate(p)){
+    const uncredited=recApps-gp;
+    h+=`<div class="recbar">
+      <span class="recbar-l">Recorded appearances</span>
+      <span class="recbar-v">${recApps}</span>${(!isPrivate(p)&&uncredited>0)?`
+      <span class="recbar-n">\u00b7 ${uncredited} not credited by PlayHQ</span>`:''}${isPrivate(p)?`
+      <span class="recbar-n">\u00b7 from published team sheets</span>`:''}
+    </div>`;
+  }
   h+=renderFinalsPanel(cs,{fo:foulOuts>0,rec:!!(careerW||careerL),fin:finals>0,gf:gfApps>0,gfw:gfWins>0,fssn:finalsPS!==null});
   if(upcoming.length){
     h+=`<div class="upsec"><div class="uplbl">\u26a1 Upcoming</div>`;
