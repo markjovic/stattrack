@@ -351,7 +351,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.77</span>
+      <span class="rail-ver">Beta 0.78</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1175,11 +1175,35 @@ function renderPlayer(p){
       gfApps:Math.max(a.gfApps||0,s.gfApps??0),
       gfWins:Math.max(a.gfWins||0,s.gfWins??0)
     };},{});
+    // ── GP FROM games[] WHEN THE REG HAS NO STATS ────────────────────────────
+    // reg.stats is written by fetch-profile-stats from PlayHQ's per-season figures.
+    // A season back-filled from the API's stats response carries a tid and often
+    // {wins,losses} but NO gp — so the card rendered "0 GP" for a player who had
+    // played 27 games. Tahlia Parker showed 1 populated season out of 30 against a
+    // career of 389.
+    //
+    // The file already holds the answer: gameTids maps every gid in games[] to the
+    // team it was played for. Counting the player's own games against this card's
+    // tid is EXACT, costs nothing, and needs no fetch.
+    //
+    // PlayHQ's figure still wins where it exists — it is canonical, and a game we
+    // hold that PlayHQ does not credit must not silently inflate a season total.
+    // This fills a HOLE; it never overwrites.
+    let gpFromGames=0;
+    {
+      const gt=p.gameTids||{};
+      const mine=Array.isArray(p.games)?p.games:[];
+      const tids=new Set(regs.map(r=>r.tid).filter(Boolean));
+      for(const gid of mine) if(tids.has(gt[gid])) gpFromGames++;
+    }
+    const stGp=st.gp||gpFromGames;
+    const gpIsOurs=!st.gp&&gpFromGames>0;
+
     // All grade names joined — no assumption about order
     const allGrades=abbreviateGrades([...new Set(regs.map(r=>r.gn||r.tn||'?'))]);
     const cid=`sc-${gi}`;
     const teamLink=`<span class="sc-grade" onclick="event.stopPropagation();loadTeam('${esc(tid)}','${esc(sn.sid)}')">${esc(allGrades)} \u2192</span>`;
-    const ppg=st.gp?(st.pts/st.gp).toFixed(1):'\u2014';
+    const ppg=st.gp?(st.pts/st.gp).toFixed(1):'\u2014';   // PPG only where PlayHQ gave both
     // W/L/D is per sid:tid — all regs with same tid have the same value.
     // Take from first reg only to avoid multiplication when regraded (multiple regs, same tid).
     const _wldReg=regs[0]?.stats;
@@ -1204,7 +1228,7 @@ function renderPlayer(p){
             </div>
           </div>
         </div>
-        <div style="flex:7;min-width:0;display:flex;flex-direction:row">${[[st.gp||0,'GP',null],[ppg,'PPG',null],[st.pts||0,'PTS',null],[st.fg||0,'FG',null],[st.ft||0,'FT',null],[st.threePt||0,'3PT',null],[st.fouls||0,'F',null]].map(([v,l,c],i)=>statCell(v,l,i===6,c)).join('')}${regW||regL?`<div class="sstat"><div class="ssv" style="font-size:0.68rem;display:flex;gap:3px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${regW?`<span style="color:var(--win)">${regW}W</span>`:''}${regL?`<span style="color:var(--loss)">${regL}L</span>`:''}${regD?`<span style="color:var(--draw)">${regD}D</span>`:''}</div><div class="ssl">${regWinPct??''}</div></div>`:''}</div>
+        <div style="flex:7;min-width:0;display:flex;flex-direction:row">${[[stGp||0,'GP',gpIsOurs?'var(--accent)':null],[ppg,'PPG',null],[st.pts||0,'PTS',null],[st.fg||0,'FG',null],[st.ft||0,'FT',null],[st.threePt||0,'3PT',null],[st.fouls||0,'F',null]].map(([v,l,c],i)=>statCell(v,l,i===6,c)).join('')}${regW||regL?`<div class="sstat"><div class="ssv" style="font-size:0.68rem;display:flex;gap:3px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${regW?`<span style="color:var(--win)">${regW}W</span>`:''}${regL?`<span style="color:var(--loss)">${regL}L</span>`:''}${regD?`<span style="color:var(--draw)">${regD}D</span>`:''}</div><div class="ssl">${regWinPct??''}</div></div>`:''}</div>
       </div>
       <div class="sc-games" id="${esc(cid)}-g"></div>
     </div>`;
