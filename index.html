@@ -1245,7 +1245,7 @@ function renderPlayer(p){
             </div>
           </div>
         </div>
-        <div style="flex:7;min-width:0;display:flex;flex-direction:row">${[[stGp||0,'GP',gpIsOurs?'var(--accent)':null],[ppg,'PPG',null],[st.pts||0,'PTS',null],[st.fg||0,'FG',null],[st.ft||0,'FT',null],[st.threePt||0,'3PT',null],[st.fouls||0,'F',null]].map(([v,l,c],i)=>statCell(v,l,i===6,c)).join('')}${regW||regL?`<div class="sstat"><div class="ssv" style="font-size:0.68rem;display:flex;gap:3px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${regW?`<span style="color:var(--win)">${regW}W</span>`:''}${regL?`<span style="color:var(--loss)">${regL}L</span>`:''}${regD?`<span style="color:var(--draw)">${regD}D</span>`:''}</div><div class="ssl">${regWinPct??''}</div></div>`:''}</div>
+        <div style="flex:7;min-width:0;display:flex;flex-direction:row">${[[stGp||0,'GP',gpIsOurs?'var(--accent)':null],[ppg,'PPG',null],[st.pts||0,'PTS',null],[st.fg||0,'FG',null],[st.ft||0,'FT',null],[st.threePt||0,'3PT',null],[st.fouls||0,'F',null]].map(([v,l,c],i)=>statCell(v,l,i===6,c)).join('')}${`<div class="sstat"><div class="ssv" style="font-size:0.68rem;display:flex;gap:3px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${(regW||regL||regD)?`${regW?`<span style="color:var(--win)">${regW}W</span>`:''}${regL?`<span style="color:var(--loss)">${regL}L</span>`:''}${regD?`<span style="color:var(--draw)">${regD}D</span>`:''}`:'<span style="color:var(--text3)">\u2014</span>'}</div><div class="ssl">${regWinPct??''}</div></div>`}</div>
       </div>
       <div class="sc-games" id="${esc(cid)}-g"></div>
     </div>`;
@@ -1548,9 +1548,16 @@ async function toggleGames(hdr){
     .sort(([,a],[,b])=>(b.d||'').localeCompare(a.d||''));
   if(!pg.length){ge.innerHTML='<div class="load-row">No game records found.</div>';ge.dataset.loaded='1';return;}
   const allRegGradeNames=regs.map(r=>r.gn||r.tn||'').filter(Boolean);
-  // Mirror of the header's W/L-cell condition (regW||regL from regs[0].stats):
+  // Mirror of the header's W/L cell. ⚠️ 2026-09-13: the header's cell is now
+  // UNCONDITIONAL — it used to be `${regW||regL?…:''}` and emitted NOTHING when a
+  // team had played no games, leaving the flex row with seven children instead of
+  // eight so every other column stretched and fell out of line with the rows above
+  // and below it. A pre-season team has no wins and no losses by definition, so the
+  // whole season card misaligned. The header now always renders the cell, showing an
+  // em dash when there is nothing in it. This pad MUST match it or the game rows
+  // underneath sit one column short of their own header.
   // when the header renders 8 columns, every game row pads to 8.
-  const _hs=regs[0]?.stats;const padWld=!!((_hs?.wins)||(_hs?.losses));
+  const padWld=true;
   // Games PlayHQ does NOT credit, marked in place. Without this the same game
   // appears twice on one card with no connection between them: as an ordinary row
   // here, and again under "Credit differences" as not credited. The season
