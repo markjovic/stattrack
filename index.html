@@ -372,7 +372,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   <div id="rail">
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
-      <span class="rail-ver">Beta 0.87</span>
+      <span class="rail-ver">Beta 0.88</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -850,286 +850,22 @@ function applyHash(){
   return false;
 }
 
-/* ── QR (byte mode, ECC M, versions 1-10) ─────────────────────────────────────
-   Embedded rather than fetched from an image service: a share link names a child
-   and their club, and sending that to a third party for rendering is not a trade
-   worth making. Verified before embedding — finder/timing/alignment placement,
-   format bits decoding back to ECC M with the chosen mask, Reed-Solomon syndromes
-   zero on every block against independently built GF(256) tables, and the payload
-   round-tripping out of the de-interleaved data, across five payloads from 1 byte
-   to 200. */
-// ─── Per-version tables, ECC level M only ────────────────────────────────────
-// [ecCodewordsPerBlock, [ [blockCount, dataCodewordsPerBlock], ... ] ]
-const RS = {
-  1:  [10, [[1, 16]]],
-  2:  [16, [[1, 28]]],
-  3:  [26, [[1, 44]]],
-  4:  [18, [[2, 32]]],
-  5:  [24, [[2, 43]]],
-  6:  [16, [[4, 27]]],
-  7:  [18, [[4, 31]]],
-  8:  [22, [[2, 38], [2, 39]]],
-  9:  [22, [[3, 36], [2, 37]]],
-  10: [26, [[4, 43], [1, 44]]],
-};
-const ALIGN = {
-  1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30],
-  6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50],
-};
-
-// ─── GF(256), primitive polynomial 0x11d ─────────────────────────────────────
-const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
-(() => {
-  let x = 1;
-  for (let i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
-  for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
-})();
-const mul = (a, b) => (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
-
-function rsGenerator(n) {
-  let g = [1];
-  for (let i = 0; i < n; i++) {
-    const next = new Array(g.length + 1).fill(0);
-    for (let j = 0; j < g.length; j++) {
-      next[j] ^= mul(g[j], 1);
-      next[j + 1] ^= mul(g[j], EXP[i]);
-    }
-    g = next;
-  }
-  return g;
-}
-function rsEncode(data, ecLen) {
-  const gen = rsGenerator(ecLen);
-  const res = new Array(ecLen).fill(0);
-  for (const byte of data) {
-    const factor = byte ^ res[0];
-    res.shift(); res.push(0);
-    for (let i = 0; i < ecLen; i++) res[i] ^= mul(gen[i + 1], factor);
-  }
-  return res;
-}
-
-// ─── BCH, for format and version information ─────────────────────────────────
-function bch(data, poly, bits) {
-  let d = data << bits;
-  const deg = Math.floor(Math.log2(poly));
-  while (Math.floor(Math.log2(d)) >= deg) d ^= poly << (Math.floor(Math.log2(d)) - deg);
-  return (data << bits) | d;
-}
-// Format: 5 data bits (2 ecc level + 3 mask) -> 15 bits, XOR 0x5412.
-// ECC M is encoded as 00 in the format string (L=01, M=00, Q=11, H=10).
-const formatBits = (mask) => bch((0b00 << 3) | mask, 0b10100110111, 10) ^ 0b101010000010010;
-// Version: 6 data bits -> 18 bits. Only used from version 7.
-const versionBits = (v) => bch(v, 0b1111100100101, 12);
-
-// ─── Encoding ────────────────────────────────────────────────────────────────
-function pickVersion(len) {
-  for (let v = 1; v <= 10; v++) {
-    const [ec, groups] = RS[v];
-    const dataCodewords = groups.reduce((t, [n, d]) => t + n * d, 0);
-    const countBits = v < 10 ? 8 : 16;
-    if (4 + countBits + 8 * len <= dataCodewords * 8) return v;
-  }
-  throw new Error(`payload too long for version 10 at ECC M (${len} bytes)`);
-}
-
-function buildCodewords(bytes, version) {
-  const [ecLen, groups] = RS[version];
-  const dataCodewords = groups.reduce((t, [n, d]) => t + n * d, 0);
-  const countBits = version < 10 ? 8 : 16;
-
-  // Bit stream: mode 0100, character count, payload.
-  const bits = [];
-  const push = (val, n) => { for (let i = n - 1; i >= 0; i--) bits.push((val >> i) & 1); };
-  push(0b0100, 4);
-  push(bytes.length, countBits);
-  for (const b of bytes) push(b, 8);
-
-  // Terminator, up to four zero bits, then pad to a byte boundary.
-  for (let i = 0; i < 4 && bits.length < dataCodewords * 8; i++) bits.push(0);
-  while (bits.length % 8) bits.push(0);
-
-  const data = [];
-  for (let i = 0; i < bits.length; i += 8) {
-    let b = 0; for (let j = 0; j < 8; j++) b = (b << 1) | bits[i + j];
-    data.push(b);
-  }
-  // Pad codewords alternate 0xEC / 0x11 until the data capacity is filled.
-  const PAD = [0xec, 0x11];
-  for (let i = 0; data.length < dataCodewords; i++) data.push(PAD[i % 2]);
-
-  // Split into blocks, compute ECC per block.
-  const dBlocks = [], eBlocks = [];
-  let pos = 0;
-  for (const [count, size] of groups) {
-    for (let i = 0; i < count; i++) {
-      const blk = data.slice(pos, pos + size); pos += size;
-      dBlocks.push(blk);
-      eBlocks.push(rsEncode(blk, ecLen));
-    }
-  }
-  // Interleave: column-major across blocks, data first then ECC.
-  const out = [];
-  const maxD = Math.max(...dBlocks.map(b => b.length));
-  for (let i = 0; i < maxD; i++) for (const b of dBlocks) if (i < b.length) out.push(b[i]);
-  for (let i = 0; i < ecLen; i++) for (const b of eBlocks) out.push(b[i]);
-  return out;
-}
-
-// ─── Matrix ──────────────────────────────────────────────────────────────────
-function makeMatrix(version) {
-  const size = 17 + 4 * version;
-  const m = Array.from({ length: size }, () => new Array(size).fill(null));
-  const fn = Array.from({ length: size }, () => new Array(size).fill(false));
-  const set = (r, c, v) => { m[r][c] = v; fn[r][c] = true; };
-
-  // Finder patterns plus separators.
-  for (const [br, bc] of [[0, 0], [0, size - 7], [size - 7, 0]]) {
-    for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
-      const rr = br + r, cc = bc + c;
-      if (rr < 0 || cc < 0 || rr >= size || cc >= size) continue;
-      const on = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
-                 (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
-                 (r >= 2 && r <= 4 && c >= 2 && c <= 4);
-      set(rr, cc, on ? 1 : 0);
-    }
-  }
-  // Timing patterns.
-  for (let i = 8; i < size - 8; i++) { set(6, i, i % 2 === 0 ? 1 : 0); set(i, 6, i % 2 === 0 ? 1 : 0); }
-  // Alignment patterns, skipping the three finder corners.
-  const ac = ALIGN[version];
-  for (const r of ac) for (const c of ac) {
-    if ((r === 6 && c === 6) || (r === 6 && c === ac[ac.length - 1]) || (r === ac[ac.length - 1] && c === 6)) continue;
-    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++)
-      set(r + dr, c + dc, (Math.max(Math.abs(dr), Math.abs(dc)) !== 1) ? 1 : 0);
-  }
-  // Dark module, and reserve the format areas.
-  set(size - 8, 8, 1);
-  for (let i = 0; i < 9; i++) { if (m[8][i] === null) set(8, i, 0); if (m[i][8] === null) set(i, 8, 0); }
-  for (let i = 0; i < 8; i++) { if (m[8][size - 1 - i] === null) set(8, size - 1 - i, 0); if (m[size - 1 - i][8] === null) set(size - 1 - i, 8, 0); }
-  // Version information, versions 7 and above.
-  if (version >= 7) {
-    const vb = versionBits(version);
-    for (let i = 0; i < 18; i++) {
-      const bit = (vb >> i) & 1, a = Math.floor(i / 3), b = i % 3;
-      set(size - 11 + b, a, bit); set(a, size - 11 + b, bit);
-    }
-  }
-  return { m, fn, size };
-}
-
-function placeData(m, fn, size, codewords) {
-  let bitIdx = 0;
-  const bitAt = (i) => (codewords[i >> 3] >> (7 - (i & 7))) & 1;
-  const total = codewords.length * 8;
-  let upward = true;
-  for (let right = size - 1; right >= 1; right -= 2) {
-    if (right === 6) right = 5;   // the vertical timing column is skipped entirely
-    for (let v = 0; v < size; v++) {
-      const row = upward ? size - 1 - v : v;
-      for (const col of [right, right - 1]) {
-        if (fn[row][col]) continue;
-        m[row][col] = bitIdx < total ? bitAt(bitIdx) : 0;
-        bitIdx++;
-      }
-    }
-    upward = !upward;
-  }
-}
-
-const MASKS = [
-  (r, c) => (r + c) % 2 === 0,
-  (r) => r % 2 === 0,
-  (r, c) => c % 3 === 0,
-  (r, c) => (r + c) % 3 === 0,
-  (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
-  (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
-  (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
-  (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0,
-];
-
-function penalty(m, size) {
-  let p = 0;
-  // Rule 1 — runs of five or more in a row or column.
-  for (let i = 0; i < size; i++) {
-    for (const line of [m[i], m.map(r => r[i])]) {
-      let run = 1;
-      for (let j = 1; j < size; j++) {
-        if (line[j] === line[j - 1]) { run++; if (run === 5) p += 3; else if (run > 5) p += 1; }
-        else run = 1;
-      }
-    }
-  }
-  // Rule 2 — 2x2 blocks of one colour.
-  for (let r = 0; r < size - 1; r++) for (let c = 0; c < size - 1; c++)
-    if (m[r][c] === m[r][c + 1] && m[r][c] === m[r + 1][c] && m[r][c] === m[r + 1][c + 1]) p += 3;
-  // Rule 3 — finder-like 1:1:3:1:1 sequences with four light modules either side.
-  const PAT1 = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
-  const PAT2 = [0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1];
-  for (let i = 0; i < size; i++) {
-    const row = m[i], col = m.map(r => r[i]);
-    for (const line of [row, col]) {
-      for (let j = 0; j + 11 <= size; j++) {
-        const seg = line.slice(j, j + 11);
-        if (seg.every((v, k) => v === PAT1[k]) || seg.every((v, k) => v === PAT2[k])) p += 40;
-      }
-    }
-  }
-  // Rule 4 — deviation from an even split of dark and light.
-  let dark = 0;
-  for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) dark += m[r][c];
-  p += Math.floor(Math.abs(dark * 100 / (size * size) - 50) / 5) * 10;
-  return p;
-}
-
-function applyFormat(m, size, mask) {
-  const f = formatBits(mask);
-  for (let i = 0; i < 15; i++) {
-    const bit = (f >> i) & 1;
-    // Copy one: around the top-left finder.
-    if (i < 6)        m[8][i] = bit;
-    else if (i < 8)   m[8][i + 1] = bit;
-    else if (i === 8) m[7][8] = bit;
-    else              m[14 - i][8] = bit;
-    // Copy two: split between the other two finders.
-    if (i < 8) m[size - 1 - i][8] = bit;
-    else       m[8][size - 15 + i] = bit;
-  }
-  m[size - 8][8] = 1;   // the dark module is always set
-}
-
-/** Encode a string as a QR matrix of 0/1. Returns { size, modules }. */
-function qrMatrix(text) {
-  const bytes = Array.from(new TextEncoder().encode(text));
-  const version = pickVersion(bytes.length);
-  const codewords = buildCodewords(bytes, version);
-  let best = null;
-  for (let mask = 0; mask < 8; mask++) {
-    const { m, fn, size } = makeMatrix(version);
-    placeData(m, fn, size, codewords);
-    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
-      if (!fn[r][c] && MASKS[mask](r, c)) m[r][c] ^= 1;
-    applyFormat(m, size, mask);
-    const p = penalty(m, size);
-    if (!best || p < best.p) best = { p, m, size, mask, version };
-  }
-  return { size: best.size, modules: best.m, version: best.version, mask: best.mask };
-}
-function qrSVG(text,px){
-  const {size,modules}=qrMatrix(text);
-  const q=4, dim=size+q*2, cell=px/dim;
-  let path='';
-  for(let r=0;r<size;r++)for(let c=0;c<size;c++)
-    if(modules[r][c])path+=`M${((c+q)*cell).toFixed(2)} ${((r+q)*cell).toFixed(2)}h${cell.toFixed(2)}v${cell.toFixed(2)}h-${cell.toFixed(2)}z`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${px} ${px}" shape-rendering="crispEdges"><rect width="${px}" height="${px}" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
-}
+/* The QR is a STATIC image of the app's home URL, not a generated code for the
+   current view. An encoder was written and embedded on 2026-09-13 and REMOVED the
+   same day: it passed every structural check available offline — finder, timing and
+   alignment placement, format bits decoding back to ECC M, Reed-Solomon syndromes
+   zero against independently built GF(256) tables, payload round-tripping out of
+   the de-interleaved data — and still would not scan on a phone. None of those
+   checks can catch what a real decoder rejects, so it went out untested in the only
+   way that matters. Do not re-add a generated QR without a scan test.
+   Consequence, stated in the sheet itself: the SCAN opens StatTrack, the COPIED
+   LINK opens this exact view. They are deliberately not the same thing. */
 
 /* ── Share sheet ─────────────────────────────────────────────────────────────*/
 function openShare(){
   const url=shareURL();
   el('shurl').textContent=url;
-  try{ el('shqr').innerHTML=qrSVG(url,208); }
-  catch(e){ el('shqr').innerHTML=`<div style="color:#900;font-size:.7rem;padding:8px">QR unavailable</div>`; }
+  el('shqr').innerHTML=`<img src="assets/qr-code.png" alt="QR code to open StatTrack" width="200" height="200" style="display:block;width:200px;height:200px">`;
   el('shcopy').textContent='Copy link';
   el('shwrap').classList.add('on');
 }
@@ -1152,8 +888,9 @@ function showV(id){
   ['view-home','view-player','view-team','view-venue','view-opp','view-leaders'].forEach(v=>el(v).classList.toggle('hidden',v!==id));
   // Scroll main to top on every view change
   const m=el('main');if(m)m.scrollTop=0;
-  // The share button is only meaningful on a view that has its own link.
-  const sb=el('shbtn'); if(sb)sb.classList.toggle('on',id!=='view-home');
+  // Shown on every view INCLUDING home — home is a link worth sharing, it is just
+  // the app itself rather than one player.
+  const sb=el('shbtn'); if(sb)sb.classList.add('on');
   // leaders always fullscreen regardless of device; mobile also fullscreen for non-home
   const fullscreen=id==='view-leaders'||window.innerWidth<=768;
   if(fullscreen){
@@ -3454,11 +3191,12 @@ async function toggleOppStatGames(oppUuid, myUuid) {
 }
 
 </script>
-<button class="shbtn" id="shbtn" onclick="openShare()" title="Share this view">🔗</button>
+<button class="shbtn on" id="shbtn" onclick="openShare()" title="Share this view">🔗</button>
 <div class="shwrap" id="shwrap" onclick="if(event.target===this)closeShare()">
   <div class="shcard">
-    <div class="shttl" id="shttl">Share this view</div>
+    <div class="shttl" id="shttl">Share</div>
     <div class="shqr" id="shqr"></div>
+    <div style="font-size:0.62rem;color:var(--text3);margin-top:6px">Scan to open StatTrack · the link below opens this view</div>
     <div class="shurl" id="shurl"></div>
     <div class="shrow">
       <button class="pri" id="shcopy" onclick="copyShare()">Copy link</button>
