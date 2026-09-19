@@ -387,7 +387,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">Beta 0.90</span>
+      <span class="rail-ver">v1.0.1</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2337,6 +2337,14 @@ function aTid(g){return g?.a ?? g?.t2 ?? null;}
 function teamNames(g){
   if(g.h)return[g.hn||'',g.an||'',g.h,g.a];
   if(g.t1)return[g.t1n||'',g.t2n||'',g.t1,g.t2];
+  // ⚠️ 2026-09-17 — venue-lookup day entries are a THIRD shape and this returned
+  // nothing for all of them, so every venue on every date rendered "? vs ?".
+  // update-venue-lookup.js writes {id,t,hn,an,hid,aid,sid,comp,grade,st}: the names
+  // are present as hn/an, but the team ids are hid/aid, so both gates above miss and
+  // it fell through to the empty case. The grade line rendered because it is read
+  // directly rather than through here — which is why the rows looked half-populated
+  // rather than empty.
+  if(g.hn||g.an||g.hid||g.aid)return[g.hn||'',g.an||'',g.hid||'',g.aid||''];
   return['','','',''];
 }
 
