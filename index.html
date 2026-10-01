@@ -381,6 +381,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .rtbl tr.rsea td{border-bottom:none}
 .rtbl tr.rcar td{padding-top:0;padding-bottom:7px;font-size:0.68rem;color:var(--text3)}
 .rtbl tr.rcar td:first-child{text-transform:uppercase;letter-spacing:0.05em;font-size:0.6rem}
+.osec{padding:12px 14px 6px;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);font-weight:700;border-top:1px solid var(--border);margin-top:8px}
 </style>
 </head>
 <body>
@@ -390,7 +391,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.01</span>
+      <span class="rail-ver">v1.02</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2102,7 +2103,16 @@ function renderTeam(td,tid,sid){
     (async()=>{
       if(!S.games[sid2]){const d=await sgj('games/bv',sid2);S.games[sid2]=d||{games:{}};}
       const g2=S.games[sid2]?.games?.[gid2];
-      if(g2&&hTid(g2)&&aTid(g2)){openTeamOpp(hTid(g2),aTid(g2),sid2,true);}
+      // ⚠️ 2026-10-01 — WAS openTeamOpp(hTid(g2), aTid(g2), …), i.e. the HOME team
+      // as "my" team. Whenever the team being viewed was the AWAY side the whole
+      // view inverted: the opposition's players were listed at the top with the
+      // focus team's players nested beneath them. `tid` is the team whose page this
+      // fixture row belongs to, so it is the focus team by definition.
+      if(g2&&hTid(g2)&&aTid(g2)){
+        const home=hTid(g2), away=aTid(g2);
+        const mine=(away===tid)?away:home, theirs=(mine===home)?away:home;
+        openTeamOpp(mine,theirs,sid2,true);
+      }
       else if(g2){openSheet(gid2,sid2);}
     })();
   }));
@@ -2793,7 +2803,22 @@ async function openTeamOpp(myTid,oppTid,sid,isUpcoming,push=true){
   const th2h=seasonH2H(td,new Set([myTid]),oppTid,new Set());
   const th2hH=th2h?`<div class="oh2h" style="padding:8px 14px;font-size:0.78rem;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums">${esc(myName)} vs this team this season: ${wldChips(th2h.team)} <span style="color:var(--text3)">(${th2h.team.n} meeting${th2h.team.n>1?'s':''})</span></div>`
     :`<div class="oh2h" style="padding:8px 14px;font-size:0.78rem;border-bottom:1px solid var(--border);color:var(--text3)">No completed meetings between these teams this season</div>`;
-  ve.innerHTML=`<div class="vhdr">${backBtn}<div><div class="vtitle">${esc(myName)} vs ${esc(oppName)}</div><div class="vsub">${esc(subtitle)}</div></div></div>${th2hH}<div id="opp-roster"></div>`;
+  // The opposition's OWN roster, below the head-to-head block. Before this the view
+  // showed only past results, so an upcoming fixture against a team you have never
+  // played said nothing whatsoever about who you were about to play.
+  // Same two-row table as the team page — season on top, career beneath — and the
+  // rows link straight to the player view. There is nothing to expand on this side,
+  // so the row gesture is free; only the focus-player rows above expand.
+  const oppTbl = oppRoster.length
+    ? `<div class="osec">${esc(oppName)} \u00b7 squad</div>
+       <table class="rtbl"><thead><tr>
+         <th>Player</th><th>GP</th><th>PTS</th><th>PPG</th><th>FG</th><th>FT</th><th>3PT</th>
+       </tr></thead><tbody id="opp-squad-body">
+       ${Object.entries(oppTeam.roster).sort(([,a],[,b])=>(b.pts||0)-(a.pts||0)).map(([u,pr])=>rosterRows(u,pr)).join('')}
+       </tbody></table>`
+    : `<div class="osec">${esc(oppName)} \u00b7 squad</div><div class="empty">No roster data</div>`;
+  ve.innerHTML=`<div class="vhdr">${backBtn}<div><div class="vtitle">${esc(myName)} vs ${esc(oppName)}</div><div class="vsub">${esc(subtitle)}</div></div></div>${th2hH}<div id="opp-roster"></div>${oppTbl}`;
+  hydrateCareers(oppRoster);
   // Load all player files for both rosters
   const allUuids=[...new Set([...myRoster,...oppRoster])];
   await Promise.all(allUuids.map(uuid=>loadPlayerFile(uuid)));
