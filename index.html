@@ -378,6 +378,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .hpitem.help-hit{border-left-color:var(--accent);background:rgba(0,245,212,.07)}
 .hpterm{font-weight:700;font-size:0.82rem;margin-bottom:2px}
 .hptext{font-size:0.75rem;color:var(--text2);line-height:1.5}
+.rtbl tr.rsea td{border-bottom:none}
+.rtbl tr.rcar td{padding-top:0;padding-bottom:7px;font-size:0.68rem;color:var(--text3)}
+.rtbl tr.rcar td:first-child{text-transform:uppercase;letter-spacing:0.05em;font-size:0.6rem}
 </style>
 </head>
 <body>
@@ -387,7 +390,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.0.1</span>
+      <span class="rail-ver">v1.01</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1963,6 +1966,61 @@ async function loadTeam(tid,sid,push=true){
   if(!td){ve.innerHTML=`<div class="vhdr"><button class="vback" onclick="history.back()">\u2190</button><div><div class="vtitle">Team not found</div></div></div>`;return;}
   renderTeam(td,tid,sid);
 }
+/* ── Two-row roster: season on top, career below (2026-10-01) ────────────────
+   The roster in team-stats/bv/{sid} carries THAT SEASON with THAT TEAM only, so a
+   roster row could never answer "how good is this player" — only "how are they going
+   this season". The career line comes from the player's own file, one fetch each,
+   cached in S.players and shared with the player view, so opening a player
+   afterwards is instant and a second visit to the team costs nothing.
+   Rendered PROGRESSIVELY: the season rows appear immediately and each career row
+   fills in as its file lands. A roster is eight to twelve players, most of them
+   already cached from browsing, so in practice this is a handful of requests. */
+const CAREER_PENDING = '<span style="color:var(--text3)">…</span>';
+
+function careerOf(pf){
+  const bk = pf && pf.sports && pf.sports.Basketball;
+  if(!bk) return null;
+  return { gp:bk.gp||0, pts:bk.pts||0, fg:bk.fg||0, ft:bk.ft||0, threePt:bk.threePt||0 };
+}
+async function playerFile(key){
+  if(S.players[key]) return S.players[key];
+  let k=key, d=await gj(BASE+'/players/'+k.slice(0,2)+'/'+k+'.json');
+  if(!d){ const r=await resolveToFullUuid(key); if(r&&r!==k){ k=r; d=S.players[k]||await gj(BASE+'/players/'+k.slice(0,2)+'/'+k+'.json'); } }
+  if(d){ S.players[k]=d; if(k!==key) S.players[key]=d; }
+  return d;
+}
+/* Both rows for one player. The career row is a sibling <tr> rather than a second
+   line inside one cell so the columns stay aligned with the header above. */
+function rosterRows(uuid,pr){
+  const id=('c'+uuid).replace(/[^a-zA-Z0-9]/g,'');
+  const c=careerOf(S.players[uuid]);
+  return `<tr class="rsea" onclick="loadPlayer('${esc(uuid)}')">`
+    +`<td>${esc(pr.name||'#'+uuid.slice(0,8))}</td>`
+    +`<td>${pr.gp||0}</td><td>${pr.pts||0}</td><td>${avg(pr.pts||0,pr.gp||0)}</td>`
+    +`<td>${pr.fg||0}</td><td>${pr.ft||0}</td><td>${pr.threePt||0}</td></tr>`
+    +`<tr class="rcar" id="${id}" onclick="loadPlayer('${esc(uuid)}')">`
+    +`<td>career</td>`
+    +(c?`<td>${c.gp}</td><td>${c.pts}</td><td>${avg(c.pts,c.gp)}</td><td>${c.fg}</td><td>${c.ft}</td><td>${c.threePt}</td>`
+       :`<td colspan="6">${CAREER_PENDING}</td>`)
+    +`</tr>`;
+}
+/* Fill the career rows in place once each file lands. Called after a render and
+   after a re-sort; cached players resolve on the first tick, so a re-sort does not
+   re-fetch anything. */
+function hydrateCareers(keys){
+  for(const uuid of keys){
+    playerFile(uuid).then(()=>{
+      const id=('c'+uuid).replace(/[^a-zA-Z0-9]/g,'');
+      const tr=document.getElementById(id);
+      const c=careerOf(S.players[uuid]);
+      if(!tr) return;
+      tr.innerHTML = c
+        ? `<td>career</td><td>${c.gp}</td><td>${c.pts}</td><td>${avg(c.pts,c.gp)}</td><td>${c.fg}</td><td>${c.ft}</td><td>${c.threePt}</td>`
+        : `<td>career</td><td colspan="6" style="color:var(--text3)">not available</td>`;
+    }).catch(()=>{});
+  }
+}
+
 function renderTeam(td,tid,sid){
   const ve=el('view-team');
   const meta=td.meta||{};
@@ -1992,7 +2050,10 @@ function renderTeam(td,tid,sid){
       });
       const tbody=ve2.querySelector('#rtbl-body');
       if(!tbody)return;
-      tbody.innerHTML=sorted2.map(([uuid,pr])=>{const ppg=avg(pr.pts||0,pr.gp||0);return`<tr onclick="loadPlayer('${esc(uuid)}')"><td>${esc(pr.name||'#'+uuid.slice(0,8))}</td><td>${pr.gp||0}</td><td>${pr.pts||0}</td><td>${ppg}</td><td>${pr.fg||0}</td><td>${pr.ft||0}</td><td>${pr.threePt||0}</td></tr>`;}).join('');
+      // Both rows, and re-hydrate: every file is cached by now, so this repaints
+      // the career lines without a single request.
+      tbody.innerHTML=sorted2.map(([uuid,pr])=>rosterRows(uuid,pr)).join('');
+      hydrateCareers(sorted2.map(([u])=>u));
       ve2.querySelectorAll('.rtbl th[data-col]').forEach(th=>{
         th.style.color=th.dataset.col===col?'var(--accent)':'';
         th.textContent=th.dataset.col===col?(newDir===-1?th.dataset.label+' ↓':th.dataset.label+' ↑'):th.dataset.label;
@@ -2010,9 +2071,7 @@ function renderTeam(td,tid,sid){
     </tr></thead><tbody id="rtbl-body">`;
     el('view-team').dataset.sortCol='pts'; el('view-team').dataset.sortDir='-1';
     el('view-team')._sort=sortBy;
-    for(const[uuid,pr]of roster){
-      h+=`<tr onclick="loadPlayer('${esc(uuid)}')"><td>${esc(pr.name||'#'+uuid.slice(0,8))}</td><td>${pr.gp||0}</td><td>${pr.pts||0}</td><td>${avg(pr.pts||0,pr.gp||0)}</td><td>${pr.fg||0}</td><td>${pr.ft||0}</td><td>${pr.threePt||0}</td></tr>`;
-    }
+    for(const[uuid,pr]of roster){ h+=rosterRows(uuid,pr); }
     h+=`</tbody></table>`;
   }
   h+=`</div><div id="f${tesc}" class="tpane">`;
@@ -2033,6 +2092,8 @@ function renderTeam(td,tid,sid){
   }
   h+='</div>';
   ve.innerHTML=h;
+  // Career lines fill in after paint — the season rows are already on screen.
+  hydrateCareers(Object.keys(td.roster||{}));
   ve.querySelectorAll('.frow').forEach(r=>r.addEventListener('click',()=>{
     const sid2=r.dataset.sid;
     const gid2=r.dataset.gid;
