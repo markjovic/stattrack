@@ -398,8 +398,13 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .hpterm{font-weight:700;font-size:0.82rem;margin-bottom:2px}
 .hptext{font-size:0.75rem;color:var(--text2);line-height:1.5}
 .rtbl tr.rsea td{border-bottom:none}
-.rtbl tr.rcar td{padding-top:0;padding-bottom:7px;font-size:0.68rem;color:var(--text3)}
-.rtbl tr.rcar td:first-child{text-transform:uppercase;letter-spacing:0.05em;font-size:0.6rem}
+/* The career line was 0.68rem in --text3 (#555 on #121212 — roughly 2.5:1, below
+   any readable threshold). It carries the only non-zero numbers on a pre-season
+   roster, so it cannot be the hardest thing on the page to read. The accent teal at
+   0.78rem reads clearly against #121212 and distinguishes the career line from the
+   season row by HUE rather than by being dimmer, which is what made it unreadable. */
+.rtbl tr.rcar td{padding-top:0;padding-bottom:7px;font-size:0.78rem;color:var(--accent)}
+.rtbl tr.rcar td:first-child{text-transform:uppercase;letter-spacing:0.05em;font-size:0.62rem;color:var(--accent);opacity:0.75}
 .osec{padding:12px 14px 6px;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);font-weight:700;border-top:1px solid var(--border);margin-top:8px}
 .orow{justify-content:flex-start;gap:14px}
 .orow .oname{flex:0 0 auto;min-width:190px}
@@ -427,7 +432,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.17</span>
+      <span class="rail-ver">v1.19</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
