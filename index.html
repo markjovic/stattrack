@@ -57,6 +57,8 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .sinput::placeholder{color:var(--text3)}
 .sresults{flex:1;overflow-y:auto}
 .sseason{padding:7px 8px;border-bottom:1px solid var(--border)}
+.sfilters{display:flex;flex-direction:column;gap:6px}
+.sselect:disabled{opacity:0.45;cursor:default}
 .sselect{width:100%;background:var(--elevated);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:0.83rem;outline:none;cursor:pointer;appearance:none}
 .sselect:focus{border-color:var(--accent)}
 .vfilters{padding:6px 8px;border-bottom:1px solid var(--border);display:flex;gap:6px}
@@ -432,7 +434,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.19</span>
+      <span class="rail-ver">v1.20</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -447,7 +449,11 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     </div>
     <div id="pnl-teams" class="panel hidden">
       <div class="swrap-hdr"><span>Team</span><button class="rbtn" onclick="resetTeam()">✕ Clear</button></div>
-      <div class="sseason"><select id="q-sn" class="sselect"><option value="">Select season…</option></select></div>
+      <div class="sseason sfilters">
+        <select id="q-sn" class="sselect"><option value="">Select season…</option></select>
+        <select id="q-cp" class="sselect" disabled><option value="">Competition — select a season</option></select>
+        <select id="q-gr" class="sselect" disabled><option value="">Grade — select a competition</option></select>
+      </div>
       <div class="swrap"><input id="q-tm" class="sinput" placeholder="Search teams… (e.g. spirit magic u14)" autocomplete="off" spellcheck="false"></div>
       <div id="res-tm" class="sresults"></div>
     </div>
@@ -544,6 +550,8 @@ const WRKR = 'https://solitary-snowflake-cb3e.insanoflash.workers.dev';
 const S = {
   idx:null, venues:null, teamIdx:null,
   shards:{}, games:{}, players:{}, teamStats:{}, boxes:{}, venueDay:{}, venueDates:{}, dateVenues:{},
+  tmRun:0,   // team-search generation counter — the grade filter awaits a fetch
+
   seasonVenueIdx:null, venueSeasonFilter:null, lbData:{}, lbScope:'all', lbStat:'pts', lbMinGP:10,
   playerUuid:null, teamId:null, teamSid:null, venueId:null,
   calOffset:0, // weeks offset from today for venue calendar
@@ -573,7 +581,7 @@ const el = id => document.getElementById(id);
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function resetPlayer(){const q=document.getElementById('q-pl');if(q)q.value='';const r=document.getElementById('res-pl');if(r){r.innerHTML='';r.style.display='none';}}
-function resetTeam(){const q=document.getElementById('q-tm');if(q)q.value='';const sn=document.getElementById('q-sn');if(sn)sn.selectedIndex=0;const r=document.getElementById('res-tm');if(r)r.innerHTML='';}
+function resetTeam(){const q=document.getElementById('q-tm');if(q)q.value='';const sn=document.getElementById('q-sn');if(sn)sn.selectedIndex=0;buildCompPicker();const r=document.getElementById('res-tm');if(r)r.innerHTML='';}
 function resetVenue(){const q=document.getElementById('q-vn');if(q)q.value='';const vd=document.getElementById('q-vdate');if(vd)vd.value='';const vs=document.getElementById('q-vsn');if(vs)vs.selectedIndex=0;const r=document.getElementById('res-vn');if(r)r.innerHTML='';const ga=document.getElementById('vgrid-area');if(ga)ga.innerHTML='';const cs=document.getElementById('cal-section');if(cs)cs.innerHTML='';}
 function resetLB(){const o=document.getElementById('lb-org');if(o)o.value='';const c=document.getElementById('lb-comp');if(c)c.value='';const g=document.getElementById('lb-grade');if(g)g.value='';const a=document.getElementById('lb-age');if(a)a.value='';const gn=document.getElementById('lb-gender');if(gn)gn.value='';const mg=document.getElementById('lb-mingp');if(mg)mg.value='10';renderLB(S.lbData[S.lbScope]?.[S.lbStat]||[],S.lbData[S.lbScope]||{});}
 // Recent searches (localStorage)
@@ -1979,19 +1987,97 @@ function buildSeasonPicker(){
   });
   const sel=el('q-sn');
   sel.innerHTML='<option value="">Select season\u2026</option>'+sorted.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}${s.active?' \u25cf':' \ud83d\udd12'}</option>`).join('');
+  buildCompPicker();
 }
 async function loadTeamIdx(){if(!S.teamIdx){S.teamIdx=await gj(BASE+'/data/team-index.json')||{};}}
+
+/* ── Season -> competition -> grade (2026-10-05) ──────────────────────────────
+   A season NAME is not a season. "Summer 2026/27" is run by dozens of
+   associations, and data/team-index.json is keyed by that name, so picking a
+   season has always dumped every association's teams into one list. The two
+   selects below narrow it the way the data is actually shaped:
+
+     season name  ->  the sids carrying that name
+     competition  ->  one sid (usually), via sports-index's compName
+     grade        ->  that season's own grades[], from sports-index
+
+   THE GRADE FILTER READS team-stats, NOT team-index. team-index's `grade` is
+   whichever grade the team was seen in FIRST and is never corrected —
+   update-team-index.js refuses to touch it on purpose, because a registration
+   carries no chronology. build-team-stats.js now writes meta.grade from the
+   team's most recent GAME, which is the only thing that can answer "currently".
+   That file is fetched per sid and cached in S.teamStats, where loadTeam() was
+   going to fetch it anyway the moment a result is clicked. */
+function seasonSidsFor(sn,comp){
+  return Object.entries(S.idx?.seasons||{})
+    .filter(([,se])=>se.name===sn&&(!comp||(se.compName||'')===comp))
+    .map(([sid])=>sid);
+}
+function buildCompPicker(){
+  const sn=el('q-sn').value,cp=el('q-cp'),gr=el('q-gr');
+  if(!sn){
+    cp.innerHTML='<option value="">Competition \u2014 select a season</option>';cp.disabled=true;
+    gr.innerHTML='<option value="">Grade \u2014 select a competition</option>';gr.disabled=true;
+    return;
+  }
+  const comps=[...new Set(seasonSidsFor(sn).map(sid=>S.idx.seasons[sid].compName||'').filter(Boolean))].sort();
+  cp.disabled=false;
+  cp.innerHTML='<option value="">All competitions</option>'+comps.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  /* One competition is not a choice — select it so the grade list opens straight
+     away rather than making the user pick the only option there is. */
+  if(comps.length===1)cp.value=comps[0];
+  buildGradePicker();
+}
+function buildGradePicker(){
+  const sn=el('q-sn').value,cp=el('q-cp').value,gr=el('q-gr');
+  if(!sn||!cp){
+    gr.innerHTML='<option value="">Grade \u2014 select a competition</option>';gr.disabled=true;return;
+  }
+  const names=new Set();
+  for(const sid of seasonSidsFor(sn,cp))for(const g of (S.idx.seasons[sid].grades||[]))if(g.name)names.add(g.name);
+  const list=[...names].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  gr.disabled=!list.length;
+  gr.innerHTML=list.length
+    ?'<option value="">All grades</option>'+list.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')
+    :'<option value="">No grades published yet</option>';
+}
 async function searchTeams(q){
   const sn=el('q-sn').value,re=el('res-tm');
   if(!sn){re.innerHTML='<div class="ri-empty">Select a season first</div>';return;}
+  const run=++S.tmRun;
   await loadTeamIdx();
-  const teams=S.teamIdx[sn]||[];
-  const filtered=q?teams.filter(t=>tokenMatch(t.n,q)):teams;
-  const sorted=[...filtered].sort((a,b)=>a.n.localeCompare(b.n));
+  const cp=el('q-cp').value,grade=el('q-gr').value;
+  const sids=new Set(seasonSidsFor(sn,cp));
+  /* With no competition chosen this is the unfiltered list, byte for byte what
+     it was before — a team-index entry whose sid is absent from sports-index
+     must not silently vanish. */
+  let teams=(S.teamIdx[sn]||[]).filter(t=>!cp||sids.has(t.sid));
+  if(q)teams=teams.filter(t=>tokenMatch(t.n,q));
+  let noGradeData=false;
+  if(grade){
+    re.innerHTML='<div class="ri-empty">Loading grades\u2026</div>';
+    const need=[...new Set(teams.map(t=>t.sid))].filter(sid=>!S.teamStats[sid]);
+    await Promise.all(need.map(async sid=>{S.teamStats[sid]=await sgj('team-stats/bv',sid)||{};}));
+    if(run!==S.tmRun)return;   /* a later keystroke already owns the panel */
+    /* If NOTHING in scope carries a grade, say so. A season whose team pages
+       predate meta.grade would otherwise filter to zero and read as "no such
+       grade", which is a lie about the data rather than about the filter. */
+    noGradeData=teams.length>0&&!teams.some(t=>S.teamStats[t.sid]?.[t.id]?.meta?.grade);
+    teams=teams.filter(t=>(S.teamStats[t.sid]?.[t.id]?.meta?.grade||'')===grade);
+  }
+  if(run!==S.tmRun)return;
+  const sorted=[...teams].sort((a,b)=>a.n.localeCompare(b.n));
+  if(noGradeData){
+    re.innerHTML='<div class="ri-empty">No grades recorded for these teams yet \u2014 their team pages have not been rebuilt since grading. Clear the grade filter to see them.</div>';
+    return;
+  }
   if(!sorted.length){re.innerHTML='<div class="ri-empty">No teams found</div>';return;}
   re.innerHTML=sorted.slice(0,50).map(t=>{
     const si=S.idx?.seasons?.[t.sid];
-    const sub=[t.comp,t.grade].filter(Boolean).join(' · ')||si?.name||sn;
+    /* Prefer the CURRENT grade when the season's team-stats are already loaded;
+       t.grade is the first-seen one and can be a grading-round grade months old. */
+    const live=S.teamStats[t.sid]?.[t.id]?.meta?.grade;
+    const sub=[t.comp,live||t.grade].filter(Boolean).join(' \u00b7 ')||si?.name||sn;
     return`<div class="ri" data-tid="${esc(t.id)}" data-sid="${esc(t.sid)}"><div class="ri-name">${esc(t.n)}</div><div class="ri-sub">${esc(sub)}</div></div>`;
   }).join('');
   re.querySelectorAll('.ri').forEach(r=>r.addEventListener('click',()=>{addRecent('teams',q||sn);loadTeam(r.dataset.tid,r.dataset.sid);if(window.innerWidth<=768)el('rail').classList.add('mob-hide');}));
@@ -3306,7 +3392,9 @@ function renderLB(allEntries,data){
 document.querySelectorAll('.stab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 el('q-pl').addEventListener('input',debounce(e=>searchPlayers(e.target.value.trim()),250));
 el('q-pl').addEventListener('focus',()=>{if(!el('q-pl').value.trim())showRecent('players',el('res-pl'),v=>{el('q-pl').value=v;searchPlayers(v);});});
-el('q-sn').addEventListener('change',()=>searchTeams(el('q-tm').value.trim()));
+el('q-sn').addEventListener('change',()=>{buildCompPicker();searchTeams(el('q-tm').value.trim());});
+el('q-cp').addEventListener('change',()=>{buildGradePicker();searchTeams(el('q-tm').value.trim());});
+el('q-gr').addEventListener('change',()=>searchTeams(el('q-tm').value.trim()));
 el('q-tm').addEventListener('input',debounce(e=>searchTeams(e.target.value.trim()),250));
 el('q-tm').addEventListener('focus',()=>{if(!el('q-tm').value.trim()&&el('q-sn').value)showRecent('teams',el('res-tm'),v=>{el('q-tm').value=v;searchTeams(v);});});
 el('q-vn').addEventListener('input',debounce(()=>searchVenues(),200));
