@@ -434,7 +434,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.20</span>
+      <span class="rail-ver">v1.21</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2008,9 +2008,30 @@ async function loadTeamIdx(){if(!S.teamIdx){S.teamIdx=await gj(BASE+'/data/team-
    team's most recent GAME, which is the only thing that can answer "currently".
    That file is fetched per sid and cached in S.teamStats, where loadTeam() was
    going to fetch it anyway the moment a result is clicked. */
-function seasonSidsFor(sn,comp){
+/* — A COMPETITION IS NOT ITS NAME — ------------------------------------------
+   Associations reuse competition names freely: "Junior Domestic" is run by dozens
+   of them. Keying this dropdown on compName (the first version, 2026-10-05)
+   collapsed every one of them into a SINGLE option, so choosing it merged several
+   associations' teams into one list AND unioned their grades, with nothing on
+   screen to say so. That is exactly the silent merge this filter exists to remove,
+   reintroduced one level up.
+   sports-index carries compId, orgId and orgName per season, so the KEY is the
+   competition id and the LABEL names the association. compId is PlayHQ's own and
+   unique across organisations; the fallback key still separates by org, so an
+   entry missing compId cannot merge with another association's. */
+function compKeyOf(se){
+  return se.compId || ('n:'+(se.compName||'')+'|o:'+(se.orgId||se.orgName||''));
+}
+function compLabelOf(se){
+  const c=se.compName||'(unnamed competition)',o=se.orgName||'';
+  /* Several compNames already carry the association, usually bracketed on the end.
+     Appending it again reads as a bug, so only add what is missing. */
+  if(!o||c.toLowerCase().includes(o.toLowerCase()))return c;
+  return c+' \u2014 '+o;
+}
+function seasonSidsFor(sn,compKey){
   return Object.entries(S.idx?.seasons||{})
-    .filter(([,se])=>se.name===sn&&(!comp||(se.compName||'')===comp))
+    .filter(([,se])=>se.name===sn&&(!compKey||compKeyOf(se)===compKey))
     .map(([sid])=>sid);
 }
 function buildCompPicker(){
@@ -2020,12 +2041,22 @@ function buildCompPicker(){
     gr.innerHTML='<option value="">Grade \u2014 select a competition</option>';gr.disabled=true;
     return;
   }
-  const comps=[...new Set(seasonSidsFor(sn).map(sid=>S.idx.seasons[sid].compName||'').filter(Boolean))].sort();
+  const seen=new Map();
+  for(const sid of seasonSidsFor(sn)){
+    const se=S.idx.seasons[sid],k=compKeyOf(se);
+    if(!seen.has(k))seen.set(k,compLabelOf(se));
+  }
+  /* Two DIFFERENT competitions can still produce the same label — same name, same
+     association. Disambiguate by id rather than let them look like one entry. */
+  const counts={};for(const l of seen.values())counts[l]=(counts[l]||0)+1;
+  const comps=[...seen.entries()]
+    .map(([k,l])=>({k,l:counts[l]>1?`${l} (${k.slice(0,6)})`:l}))
+    .sort((a,b)=>a.l.localeCompare(b.l));
   cp.disabled=false;
-  cp.innerHTML='<option value="">All competitions</option>'+comps.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  cp.innerHTML='<option value="">All competitions</option>'+comps.map(c=>`<option value="${esc(c.k)}">${esc(c.l)}</option>`).join('');
   /* One competition is not a choice — select it so the grade list opens straight
      away rather than making the user pick the only option there is. */
-  if(comps.length===1)cp.value=comps[0];
+  if(comps.length===1)cp.value=comps[0].k;
   buildGradePicker();
 }
 function buildGradePicker(){
@@ -2077,7 +2108,11 @@ async function searchTeams(q){
     /* Prefer the CURRENT grade when the season's team-stats are already loaded;
        t.grade is the first-seen one and can be a grading-round grade months old. */
     const live=S.teamStats[t.sid]?.[t.id]?.meta?.grade;
-    const sub=[t.comp,live||t.grade].filter(Boolean).join(' \u00b7 ')||si?.name||sn;
+    /* si carries compName AND the association; t.comp is the bare name. With no
+       competition chosen this list spans associations, so the bare name would make
+       two different competitions look like one. */
+    const compTxt=si?compLabelOf(si):(t.comp||'');
+    const sub=[compTxt,live||t.grade].filter(Boolean).join(' \u00b7 ')||si?.name||sn;
     return`<div class="ri" data-tid="${esc(t.id)}" data-sid="${esc(t.sid)}"><div class="ri-name">${esc(t.n)}</div><div class="ri-sub">${esc(sub)}</div></div>`;
   }).join('');
   re.querySelectorAll('.ri').forEach(r=>r.addEventListener('click',()=>{addRecent('teams',q||sn);loadTeam(r.dataset.tid,r.dataset.sid);if(window.innerWidth<=768)el('rail').classList.add('mob-hide');}));
