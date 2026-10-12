@@ -157,6 +157,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .pclub-gp{font-size:0.88rem;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
 .pclub-row.pclub-na .pclub-gp{color:var(--text2)}
 .pclub-x{font-size:0.62rem;color:var(--text3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pclub-tag{margin-left:6px;padding:1px 5px;border:1px solid var(--border);border-radius:3px;font-size:0.56rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text3);vertical-align:middle}
+.pclub-sub{margin:-2px 0 5px 10px;padding-left:8px;border-left:1px solid var(--border);font-size:0.64rem;color:var(--text2);line-height:1.5}
+.pclub-sub-src{color:var(--text3)}
 .pclub-s{font-size:0.66rem;color:var(--text2);white-space:nowrap}
 .pclub-note{padding:2px 2px 6px;font-size:0.62rem;color:var(--text3);line-height:1.45}
 .pclub-load{padding:4px 2px;font-size:0.76rem;color:var(--text3)}
@@ -539,7 +542,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.23</span>
+      <span class="rail-ver">v1.24</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -680,6 +683,10 @@ const S = {
      failed, which is NOT the same as {} (a season with no clubs). clubNames is
      id -> name, derived from clubIdx once; null until the index has loaded. */
   clubMap:{}, clubNames:null,
+  /* id -> PlayHQ organisation type (CLUB / ASSOCIATION), and the CLUB-only
+     candidate list name inference matches against. Both null until
+     data/club-index.json has loaded AND carries `ty`. */
+  clubTypes:null, clubKeys:null,
 };
 
 /* ── Helpers ── */
@@ -1638,15 +1645,65 @@ async function clubNameMap(){
     if(!idx) return {};
     S.clubIdx=idx;
   }
-  const m={};
-  for(const c of S.clubIdx) if(c&&c.id) m[c.id]=c.n||c.id;
+  const m={}, ty={};
+  for(const c of S.clubIdx){ if(!c||!c.id) continue; m[c.id]=c.n||c.id; if(c.ty) ty[c.id]=c.ty; }
   S.clubNames=m;
+  S.clubTypes=ty;
+  S.clubKeys=buildClubKeys(S.clubIdx);
   return m;
+}
+
+/* ── NAME INFERENCE FOR TOURNAMENT-ENTERED TEAMS (v1.24) ──────────────────
+   A team entered under a TOURNAMENT carries the tournament as its organisation,
+   not the club that owns it — 941 of 1,235 teams in 0869ea69. probe-team-club-fields
+   established (§6.67) that PlayHQ holds the owning club on NO other field, so the
+   team NAME is the only route, and `ty` (§6.69) is what says which teams need it.
+
+   MEASURED, §6.71. Candidates restricted to `ty === 'CLUB'` and matched on WHOLE
+   WORDS, against the control — teams where PlayHQ DID give a club, so the name's
+   answer can be checked:  282 decided, 0 wrong.  The earlier 23% error came from
+   letting an ASSOCIATION win a match ("Blackburn Vikings Basketball Association"
+   beating the Club) and from substring matching (" rocketstars " matching " stars ").
+
+   ⚠️ COVERAGE IS A PROPERTY OF EACH TOURNAMENT'S NAMING, NOT OF THIS CODE.
+   Nunawading writes "Spirit Magic U14 Boys" — 75.5% resolve. Eltham-Dandenong
+   writes "Westgate B12.1", "Knox G16.9" — 7.6%. Loosening the match to catch the
+   abbreviated forms reintroduces the ambiguity the CLUB-only rule removed ("Knox"
+   is both an Association and a Club) AND that season has ZERO club-attributed
+   teams, so there would be no control to measure the error against. Declining is
+   the correct behaviour; 27% overall coverage is the price of 0 errors.
+
+   ⚠️ NO `ty`, NO INFERENCE. Until Deploy Pages has published a club-index that
+   carries `ty`, clubKeys is empty, nothing folds, and the panel behaves exactly as
+   v1.23 did. A silent half-application would be worse than none. */
+function normClubName(x){ return ' '+String(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+' '; }
+function clubKeyOf(n){
+  return normClubName(n).replace(/ basketball club | basketball association | basketball | club | association | tournament | inc /,' ').trim();
+}
+function buildClubKeys(idx){
+  const out=[];
+  for(const c of (idx||[])){
+    if(!c||c.ty!=='CLUB'||!c.n||!c.id) continue;
+    const k=clubKeyOf(c.n);
+    if(k.length>=5) out.push({id:c.id,n:c.n,k:k});
+  }
+  // Longest key first, so the most specific club wins and the first hit can be
+  // returned without scanning the rest.
+  return out.sort((a,b)=>b.k.length-a.k.length);
+}
+/* Whole-word containment — the needle is padded on both sides, so " stars " can
+   never match inside " rocketstars ". That was the single residual error. */
+function inferClubFromName(teamName, keys){
+  if(!teamName||!keys||!keys.length) return null;
+  const t=normClubName(teamName);
+  for(const c of keys) if(t.indexOf(' '+c.k+' ')!==-1) return c;
+  return null;
 }
 
 /* Pure: groups + maps + names -> the rows the panel draws. Kept out of the DOM
    so the harness can assert the arithmetic with no browser. */
-function buildClubTotals(groups,maps,names,p){
+function buildClubTotals(groups,maps,names,p,types,keys){
+  types=types||{}; keys=keys||[];
   const agg=new Map(), unres=new Set(), oursSids=new Set();
   let ours=0;
   for(const g of (groups||[])){
@@ -1657,8 +1714,17 @@ function buildClubTotals(groups,maps,names,p){
     if(!sid||map==null){ if(sid) unres.add(sid); key=PCLUB_UNRES; }
     else if(tid&&tid!=='_unknown'&&map[tid]) key=map[tid];
     else key=PCLUB_NONE;
-    if(!agg.has(key)) agg.set(key,{id:key,gp:0,teams:0,sids:new Set()});
+    // ── FOLD ── PlayHQ named an ASSOCIATION; the team name may name the club.
+    // The registration already carries the team name, so this costs no fetch.
+    let foldedFrom=null;
+    if(key!==PCLUB_NONE&&key!==PCLUB_UNRES&&types[key]==='ASSOCIATION'){
+      let hit=null;
+      for(const r of (g.regs||[])){ hit=inferClubFromName(r&&r.tn, keys); if(hit) break; }
+      if(hit&&hit.id!==key){ foldedFrom=names[key]||key; key=hit.id; }
+    }
+    if(!agg.has(key)) agg.set(key,{id:key,gp:0,teams:0,sids:new Set(),folded:new Map(),foldedGp:0});
     const a=agg.get(key);
+    if(foldedFrom){ a.folded.set(foldedFrom,(a.folded.get(foldedFrom)||0)+gp); a.foldedGp+=gp; }
     a.gp+=gp; a.teams++; if(sid) a.sids.add(sid);
     // Shortfall is only meaningful where PlayHQ credits NOTHING — that is the
     // one case the season card substitutes our own count for, so it is the one
@@ -1671,6 +1737,11 @@ function buildClubTotals(groups,maps,names,p){
      :a.id===PCLUB_UNRES?'Club could not be resolved'
      :(names[a.id]||a.id),
     real:a.id!==PCLUB_NONE&&a.id!==PCLUB_UNRES,
+    // The bucket is itself an association/tournament — nothing could be folded out
+    // of it, so it is labelled rather than silently reading as a club.
+    assoc:types[a.id]==='ASSOCIATION',
+    folded:[...(a.folded||new Map())].map(([from,gp])=>({from,gp})).sort((x,y)=>y.gp-x.gp),
+    foldedGp:a.foldedGp||0,
     gp:a.gp, ours:a.ours||0, teams:a.teams, seasons:a.sids.size
   }));
   rows.sort((x,y)=>(x.real===y.real?0:x.real?-1:1)||(y.gp-x.gp)||(y.seasons-x.seasons)||natCmp(x.n,y.n));
@@ -1694,9 +1765,17 @@ function renderClubTotals(t,priv){
     // down. The shortfall is shown on the row that owns it rather than left to a
     // footnote, and stays outside the GP figure.
     const extra=(!priv&&r.ours)?`<span class="pclub-x" title="Held here, credited to no club by PlayHQ">+${esc(r.ours)} here</span>`:'';
-    h+=`<span class="pclub-n">${esc(r.n)}</span>`
+    const tag=r.assoc?'<span class="pclub-tag">association</span>':'';
+    h+=`<span class="pclub-n">${esc(r.n)}${tag}</span>`
      + `<span class="pclub-gp">${esc(gp)} GP</span>${extra}`
      + `<span class="pclub-s">${esc(sub)}</span></div>`;
+    // Sub-row: the total above INCLUDES these, and this says where they came from
+    // and on what basis. Folded games are never invisible inside a club total.
+    if(!priv&&r.folded&&r.folded.length){
+      for(const f of r.folded)
+        h+=`<div class="pclub-sub">\u21b3 includes ${esc(f.gp)} GP matched by team name from `
+         + `<span class="pclub-sub-src">${esc(f.from)}</span></div>`;
+    }
   }
   const notes=[];
   if(priv) notes.push('This profile is private — PlayHQ publishes no game counts for it. The season and team counts are from its registrations.');
@@ -1719,7 +1798,7 @@ async function hydrateClubs(p,groups){
   if(S.playerUuid!==uuid) return;
   const host=document.getElementById('pclub-'+uuid);
   if(!host) return;
-  host.innerHTML=renderClubTotals(buildClubTotals(groups,maps,names,p),isPrivate(p));
+  host.innerHTML=renderClubTotals(buildClubTotals(groups,maps,names,p,S.clubTypes,S.clubKeys),isPrivate(p));
   // Listener, not an inline onclick: esc() does not escape an apostrophe, and
   // "St Mary's" inside onclick="loadClub('...')" would end the JS string.
   host.querySelectorAll('.pclub-row[data-cid]').forEach(r=>r.addEventListener('click',()=>{
