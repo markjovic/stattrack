@@ -1498,10 +1498,10 @@ async function computeH2H(A,B){
    object uses g.h/g.a (+hs/as/hn/an) once played and g.t1/g.t2 (+t1n/t2n) while
    it is only a fixture, and gameCtx is what knows the difference.
 
-   Rows are deliberately NOT clickable. The existing opposition rows call
-   openGame(gid,g,null,sid), which is referenced in five places in this file and
-   DEFINED IN NONE of them — clicking one throws ReferenceError. Wiring new rows
-   to it would spread a broken call rather than inherit a working pattern.
+   Rows are deliberately NOT clickable, for now. They could call openSheet(gid,sid)
+   — the real box-score opener, nine call sites — and that is the obvious follow-up;
+   they are left inert until someone decides a head-to-head row SHOULD open the box
+   score, rather than that being assumed here.
    (openGameId, despite the name, resolves a PLAYER uuid and loads a player.) */
 function h2hGameRow(x,A,B){
   const g=x.g||{};
@@ -1702,9 +1702,14 @@ function recEntry(e,rank,cat){
   return`<div class="rec-entry" ${click}><div class="rec-rank">${rank}</div><div class="rec-val">${val}</div><div><div class="rec-detail">${detail}</div><div class="rec-sub">${sub}</div></div></div>`;
 }
 async function openRecordGame(sid,gameKey){
-  if(!S.games[sid])S.games[sid]=await sgj('games/bv',sid);
-  const g=S.games[sid]?.[gameKey];
-  if(g)openGame(gameKey,g,null,sid);
+  // WAS A SILENT NO-OP. It read `S.games[sid]?.[gameKey]` — flat — while a season
+  // file is {games:{...}}, so g was ALWAYS undefined (the only flat read left in
+  // this file, against eleven nested ones). `if(g)` then swallowed it, and the
+  // dead four-arg call below it was never even reached. Clicking a record did
+  // nothing at all and logged nothing.
+  // openSheet loads the season file itself and renders "Game not found." when the
+  // id really is absent, so there is deliberately no guard here to swallow one.
+  openSheet(gameKey,sid);
 }
 
 /* ── Player search ── */
@@ -4092,7 +4097,7 @@ function toggleOppGames(row,games,oppName){
     const score=ctx.myS!=null?`${ctx.myS}–${ctx.oppS}`:'';
     const res=resLetter(ctx.myS,ctx.oppS);
     const fc=finalClass(g.rn);
-    gh+=`<div class="opp-game-row" onclick="openGame('${esc(gid)}',${JSON.stringify(g)},null,'${esc(sid)}')">${esc(g.d?.slice(0,10)||'')} · ${esc(g.gn||'')} · ${esc(score)} <span style="color:${res==='W'?'var(--win)':res==='L'?'var(--loss)':'var(--text2)'}">${res}</span>${fc?` · <span style="color:gold;font-size:0.7rem">${esc(g.rn)}</span>`:''}</div>`;
+    gh+=`<div class="opp-game-row" onclick="openSheet('${esc(gid)}','${esc(sid)}')">${esc(g.d?.slice(0,10)||'')} · ${esc(g.gn||'')} · ${esc(score)} <span style="color:${res==='W'?'var(--win)':res==='L'?'var(--loss)':'var(--text2)'}">${res}</span>${fc?` · <span style="color:gold;font-size:0.7rem">${esc(g.rn)}</span>`:''}</div>`;
   }
   gh+='</div>';
   row.insertAdjacentHTML('beforeend',gh);
@@ -4335,7 +4340,6 @@ function toggleTeamOppDetail(row, result, myUuid) {
         <span class="opp-game-score">${esc(score)}</span>
         <span class="opp-game-res" style="color:${resColor}">${res}</span>
         <span class="opp-game-stats" id="${statsSpanId}">${myStr?`Me: ${myStr}`:''}${myStr&&oppStr?' · ':''}${oppStr?`Them: ${oppStr}`:''}${!myStr&&!oppStr?'Loading…':''}</span>`;
-      gameRow.onclick = () => openGame(gid, g, null, sid);
 
       // Fetch box score and update stats span if not already in game file
       if (!myStr && !oppStr) {
@@ -4630,7 +4634,7 @@ function buildGameRow(gid, sid, g, myUuid2, oppUuid2) {
     <span class="opp-game-score" style="flex-shrink:0">${esc(score2)}</span>
     <span class="opp-game-res" style="color:${resColor2};flex-shrink:0">${res2}</span>
     <span class="opp-game-stats" id="${statsId2}" style="flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading\u2026</span>`;
-  row2.onclick = () => openGame(gid, g, null, sid);
+  row2.onclick = () => openSheet(gid, sid);
   fetchBox(gid).then(bs => {
     const sp = document.getElementById(statsId2);
     if (!sp) return;
