@@ -533,6 +533,25 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .ocol-span{flex:0 0 158px}
 .rtbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-right:2px}
 .rtbl{min-width:520px}
+
+/* ── Head-to-head ─────────────────────────────────────────────────────────── */
+.h2h-open{margin:6px 0 0;padding:3px 8px;font-size:0.72rem;border:1px solid var(--border);
+  background:var(--surface2,transparent);color:var(--text1);border-radius:4px;cursor:pointer}
+.h2h-open:hover{border-color:var(--accent);color:var(--accent)}
+.h2h-pick{padding:10px 12px;border-bottom:1px solid var(--border)}
+.h2h-pick input{width:100%;padding:8px 10px;font-size:0.9rem;border:1px solid var(--border);
+  border-radius:6px;background:var(--surface);color:var(--text1)}
+.h2h-res{margin-top:6px;max-height:260px;overflow:auto}
+.h2h-sec{border-bottom:1px solid var(--border)}
+.h2h-sec-h{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;font-weight:600}
+.h2h-sec-h:hover{background:var(--surface2,rgba(127,127,127,0.06))}
+.h2h-n{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--text2)}
+.h2h-sec-b{padding:0 12px 10px}
+.h2h-row{padding:7px 0;border-top:1px solid var(--border);font-size:0.84rem}
+.h2h-row .h2h-when{color:var(--text2);font-size:0.76rem}
+.h2h-warn{padding:10px 12px;font-size:0.8rem;color:var(--warn,#c47f00);
+  border-top:1px solid var(--border)}
+.h2h-none{padding:10px 12px;color:var(--text2);font-size:0.85rem}
 </style>
 </head>
 <body>
@@ -589,6 +608,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div id="view-team" class="hidden"></div>
     <div id="view-venue" class="hidden"></div>
     <div id="view-opp" class="hidden"></div>
+    <div id="view-h2h" class="hidden"></div>
     <div id="view-club" class="hidden"></div>
     <div id="view-leaders" class="hidden">
       <div id="lb-header" style="position:sticky;top:0;background:var(--surface);z-index:5;border-bottom:1px solid var(--border)">
@@ -1216,6 +1236,7 @@ function hashFor(type,d){
   if(type==='venue')  return `v=${e(d.vid)}` + (d.vname?`&vn=${e(d.vname)}`:'');
   if(type==='opp')    return `o=${e(d.oppTid)}&s=${e(d.sid)}` + (d.fromUuid?`&f=${e(d.fromUuid)}`:'');
   if(type==='teamopp')return `mo=${e(d.myTid)}&o=${e(d.oppTid)}&s=${e(d.sid)}`;
+  if(type==='h2h')    return `h=${e(d.a)}` + (d.b?`&h2=${e(d.b)}`:'');
   if(type==='club')   return `c=${e(d.cid)}` + (d.cname?`&cn=${e(d.cname)}`:'') + (d.week?`&w=${e(d.week)}`:'');
   return '';
 }
@@ -1237,6 +1258,7 @@ function applyHash(){
   if(q.p)       { loadPlayer(q.p,false); return true; }
   if(q.t&&q.s)  { loadTeam(q.t,q.s,false); return true; }
   if(q.v)       { loadVenue(q.v,q.vn||'',undefined,false); return true; }
+  if(q.h)       { openH2H(q.h,q.h2||null,false); return true; }
   if(q.c)       { loadClub(q.c,q.cn||'',q.w||null,false); return true; }
   if(q.mo&&q.o&&q.s){ openTeamOpp(q.mo,q.o,q.s,false,false); return true; }
   if(q.o&&q.s)  { openOpp(q.o,q.s,q.f,false); return true; }
@@ -1282,7 +1304,7 @@ function selectShare(){
 
 /* ── Navigation / history ── */
 function showV(id){
-  ['view-home','view-player','view-team','view-venue','view-opp','view-club','view-leaders'].forEach(v=>el(v).classList.toggle('hidden',v!==id));
+  ['view-home','view-player','view-team','view-venue','view-opp','view-h2h','view-club','view-leaders'].forEach(v=>el(v).classList.toggle('hidden',v!==id));
   // Scroll main to top on every view change
   const m=el('main');if(m)m.scrollTop=0;
   // Shown on every view INCLUDING home — home is a link worth sharing, it is just
@@ -1337,6 +1359,8 @@ window.addEventListener('popstate',e=>{
     loadVenue(e.state.vid,e.state.vname,undefined,false);
   }else if(type==='opp'){
     openOpp(e.state.oppTid,e.state.sid,e.state.fromUuid,false);
+  }else if(type==='h2h'){
+    openH2H(e.state.a,e.state.b||null,false);
   }else if(type==='club'){
     loadClub(e.state.cid,e.state.cname,e.state.week,false);
   }else if(type==='teamopp'){
@@ -1345,6 +1369,256 @@ window.addEventListener('popstate',e=>{
 });
 
 /* ── Boot ── */
+
+/* ── HEAD-TO-HEAD: two players, every time their paths crossed ───────────────
+   Answers "have these two ever played together or against each other" without a
+   new index, a build step or an API call. Everything it needs is already on the
+   two player files:
+     p.games[]    every gid the player appears in, written by build-player-games
+                  from the game-sheet p[] arrays
+     p.gameTids   gid -> the tid they played FOR in that game
+     p.seasons[]  regs carrying tid / gid(grade) / tn / gn
+   So the whole question is an intersection of two games[] arrays plus a tid
+   comparison, and the only fetches are the season game files needed to name and
+   date the shared fixtures — which S.games already caches.
+
+   ⚠️ WHY NOT resolveOppGames. That function answers a different question and
+   answers it by FILTERING: it keeps a game only when the two tids differ AND
+   both sit on opposite sides of the fixture, and it `continue`s past every other
+   case — no season file, game missing, no tid recorded, tids that do not match
+   the fixture. For "which opponents has this player met" a silent drop is
+   tolerable. For "have these two ever met" it is not: a dropped game is a
+   WRONG ANSWER to the question actually asked. Everything here is classified
+   into one of four buckets or reported as UNRESOLVED with its reason, and the
+   unresolved count is rendered where it cannot be missed.
+
+   The four tiers, narrowest first:
+     1 OPPOSITION  shared gid, tids differ, both on the fixture's two sides
+     2 TOGETHER    shared gid, same tid
+     3 SQUAD       registered to the same (sid,tid) but never on a sheet together
+     4 GRADE       same (sid,grade), different teams, no shared fixture
+   3 and 4 are weaker claims than 1 and 2 and are labelled as such: "same squad"
+   is not "played together", and the UI must not let them read as the same thing. */
+
+function h2hSeasonMap(p){
+  // sid -> { sn, tids:Map(tid->tn), grades:Map(gradeId->{gn,tn,tid}) }
+  const m=new Map();
+  for(const sn of (p&&p.seasons)||[]){
+    if(!sn.sid)continue;
+    let e=m.get(sn.sid);
+    if(!e){e={sn:sn.sn||sn.sid,tids:new Map(),grades:new Map()};m.set(sn.sid,e);}
+    for(const r of (sn.regs||[])){
+      if(r.tid&&!e.tids.has(r.tid))e.tids.set(r.tid,r.tn||'');
+      if(r.gid&&!e.grades.has(r.gid))e.grades.set(r.gid,{gn:r.gn||'',tn:r.tn||'',tid:r.tid||null});
+    }
+  }
+  return m;
+}
+
+/* gid -> sid for a set of gids. Checks what S.games already holds, then loads
+   only the season files the two players actually played in. Seasons from BOTH
+   players are searched: resolveOppGames searches only the viewing player's, which
+   cannot place a game held under a season the other player alone registered for. */
+async function h2hMapGids(gidSet,players){
+  const gidSid={};
+  for(const[sid,gf]of Object.entries(S.games||{})){
+    for(const gid of Object.keys((gf&&gf.games)||{}))if(gidSet.has(gid))gidSid[gid]=sid;
+  }
+  let missing=[...gidSet].filter(g=>!gidSid[g]);
+  if(!missing.length)return gidSid;
+  const sids=[...new Set(players.flatMap(p=>((p&&p.seasons)||[]).map(sn=>sn.sid)).filter(Boolean))];
+  for(const sid of sids){
+    if(!missing.length)break;
+    if(!S.games[sid])S.games[sid]=await sgj('games/bv',sid)||{games:{}};
+    const all=(S.games[sid]&&S.games[sid].games)||{};
+    for(const gid of missing)if(all[gid])gidSid[gid]=sid;
+    missing=missing.filter(g=>!gidSid[g]);
+  }
+  return gidSid;
+}
+
+async function computeH2H(A,B){
+  const ga=new Set((A&&A.games)||[]), gb=new Set((B&&B.games)||[]);
+  const shared=[...ga].filter(g=>gb.has(g));
+  const gidSid=await h2hMapGids(new Set(shared),[A,B]);
+
+  const against=[],together=[],unresolved=[];
+  for(const gid of shared){
+    const sid=gidSid[gid];
+    if(!sid){unresolved.push({gid,why:'no season file held for this game'});continue;}
+    const g=S.games[sid]&&S.games[sid].games&&S.games[sid].games[gid];
+    if(!g){unresolved.push({gid,sid,why:'game id not present in its season file'});continue;}
+    const tA=getTidForGame(A,sid,gid), tB=getTidForGame(B,sid,gid);
+    if(!tA||!tB){
+      unresolved.push({gid,sid,g,why:'no team recorded for '+((!tA?A:B).name||'one of them')+' in this game'});
+      continue;
+    }
+    if(tA===tB){together.push({gid,sid,g,tA,tB});continue;}
+    const H=hTid(g),Aw=aTid(g);
+    if((H===tA&&Aw===tB)||(Aw===tA&&H===tB)){against.push({gid,sid,g,tA,tB});continue;}
+    // Both hold a tid for this game and the tids differ, but they are not the
+    // fixture's two sides. getTidForGame falls back to the season's first tid
+    // when gameTids is absent, so this is most often that fallback being wrong
+    // rather than a data fault — either way it is NOT evidence they met.
+    unresolved.push({gid,sid,g,why:'their recorded teams are not the two sides of this fixture'});
+  }
+  const byDate=(x,y)=>String((y.g&&y.g.d)||'').localeCompare(String((x.g&&x.g.d)||''));
+  against.sort(byDate); together.sort(byDate);
+
+  // Tiers 3 and 4, from registrations rather than game sheets.
+  const ma=h2hSeasonMap(A), mb=h2hSeasonMap(B);
+  const togetherKeys=new Set(together.map(x=>x.sid+':'+x.tA));
+  const againstSids=new Set(against.map(x=>x.sid));
+  const squad=[],grade=[];
+  for(const[sid,ea]of ma){
+    const eb=mb.get(sid); if(!eb)continue;
+    // Same team, but no fixture where they were BOTH on that team's sheet.
+    const sameTids=[...ea.tids.keys()].filter(t=>eb.tids.has(t)&&!togetherKeys.has(sid+':'+t));
+    if(sameTids.length){
+      squad.push({sid,sn:ea.sn,teams:sameTids.map(t=>ea.tids.get(t)||eb.tids.get(t)||('#'+String(t).slice(0,8)))});
+    }
+    // Same grade, different teams, and no fixture against each other that season.
+    if(!againstSids.has(sid)){
+      const g2=[...ea.grades.keys()].filter(gid=>eb.grades.has(gid)
+        && ea.grades.get(gid).tid && eb.grades.get(gid).tid
+        && ea.grades.get(gid).tid!==eb.grades.get(gid).tid);
+      if(g2.length){
+        grade.push({sid,sn:ea.sn,grades:g2.map(gid=>({
+          gn:ea.grades.get(gid).gn||'',aTn:ea.grades.get(gid).tn||'',bTn:eb.grades.get(gid).tn||''}))});
+      }
+    }
+  }
+  return {against,together,squad,grade,unresolved,sharedCount:shared.length};
+}
+
+/* ── Rendering ───────────────────────────────────────────────────────────── */
+
+/* Fields come from gameCtx/resLetter/storedPts, the helpers the season and
+   opposition views already render from — NOT from hand-picked g.* keys. A game
+   object uses g.h/g.a (+hs/as/hn/an) once played and g.t1/g.t2 (+t1n/t2n) while
+   it is only a fixture, and gameCtx is what knows the difference.
+
+   Rows are deliberately NOT clickable. The existing opposition rows call
+   openGame(gid,g,null,sid), which is referenced in five places in this file and
+   DEFINED IN NONE of them — clicking one throws ReferenceError. Wiring new rows
+   to it would spread a broken call rather than inherit a working pattern.
+   (openGameId, despite the name, resolves a PLAYER uuid and loads a player.) */
+function h2hGameRow(x,A,B){
+  const g=x.g||{};
+  const ctx=gameCtx(g,x.tA);                 // always A's perspective
+  const score=(ctx.myS!=null&&ctx.oppS!=null)?(ctx.myS+'–'+ctx.oppS):'';
+  const res=resLetter(ctx.myS,ctx.oppS);
+  const resCol=res==='W'?'var(--win)':res==='L'?'var(--loss)':'var(--text2)';
+  const pa=storedPts(g,A.uuid), pb=storedPts(g,B.uuid);
+  const lines=[];
+  if(pa!=null)lines.push(esc(firstName(A))+' '+pa);
+  if(pb!=null)lines.push(esc(firstName(B))+' '+pb);
+  const fc=finalClass(g.rn);
+  const sub=[ctx.oppN?('v '+ctx.oppN):'',lines.join(' · ')].filter(Boolean).join(' · ');
+  return `<div class="h2h-row">
+    <div>${esc(String(g.d||'').slice(0,10))}${g.gn?' · '+esc(g.gn):''}${score?' · <strong>'+esc(score)+'</strong>':''}`
+    + (res?` <span style="color:${resCol}">${res}</span>`:'')
+    + (fc?` · <span style="color:gold;font-size:0.7rem">${esc(g.rn)}</span>`:'')
+    + `</div><div class="h2h-when">${sub}</div></div>`;
+}
+function firstName(p){
+  const n=(p&&p.name)||'';
+  return n.split(' ').filter(Boolean)[0]||n||'?';
+}
+
+function h2hSection(id,title,n,bodyHtml,note){
+  if(!n)return `<div class="h2h-sec"><div class="h2h-sec-h" style="cursor:default;opacity:0.65">${esc(title)}<span class="h2h-n">0</span></div></div>`;
+  return `<div class="h2h-sec">
+    <div class="h2h-sec-h" onclick="var b=document.getElementById('${id}');if(b)b.classList.toggle('hidden')">${esc(title)}<span class="h2h-n">${n}</span></div>
+    <div class="h2h-sec-b" id="${id}">${note?'<div class="h2h-when" style="padding:6px 0">'+esc(note)+'</div>':''}${bodyHtml}</div>
+  </div>`;
+}
+
+function renderH2H(A,B,r){
+  const ve=el('view-h2h'); if(!ve)return;
+  const nameA=displayName(A,A.uuid), nameB=displayName(B,B.uuid);
+  let h=`<div class="vhdr"><button class="vback" onclick="history.back()">←</button>
+    <div style="flex:1;min-width:0"><div class="vtitle">${esc(nameA)} ↔ ${esc(nameB)}</div>
+    <div class="vsub">${r.sharedCount} shared game${r.sharedCount===1?'':'s'} on file</div></div></div>`;
+
+  const met=r.against.length+r.together.length;
+  if(!met&&!r.squad.length&&!r.grade.length){
+    h+=`<div class="h2h-none">No recorded connection between these two — no shared fixture, no shared team, no shared grade.</div>`;
+  }
+
+  h+=h2hSection('h2h-a','Played against each other',r.against.length,
+      r.against.map(x=>h2hGameRow(x,A,B)).join(''));
+  h+=h2hSection('h2h-t','Played on the same team',r.together.length,
+      r.together.map(x=>h2hGameRow(x,A,B)).join(''));
+  h+=h2hSection('h2h-s','Same squad, never on a sheet together',r.squad.length,
+      r.squad.map(x=>`<div class="h2h-row"><div>${esc(x.teams.join(', '))}</div><div class="h2h-when">${esc(x.sn)}</div></div>`).join(''),
+      'Registered to the same team that season but never named in the same fixture — not the same thing as playing together.');
+  h+=h2hSection('h2h-g','Same grade, never met',r.grade.length,
+      r.grade.map(x=>x.grades.map(gg=>`<div class="h2h-row"><div>${esc(gg.gn||'—')}</div><div class="h2h-when">${esc(x.sn)} · ${esc(gg.aTn||'?')} v ${esc(gg.bTn||'?')}</div></div>`).join('')).join(''),
+      'Same grade and season, different teams, and no fixture between them on file.');
+
+  // ⚠️ NEVER SILENT. A shared game we could not classify is not an absence of a
+  // meeting, and the count must be visible next to the answer it qualifies.
+  if(r.unresolved.length){
+    const by={};
+    for(const u of r.unresolved)by[u.why]=(by[u.why]||0)+1;
+    h+=`<div class="h2h-warn">⚠ ${r.unresolved.length} shared game${r.unresolved.length===1?'':'s'} could not be classified and ${r.unresolved.length===1?'is':'are'} NOT counted above:<br>`
+      + Object.entries(by).map(([w,n])=>`&nbsp;&nbsp;${n} × ${esc(w)}`).join('<br>')+`</div>`;
+  }
+  ve.innerHTML=h;
+}
+
+/* ── Entry point and the second-player picker ────────────────────────────── */
+
+async function openH2H(a,b,push=true){
+  if(push)navigate('h2h',{a,b:b||''});
+  showV('view-h2h');
+  const ve=el('view-h2h');
+  ve.innerHTML='<div class="load-row">Loading…</div>';
+  const A=await loadPlayerFile(a);
+  if(!A){ve.innerHTML=`<div class="vhdr"><button class="vback" onclick="history.back()">←</button><div><div class="vtitle">Compare</div><div class="vsub">No data for ${esc(t13(a))}</div></div></div>`;return;}
+  if(!b){h2hPicker(A);return;}
+  const B=await loadPlayerFile(b);
+  if(!B){h2hPicker(A,`No data for ${t13(b)} — pick another player.`);return;}
+  ve.innerHTML='<div class="load-row">Comparing…</div>';
+  const r=await computeH2H(A,B);
+  renderH2H(A,B,r);
+}
+
+function h2hPicker(A,msg){
+  const ve=el('view-h2h');
+  ve.innerHTML=`<div class="vhdr"><button class="vback" onclick="history.back()">←</button>
+    <div style="flex:1;min-width:0"><div class="vtitle">${esc(displayName(A,A.uuid))} ↔ ?</div>
+    <div class="vsub">Search for the second player</div></div></div>
+    <div class="h2h-pick">${msg?'<div class="h2h-when" style="padding-bottom:6px">'+esc(msg)+'</div>':''}
+    <input id="h2h-q" type="search" placeholder="Player name…" autocomplete="off">
+    <div class="h2h-res" id="h2h-res"></div></div>`;
+  const inp=document.getElementById('h2h-q');
+  if(!inp)return;
+  inp.addEventListener('input',()=>h2hSearch(A.uuid,inp.value.trim()));
+  inp.focus();
+}
+
+/* Shard selection is the SAME fold as the main player search (and as
+   build-search-index.js). Kept identical deliberately: a second, drifting copy of
+   the shard rule is how accented and apostrophe names stopped being findable the
+   first time. */
+async function h2hSearch(fromUuid,q){
+  const re=document.getElementById('h2h-res'); if(!re)return;
+  if(q.length<2){re.innerHTML='';return;}
+  const _fold=q.normalize('NFKC').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]/g,'');
+  const sh=_fold.length>=2?_fold.slice(0,2):(_fold+'_').slice(0,2);
+  if(!S.shards[sh]){const d=await gj(BASE+'/search/players/'+sh+'.json');S.shards[sh]=d||{};}
+  const hits=[];const seen=new Set();
+  for(const[k,arr]of Object.entries(S.shards[sh])){
+    if(!tokenMatch(k,q))continue;
+    for(const e of arr){if(e.id!==fromUuid&&!seen.has(e.id)){seen.add(e.id);hits.push({k,...e});}}
+  }
+  if(!hits.length){re.innerHTML='<div class="ri-empty">No players found</div>';return;}
+  re.innerHTML=hits.slice(0,40).map(h=>`<div class="ri" data-u="${esc(h.id)}"><div class="ri-name">${esc(h.k)}</div><div class="ri-sub">${esc(h.c||'—')} · ${esc(h.t||'')}</div></div>`).join('');
+  re.querySelectorAll('.ri').forEach(rw=>rw.addEventListener('click',()=>openH2H(fromUuid,rw.dataset.u)));
+}
+
 async function boot(){
   history.replaceState({type:'home'},'');
   const[idx,venues]=await Promise.all([gj(BASE+'/data/sports-index.json'),gj(BASE+'/data/venue-index.json')]);
@@ -1857,6 +2131,7 @@ function renderPlayer(p){
     <div class="vsub">${esc([p.gender,club].filter(Boolean).join(' \u00b7 '))}</div>
     <div class="vuuid" title="Click to copy" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(uuid)}')">${esc(uuid)}</div>
     ${isPrivate(p)?'':`<a class="phq-lnk" href="https://www.playhq.com/public/profile/${esc(uuid)}/statistics" target="_blank" rel="noopener" style="display:inline-flex;margin:4px 0 0;padding:3px 8px;font-size:0.72rem">View on PlayHQ \u2197</a>`}
+    <button class="h2h-open" onclick="openH2H('${esc(uuid)}',null)">\u2194 Compare with\u2026</button>
     </div></div>`;
   // A PRIVATE profile publishes no statistics, so every OFFICIAL cell shows an em
   // dash rather than 0 (decision 2026-08-21). A zero is a claim that they played
