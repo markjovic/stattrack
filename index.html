@@ -924,7 +924,16 @@ function renderMode(g){
   // complement and stays correct whichever runs first. The ~142 genuinely
   // scoreless ones still render 'legacy', which is the honest answer for them.
   if(g.legacy && typeof g.hs!=='number')return'legacy';
-  if(typeof g.hs==='number')return'normal';return'unknown';
+  if(typeof g.hs==='number')return'normal';
+  // ⚠️ A FIXTURE THAT HAS NOT BEEN PLAYED YET IS NOT 'unknown'. Every test above
+  // is a flag or a score, and an upcoming game carries neither — so it fell to
+  // 'unknown', whose only rendering is "No data available." That is what the
+  // venue grid showed for every current and future game: the cell knows both
+  // teams, the time and the court, and clicking it produced an empty sheet.
+  // Placed AFTER the legacy test deliberately, so nothing that renders today
+  // changes — this only catches what was already falling through.
+  if(g.st==='UPCOMING'||g.st==='PRE_GAME')return'upcoming';
+  return'unknown';
 }
 function gameCtx(g,tid){
   if(g.h){
@@ -3803,8 +3812,26 @@ function renderSheet(g,gid,sid,con){
     case'legacy':
       h+=`<div style="padding:7px 14px"><span class="bdg bLG">\u2b1c Historical</span></div>`;
       h+=`<div class="gmode-blk"><div class="gmode-msg">${t1n?esc(t1n)+' vs '+esc(t2n||'?'):'Teams unknown'}${g.d?`<br><span style="color:var(--text3)">${esc(fmtD(g.d))}</span>`:''}</div></div>`;break;
+    case'upcoming':{
+      // Surrogate pair, not \u1f5d3 — \uXXXX takes exactly four hex digits, so the
+      // five-digit form parses as \u1f5d followed by a literal '3' and renders a
+      // CJK glyph. Every other badge in this file uses the pair form.
+      const lbl=g.st==='PRE_GAME'?'\u23f1 About to start':'\ud83d\uddd3 Upcoming';
+      h+=`<div style="padding:7px 14px"><span class="bdg bPO">${esc(lbl)}</span></div>`;
+      // sb() renders both team names as links through to their team views, which
+      // is the whole point of being able to click the fixture: look at both sides.
+      h+=sb(null,null,t1n||'Team 1',t2n||'Team 2',t1mine,t2mine,'vs');
+      break;}
     default:
-      h+=`<div class="gmode-blk"><div class="gmode-msg">No data available.</div></div>`;
+      // Only a genuine dead end when we do not even know who is playing. When the
+      // names are there, show the matchup — a sheet that names both teams and
+      // links to them beats "No data available." on identical information.
+      if(t1n||t2n){
+        h+=sb(null,null,t1n||'Team 1',t2n||'Team 2',t1mine,t2mine,'vs');
+        h+=`<div class="gmode-blk"><div class="gmode-msg">No result recorded for this fixture.</div></div>`;
+      }else{
+        h+=`<div class="gmode-blk"><div class="gmode-msg">No data available.</div></div>`;
+      }
   }
   if(g.noVenue&&!g.vn)h+=`<div style="padding:3px 14px 6px"><span class="bdg bNV">No venue</span></div>`;
   con.innerHTML=h;
