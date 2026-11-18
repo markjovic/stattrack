@@ -244,7 +244,13 @@ function togetherChain(key){
         const seasons=n.sid-s+1;
         const prev=out[out.length-1];
         if(prev&&prev.k===best.length)prev.s=seasons;
-        else out.push({k:best.length,s:seasons,players:best.map(who),recs:best.slice()});
+        else {
+          const nm=best.map(who);
+          // Two records sharing a name ON ONE TEAM are one person: count them once for the size.
+          // This is not an identity claim about the database — it is that two different children
+          // with the same name on the same team for several straight seasons is not a real case.
+          out.push({k:best.length,kd:new Set(nm).size,s:seasons,players:nm,recs:best.slice()});
+        }
         group=best;
       }
     }
@@ -269,8 +275,10 @@ function nuclei(vis){
   for(const n of vis){
     let best=null;
     for(const r of togetherChain(n.key)){
-      const sc=W.f(r.k,r.s);
-      if(!best||sc>best.score)best={score:sc,k:r.k,s:r.s,players:r.players,playerRecs:r.recs,node:n};
+      const kd=r.kd===undefined?r.k:r.kd;
+      if(kd<2)continue;                       // a "pair" that is one person twice is not a nucleus
+      const sc=W.f(kd,r.s);
+      if(!best||sc>best.score)best={score:sc,k:kd,recCount:r.k,s:r.s,players:r.players,playerRecs:r.recs,node:n};
     }
     if(best)rows.push(best);
   }
@@ -326,7 +334,8 @@ function renderNuclei(vis){
   const rows=N.uniq.slice(0,8).map(r=>{
     const ratio=N.med?(r.score/N.med):0;
     const solid=r.worst<=8;
-    return `<tr${solid?'':' style="opacity:.6"'}><td><b>${esc(r.k)}</b> players</td><td><b>${esc(r.s)}</b> seasons</td>`+
+    const dupNote=r.recCount>r.k?` <span style="color:#ef5350" title="${r.recCount-r.k} duplicate record(s) counted once">⚠ ${r.recCount} records</span>`:'';
+    return `<tr${solid?'':' style="opacity:.6"'}><td><b>${esc(r.k)}</b> players${dupNote}</td><td><b>${esc(r.s)}</b> seasons</td>`+
       `<td>${esc(r.node.team)} · ${esc(SEAS[r.node.sid])} · ${esc(r.node.band)}</td>`+
       `<td>${r.score.toFixed(1)}</td><td>${ratio?'×'+ratio.toFixed(1):'—'}</td>`+
       `<td title="rank under ${esc(Object.values(WEIGHTS).map(w=>w.lab).join(' / '))}">`+
@@ -342,7 +351,8 @@ function renderNuclei(vis){
     `The three ranks are shown in order: ${esc(Object.values(WEIGHTS).map(w=>w.lab).join(' / '))}. There is no blended score, because blending `+
     `three formulas of the same shape just picks a fourth exponent and lets the largest-scale one dominate.</div>`+
     (N.dupTeams?`<div class="ln" style="color:#ef5350"><b>${N.dupTeams}</b> team${N.dupTeams===1?'':'s'} here contain two player records sharing one name `+
-      `— almost certainly one person with two PlayHQ profiles that were never folded, which inflates that team's player count and any nucleus containing them. `+
+      `— almost certainly one person with two PlayHQ profiles that were never folded, which inflates that team's player count. `+
+      `Nucleus sizes below already count them once, and a "pair" that is one person twice is dropped entirely; the team boxes in the diagram are NOT corrected. `+
       `Affected: ${esc(N.dupNames.slice(0,12).join(', '))}${N.dupNames.length>12?' +'+(N.dupNames.length-12)+' more':''}. `+
       `They are shown with their player code so the two records can be told apart; they are NOT merged here.</div>`:'')+
     `</div>`+
