@@ -72,6 +72,10 @@ svg{display:block}
       <label>Age group<select id="cband"></select></label></span>
     <span id="rangeCtl"><label>Age from<select id="lo"></select></label>
       <label>Age to<select id="hi"></select></label></span>
+    <label>Layout<select id="lay">
+      <option value="rev" selected>Newest left · oldest age top</option>
+      <option value="fwd">Oldest left · youngest age top</option>
+    </select></label>
     <label>Rows<select id="dens"><option value="7">Normal</option><option value="5">Compact</option><option value="10">Tall</option></select></label>
   </div>
 
@@ -112,7 +116,7 @@ const boxShort=k=>{const l=boxLabel(k);return l.length>15?l.slice(0,14)+'…':l;
 const colOfBox=k=>+k.slice(1,k.indexOf('.'));
 const bandOfBox=k=>k.slice(k.indexOf('.')+1,k.indexOf('|'));
 
-let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7};
+let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7,rev:true};
 let GEOM={},LAID={};
 
 const bandsIn=sid=>[...new Set(DATA.nodes.filter(n=>n.sid===sid).map(n=>n.band))].sort((a,b)=>num(a)-num(b));
@@ -137,11 +141,12 @@ function initControls(){
   mode.onchange=()=>{state.mode=mode.value;state.sel=null;applyMode();render();};
   applyMode();
   document.getElementById('dens').onchange=e=>{state.unit=+e.target.value;render();};
+  const lay=document.getElementById('lay');
+  lay.value=state.rev?'rev':'fwd';
+  lay.onchange=()=>{state.rev=lay.value==='rev';render();};
   document.getElementById('h1').textContent=`${DATA.club} — player movement`;
   document.title=`${DATA.club} — player movement`;
-  document.getElementById('sub').innerHTML=`${esc(DATA.org)} · ${esc(DATA.gender)} · one panel per age group, youngest at the top · `+
-    `columns are seasons, oldest on the left · ribbons carry players between this club's teams and are numbered where they arrive · `+
-    (DATA.withNames?`player names as PlayHQ publishes them`:`pseudonymous player codes only (no names, no ids)`);
+  setSub();
   document.getElementById('dleg').innerHTML='<span style="color:var(--text3)">boxes →</span>'+
     Object.keys(DLAB).map(k=>`<span><i class="sw" style="background:${DCOL[k]}"></i>${esc(DLAB[k])}</span>`).join('');
   document.getElementById('foot').innerHTML=
@@ -240,7 +245,15 @@ function visibleNodes(){
   return COHORT.nodes;
 }
 
+function setSub(){
+  document.getElementById('sub').innerHTML=`${esc(DATA.org)} · ${esc(DATA.gender)} · one panel per age group · `+
+    (state.rev?`columns are seasons, newest on the left, oldest age group at the top · `
+              :`columns are seasons, oldest on the left, youngest age group at the top · `)+
+    `ribbons carry players between this club's teams and are numbered where they arrive · `+
+    (DATA.withNames?`player names as PlayHQ publishes them`:`pseudonymous player codes only (no names, no ids)`);
+}
 function render(){
+  setSub();
   const vis=visibleNodes();
   const keys=new Set(vis.map(n=>n.key));
   const BV=[...new Set(vis.map(n=>n.band))].sort((a,b)=>num(a)-num(b));
@@ -282,7 +295,9 @@ function draw(vis,links,dest,src,BV){
   const svg=document.getElementById('sk');
   const nodeW=146,MARGIN=nodeW/2+26,MINSPACE=262,UNIT=state.unit,GAP=26,MINH=52,DMINH=22,TOP=64,BANDGAP=54;
   const W=Math.max(2*MARGIN+(NS-1)*MINSPACE,(document.querySelector('.svgwrap').clientWidth||1000)-12);
-  const colX=SIX.map(i=>MARGIN+i*(W-2*MARGIN-50)/Math.max(1,NS-1));
+  const REV=state.rev;
+  const step=(W-2*MARGIN-50)/Math.max(1,NS-1);
+  const colX=SIX.map(i=>MARGIN+(REV?(NS-1-i):i)*step);
   const inW={},outW={};
   links.forEach(l=>{inW[l.b]=(inW[l.b]||0)+l.n;outW[l.a]=(outW[l.a]||0)+l.n;});
   // boxes, per band per column
@@ -295,7 +310,7 @@ function draw(vis,links,dest,src,BV){
 
   LAID={};const seps=[],bands=[];
   let y0=TOP;
-  for(const b of BV){
+  for(const b of (REV?[...BV].reverse():BV)){
     const teams=SEAS.map((_,s)=>vis.filter(n=>n.band===b&&n.sid===s)
       .sort((x,y)=>(x.gi-y.gi)||((x.gp||99)-(y.gp||99))||String(x.team).localeCompare(String(y.team))));
     let bottom=y0;
@@ -326,14 +341,15 @@ function draw(vis,links,dest,src,BV){
   rib.forEach(([ka,kb,n,col,title])=>{const a=LAID[ka],b=LAID[kb];if(!a||!b)return;
     const wdt=Math.max(1.4,Math.min(n/(a.cnt||1)*a.h,n/(b.cnt||1)*b.h));
     const ao=outOff[ka]||0,bo=inOff[kb]||0,y1=a.y+ao+wdt/2,y2=b.y+bo+wdt/2;outOff[ka]=ao+wdt;inOff[kb]=bo+wdt;
-    const x1=a.x+a.w,x2=b.x,mx=(x1+x2)/2,d=`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+    const x1=REV?a.x:a.x+a.w, x2=REV?b.x+b.w:b.x, mx=(x1+x2)/2;
+    const d=`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
     const cls=(a.box||b.box)?'dlink':'link';
     const faint=(a.box&&/^(new|back)$/.test(kindOf(a.box)))?' style="opacity:.22"':'';
     paths+=`<path class="${cls}"${faint} data-la="${esc(ka)}" data-lb="${esc(kb)}" d="${d}" stroke="${col}" stroke-width="${wdt}"><title>${esc(title)}</title></path>`;
-    rl.push({x:x2-5,y:y2,n,la:ka,lb:kb,d,w:wdt});});
+    rl.push({x:REV?x2+5:x2-5,y:y2,n,la:ka,lb:kb,d,w:wdt,anc:REV?'start':'end'});});
   const byT={};rl.forEach(r=>(byT[r.lb]=byT[r.lb]||[]).push(r));
   Object.values(byT).forEach(a=>{a.sort((p,q)=>p.y-q.y);for(let i=1;i<a.length;i++)if(a[i].y<a[i-1].y+11)a[i].y=a[i-1].y+11;});
-  const labs=rl.map(r=>`<text class="rlab" data-la="${esc(r.la)}" data-lb="${esc(r.lb)}" x="${r.x}" y="${r.y+3.5}" text-anchor="end">${r.n}</text>`).join('');
+  const labs=rl.map(r=>`<text class="rlab" data-la="${esc(r.la)}" data-lb="${esc(r.lb)}" x="${r.x}" y="${r.y+3.5}" text-anchor="${r.anc}">${r.n}</text>`).join('');
 
   let bg=bands.map(b=>`<rect x="4" y="${b.y}" width="${W-8}" height="${b.h}" rx="10" fill="rgba(0,245,212,.025)" stroke="rgba(255,255,255,.06)"></rect>`+
     `<text class="bandlab" x="16" y="${b.y+17}">${esc(b.label)}</text>`).join('');
@@ -428,7 +444,7 @@ function applySelection(){
     const pth=document.createElementNS(ns,'path');pth.setAttribute('class','olink');pth.setAttribute('d',g.d);
     pth.setAttribute('stroke',col);pth.setAttribute('stroke-width',Math.max(2.5,n/g.n*g.w));svg.appendChild(pth);
     const t=document.createElementNS(ns,'text');t.setAttribute('class','olab');t.setAttribute('x',g.x);t.setAttribute('y',g.y+3.5);
-    t.setAttribute('text-anchor','end');t.textContent=n;svg.appendChild(t);});
+    t.setAttribute('text-anchor',g.anc||'end');t.textContent=n;svg.appendChild(t);});
   const keyLab=k=>(k[0]==='D'||k[0]==='S')?boxLabel(k):(NODE[k]?`${NODE[k].team} (${SEAS[NODE[k].sid]})`:k);
   let title;
   if(sel.type==='player')title=`Player <b>${esc(sel.k)}</b>`;
