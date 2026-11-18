@@ -332,6 +332,10 @@ function labelPlayers(recs,names){
 function renderNuclei(vis){
   const el=$('nuc');if(!el)return;
   const N=nuclei(vis);
+  // Duplicate player records are a data finding, not something this page's reader needs on every
+  // visit. Counted once in the figures above, reported to the console, kept off the screen.
+  if(N.dupTeams)console.warn(`[movement] ${N.dupTeams} team(s) hold two player records sharing one name: `+
+    N.dupNames.join(', ')+'. Sizes here count them once; the team boxes in the diagram do not.');
   if(!N.teamsWithRun){el.innerHTML='<div class="hint">No team here has two players who stayed together for more than one season.</div>';return;}
   const rows=N.uniq.slice(0,8).map(r=>{
     const ratio=N.med?(r.score/N.med):0;
@@ -351,12 +355,7 @@ function renderNuclei(vis){
     `<div class="ln" style="color:var(--text3)">"holds" means this nucleus is top-8 under all three weightings, not just the one selected. `+
     `The three ranks are shown in order: ${esc(Object.values(WEIGHTS).map(w=>w.lab).join(' / '))}. There is no blended score, because blending `+
     `three formulas of the same shape just picks a fourth exponent and lets the largest-scale one dominate.</div>`+
-    (N.dupTeams?`<div class="ln" style="color:#ef5350"><b>${N.dupTeams}</b> team${N.dupTeams===1?'':'s'} here contain two player records sharing one name `+
-      `— almost certainly one person with two PlayHQ profiles that were never folded, which inflates that team's player count. `+
-      `Nucleus sizes below already count them once, and a "pair" that is one person twice is dropped entirely; the team boxes in the diagram are NOT corrected. `+
-      `Affected: ${esc(N.dupNames.slice(0,12).join(', '))}${N.dupNames.length>12?' +'+(N.dupNames.length-12)+' more':''}. `+
-      `This is not a gap in the fold: the fold handles one person across the spectator and api namespaces, while two genuine PlayHQ profiles for one person `+
-      `are deliberately kept as two records (settled 2026-08-26). Telling the two cases apart needs the profile ids, not the name.</div>`:'')+
+
     `</div>`+
     `<div class="ptwrap"><table class="ptab"><tr><th>Nucleus</th><th>Run</th><th>Last seen</th><th>Score</th><th>vs median</th><th>Survives the formula?</th><th>Players</th></tr>${rows}</table></div>`;
 }
