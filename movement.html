@@ -589,7 +589,12 @@ function applySelection(){
   else if(sel.type==='link'){const [a,b]=sel.k.split('>');title=`<b>${esc(keyLab(a))}</b> → <b>${esc(keyLab(b))}</b>`;}
   else title=`<b>${esc(keyLab(sel.k))}</b>`;
   let h=`<div class="psum"><div class="ln">${title} — <b>${list.length}</b> player${list.length===1?'':'s'}</div>`;
-  if(DATA.withNames&&list.length)h+=`<div class="ln" style="color:var(--text)">${esc(list.map(who).sort((a,b)=>String(a).localeCompare(String(b))).join(', '))}</div>`;
+  if(DATA.withNames&&list.length){
+    // One name per person. Two records for one child are two rows in the table below, where their
+    // differing histories are visible; listing the name twice here just reads as a mistake.
+    const names=[...new Set(list.map(who))].sort((a,b)=>String(a).localeCompare(String(b)));
+    h+=`<div class="ln" style="color:var(--text)">${esc(names.join(', '))}</div>`;
+  }
   if(sel.type==='node'&&NODE[sel.k]){
     const n=NODE[sel.k];
     const pw=n.gp?(DONE(n.sid)?`finished ${ORD(n.gp)}`:`${ORD(n.gp)} on the ladder so far`):'no ladder yet';
