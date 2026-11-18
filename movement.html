@@ -81,6 +81,15 @@ svg{display:block}
 
   <div class="statrow" id="stats"></div>
   <div class="note" id="blurb"></div>
+  <div class="sec">Longest-standing nuclei
+    <select id="wt" style="font-size:.8rem;font-weight:600;text-transform:none;letter-spacing:0;padding:4px 8px">
+      <option value="sqrt">seasons × √players</option>
+      <option value="lin">seasons × players</option>
+      <option value="sq">seasons² × players</option>
+    </select>
+  </div>
+  <div id="nuc" style="margin-bottom:16px"></div>
+
   <div class="leg">
     <span><i class="sw" style="background:var(--stay)"></i> back = at this club last season</span>
     <span><i class="sw" style="background:var(--new)"></i> new = joined this season</span>
@@ -116,7 +125,7 @@ const boxShort=k=>{const l=boxLabel(k);return l.length>15?l.slice(0,14)+'…':l;
 const colOfBox=k=>+k.slice(1,k.indexOf('.'));
 const bandOfBox=k=>k.slice(k.indexOf('.')+1,k.indexOf('|'));
 
-let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7,rev:true};
+let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7,rev:true,wt:'sqrt'};
 let GEOM={},LAID={};
 
 const bandsIn=sid=>[...new Set(DATA.nodes.filter(n=>n.sid===sid).map(n=>n.band))].sort((a,b)=>num(a)-num(b));
@@ -144,6 +153,9 @@ function initControls(){
   const lay=document.getElementById('lay');
   lay.value=state.rev?'rev':'fwd';
   lay.onchange=()=>{state.rev=lay.value==='rev';render();};
+  const wt=document.getElementById('wt');
+  wt.value=state.wt;
+  wt.onchange=()=>{state.wt=wt.value;render();};
   document.getElementById('h1').textContent=`${DATA.club} — player movement`;
   document.title=`${DATA.club} — player movement`;
   setSub();
@@ -217,22 +229,82 @@ function nodeBySid(p){
 // time, keeping only those still on ONE team with each other, and stop when the group breaks. A
 // point-in-time measure would be wrong here: a squad together in 2023 and again now may well have
 // split in between, and calling that "together 7 seasons" claims a run nobody checked.
-function togetherFor(key){
-  const n=NODE[key];if(!n||!n.sid)return '';
-  let group=(COHORT?COHORT.players:PL).filter(p=>nodeBySid(p).get(n.sid)===key);
-  if(group.length<2)return '';
-  const out=[];
-  for(let s=n.sid-1;s>=0;s--){
-    const b=new Map();
-    group.forEach(p=>{const k=nodeBySid(p).get(s);if(k){let t=b.get(k);if(!t){t=[];b.set(k,t);}t.push(p);}});
-    let best=[];for(const v of b.values())if(v.length>best.length)best=v;
-    if(best.length<2)break;
-    const seasons=n.sid-s+1;
-    if(!out.length||out[out.length-1][0]!==best.length)out.push([best.length,seasons]);
-    else out[out.length-1][1]=seasons;
-    group=best;
+let TOGC=new Map();
+function togetherChain(key){
+  if(TOGC.has(key))return TOGC.get(key);
+  const n=NODE[key];let out=[];
+  if(n&&n.sid){
+    let group=(COHORT?COHORT.players:PL).filter(p=>nodeBySid(p).get(n.sid)===key);
+    if(group.length>=2){
+      for(let s=n.sid-1;s>=0;s--){
+        const b=new Map();
+        group.forEach(p=>{const k=nodeBySid(p).get(s);if(k){let t=b.get(k);if(!t){t=[];b.set(k,t);}t.push(p);}});
+        let best=[];for(const v of b.values())if(v.length>best.length)best=v;
+        if(best.length<2)break;
+        const seasons=n.sid-s+1;
+        const prev=out[out.length-1];
+        if(prev&&prev.k===best.length)prev.s=seasons;
+        else out.push({k:best.length,s:seasons,players:best.map(who)});
+        group=best;
+      }
+    }
   }
-  return out.map(([c,sn])=>`${c} for ${sn} season${sn===1?'':'s'}`).join(' · ');
+  TOGC.set(key,out);return out;
+}
+function togetherFor(key){
+  return togetherChain(key).map(r=>`${r.k} for ${r.s} season${r.s===1?'':'s'}`).join(' · ');
+}
+
+// ---------- nucleus: squads that stayed together disproportionately long ----------
+// There is no objectively correct weighting here — the ranking changes with the exponent — so the
+// formula is named on screen, the raw players-and-seasons sit beside every score, and the control
+// lets the weighting be changed to see whether a result survives it.
+const WEIGHTS={
+  sqrt:{lab:'seasons × √players', f:(k,s)=>s*Math.sqrt(k)},
+  lin :{lab:'seasons × players',  f:(k,s)=>s*k},
+  sq  :{lab:'seasons² × players', f:(k,s)=>s*s*k},
+};
+function nuclei(vis){
+  const W=WEIGHTS[state.wt]||WEIGHTS.sqrt, rows=[];
+  for(const n of vis){
+    let best=null;
+    for(const r of togetherChain(n.key)){
+      const sc=W.f(r.k,r.s);
+      if(!best||sc>best.score)best={score:sc,k:r.k,s:r.s,players:r.players,node:n};
+    }
+    if(best)rows.push(best);
+  }
+  // The same nucleus recurs season after season; keep only its best showing, not one row per year.
+  const seen=new Map();
+  for(const r of rows){
+    const key=[...r.players].sort().join('|');
+    const cur=seen.get(key);
+    if(!cur||r.score>cur.score||(r.score===cur.score&&r.node.sid>cur.node.sid))seen.set(key,r);
+  }
+  const uniq=[...seen.values()].sort((a,b)=>b.score-a.score);
+  const scores=rows.map(r=>r.score).sort((a,b)=>a-b);
+  const med=scores.length?scores[Math.floor(scores.length/2)]:0;
+  const avgRun=rows.length?rows.reduce((a,r)=>a+r.s,0)/rows.length:0;
+  const avgSize=rows.length?rows.reduce((a,r)=>a+r.k,0)/rows.length:0;
+  const longest=rows.reduce((a,r)=>Math.max(a,r.s),0);
+  return {uniq,med,avgRun,avgSize,longest,teamsWithRun:rows.length,label:W.lab};
+}
+function renderNuclei(vis){
+  const el=$('nuc');if(!el)return;
+  const N=nuclei(vis);
+  if(!N.teamsWithRun){el.innerHTML='<div class="hint">No team here has two players who stayed together for more than one season.</div>';return;}
+  const rows=N.uniq.slice(0,8).map(r=>{
+    const ratio=N.med?(r.score/N.med):0;
+    return `<tr><td><b>${esc(r.k)}</b> players</td><td><b>${esc(r.s)}</b> seasons</td>`+
+      `<td>${esc(r.node.team)} · ${esc(SEAS[r.node.sid])} · ${esc(r.node.band)}</td>`+
+      `<td>${r.score.toFixed(1)}</td><td>${ratio?'×'+ratio.toFixed(1):'—'}</td>`+
+      `<td class="code">${esc(r.players.slice(0,6).join(', '))}${r.players.length>6?' +'+(r.players.length-6):''}</td></tr>`;
+  }).join('');
+  el.innerHTML=`<div class="psum" style="margin-bottom:10px">`+
+    `<div class="ln">Across the <b>${N.teamsWithRun}</b> teams here that have a run at all: average <b>${N.avgRun.toFixed(1)}</b> seasons `+
+    `with <b>${N.avgSize.toFixed(1)}</b> players · longest run <b>${N.longest}</b> seasons · median score <b>${N.med.toFixed(1)}</b> `+
+    `(<span style="color:var(--text3)">${esc(N.label)}</span>)</div></div>`+
+    `<div class="ptwrap"><table class="ptab"><tr><th>Nucleus</th><th>Run</th><th>Last seen</th><th>Score</th><th>vs median</th><th>Players</th></tr>${rows}</table></div>`;
 }
 function buildNames(pool){
   const edge=new Map(),node=new Map();
@@ -266,6 +338,7 @@ function render(){
   const keys=new Set(vis.map(n=>n.key));
   const BV=[...new Set(vis.map(n=>n.band))].sort((a,b)=>num(a)-num(b));
   NMAP=buildNames(COHORT?COHORT.players:PL);
+  TOGC=new Map();
   const links=COHORT?COHORT.links:DATA.links.filter(l=>keys.has(l.a)&&keys.has(l.b));
   const dest=COHORT?COHORT.dest:DATA.dest.filter(d=>keys.has(d.a));
   const src=COHORT?COHORT.src:DATA.src.filter(d=>keys.has(d.b));
@@ -297,6 +370,7 @@ function render(){
     ` The panel scrolls both ways; click any team, ribbon or box to trace that group of players across every season and list them below.`+
     (EMPTY.size?` <b style="color:#ef5350">No registrations are recorded for ${[...EMPTY].join(', ')}</b> — that column is empty and players are NOT shown as having left, they simply have no record there yet.`:'');
   draw(vis,links,dest,src,BV);
+  renderNuclei(vis);
 }
 
 function draw(vis,links,dest,src,BV){
