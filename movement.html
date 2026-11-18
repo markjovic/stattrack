@@ -323,8 +323,10 @@ function dupNames(names){
   return new Set([...c.entries()].filter(([,v])=>v>1).map(([k])=>k));
 }
 function labelPlayers(recs,names){
-  const dup=dupNames(names);
-  const out=names.map((n,i)=>dup.has(n)&&recs[i]?`${n} (${recs[i].c})`:n);
+  // Duplicate records are counted once in the size, so they are shown once too. Listing the same
+  // child twice with two codes only makes the reader do the arithmetic the page has already done;
+  // the duplicate identities are named once, in the warning above the table.
+  const out=[...new Set(names)];
   return out.slice(0,6).join(', ')+(out.length>6?' +'+(out.length-6):'');
 }
 function renderNuclei(vis){
@@ -334,8 +336,7 @@ function renderNuclei(vis){
   const rows=N.uniq.slice(0,8).map(r=>{
     const ratio=N.med?(r.score/N.med):0;
     const solid=r.worst<=8;
-    const dupNote=r.recCount>r.k?` <span style="color:#ef5350" title="${r.recCount-r.k} duplicate record(s) counted once">⚠ ${r.recCount} records</span>`:'';
-    return `<tr${solid?'':' style="opacity:.6"'}><td><b>${esc(r.k)}</b> players${dupNote}</td><td><b>${esc(r.s)}</b> seasons</td>`+
+    return `<tr${solid?'':' style="opacity:.6"'}><td><b>${esc(r.k)}</b> players</td><td><b>${esc(r.s)}</b> seasons</td>`+
       `<td>${esc(r.node.team)} · ${esc(SEAS[r.node.sid])} · ${esc(r.node.band)}</td>`+
       `<td>${r.score.toFixed(1)}</td><td>${ratio?'×'+ratio.toFixed(1):'—'}</td>`+
       `<td title="rank under ${esc(Object.values(WEIGHTS).map(w=>w.lab).join(' / '))}">`+
@@ -354,7 +355,8 @@ function renderNuclei(vis){
       `— almost certainly one person with two PlayHQ profiles that were never folded, which inflates that team's player count. `+
       `Nucleus sizes below already count them once, and a "pair" that is one person twice is dropped entirely; the team boxes in the diagram are NOT corrected. `+
       `Affected: ${esc(N.dupNames.slice(0,12).join(', '))}${N.dupNames.length>12?' +'+(N.dupNames.length-12)+' more':''}. `+
-      `They are shown with their player code so the two records can be told apart; they are NOT merged here.</div>`:'')+
+      `This is not a gap in the fold: the fold handles one person across the spectator and api namespaces, while two genuine PlayHQ profiles for one person `+
+      `are deliberately kept as two records (settled 2026-08-26). Telling the two cases apart needs the profile ids, not the name.</div>`:'')+
     `</div>`+
     `<div class="ptwrap"><table class="ptab"><tr><th>Nucleus</th><th>Run</th><th>Last seen</th><th>Score</th><th>vs median</th><th>Survives the formula?</th><th>Players</th></tr>${rows}</table></div>`;
 }
