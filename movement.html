@@ -244,7 +244,7 @@ function togetherChain(key){
         const seasons=n.sid-s+1;
         const prev=out[out.length-1];
         if(prev&&prev.k===best.length)prev.s=seasons;
-        else out.push({k:best.length,s:seasons,players:best.map(who)});
+        else out.push({k:best.length,s:seasons,players:best.map(who),recs:best.slice()});
         group=best;
       }
     }
@@ -270,7 +270,7 @@ function nuclei(vis){
     let best=null;
     for(const r of togetherChain(n.key)){
       const sc=W.f(r.k,r.s);
-      if(!best||sc>best.score)best={score:sc,k:r.k,s:r.s,players:r.players,node:n};
+      if(!best||sc>best.score)best={score:sc,k:r.k,s:r.s,players:r.players,playerRecs:r.recs,node:n};
     }
     if(best)rows.push(best);
   }
@@ -282,12 +282,42 @@ function nuclei(vis){
     if(!cur||r.score>cur.score||(r.score===cur.score&&r.node.sid>cur.node.sid))seen.set(key,r);
   }
   const uniq=[...seen.values()].sort((a,b)=>b.score-a.score);
+  // Rank each nucleus under EVERY weighting. Not to blend them — a blend is just a fourth
+  // arbitrary exponent, and the largest-scale formula would dominate any average — but to show
+  // which results survive the choice of formula and which only exist because of it.
+  const KEYS=Object.keys(WEIGHTS);
+  const ranks={};
+  for(const kk of KEYS){
+    const order=[...uniq].sort((a,b)=>WEIGHTS[kk].f(b.k,b.s)-WEIGHTS[kk].f(a.k,a.s));
+    order.forEach((r,i)=>{(ranks[r.key=r.key||[...r.players].sort().join('|')]||(ranks[r.key]={}))[kk]=i+1;});
+  }
+  uniq.forEach(r=>{r.ranks=KEYS.map(kk=>ranks[r.key][kk]);r.worst=Math.max(...r.ranks);});
   const scores=rows.map(r=>r.score).sort((a,b)=>a-b);
   const med=scores.length?scores[Math.floor(scores.length/2)]:0;
   const avgRun=rows.length?rows.reduce((a,r)=>a+r.s,0)/rows.length:0;
   const avgSize=rows.length?rows.reduce((a,r)=>a+r.k,0)/rows.length:0;
   const longest=rows.reduce((a,r)=>Math.max(a,r.s),0);
-  return {uniq,med,avgRun,avgSize,longest,teamsWithRun:rows.length,label:W.lab};
+  let dupTeams=0,dupNamesSeen=new Set();
+  for(const n of vis){
+    const names=[...(NMAP.node.get(n.key)||[])];
+    const all=(COHORT?COHORT.players:PL).filter(p=>nodeBySid(p).get(n.sid)===n.key).map(who);
+    const d=dupNames(all);
+    if(d.size){dupTeams++;d.forEach(x=>dupNamesSeen.add(x));}
+  }
+  return {uniq,med,avgRun,avgSize,longest,teamsWithRun:rows.length,label:W.lab,dupTeams,dupNames:[...dupNamesSeen]};
+}
+// A nucleus cannot contain the same person twice, so a repeated NAME means two player records
+// for one human — a PlayHQ profile that was never folded. Showing the codes separates them, and
+// the count is reported rather than quietly collapsed: deduplicating by name would hide it, and a
+// name test cannot settle a name collision in any case.
+function dupNames(names){
+  const c=new Map();names.forEach(n=>c.set(n,(c.get(n)||0)+1));
+  return new Set([...c.entries()].filter(([,v])=>v>1).map(([k])=>k));
+}
+function labelPlayers(recs,names){
+  const dup=dupNames(names);
+  const out=names.map((n,i)=>dup.has(n)&&recs[i]?`${n} (${recs[i].c})`:n);
+  return out.slice(0,6).join(', ')+(out.length>6?' +'+(out.length-6):'');
 }
 function renderNuclei(vis){
   const el=$('nuc');if(!el)return;
@@ -295,16 +325,28 @@ function renderNuclei(vis){
   if(!N.teamsWithRun){el.innerHTML='<div class="hint">No team here has two players who stayed together for more than one season.</div>';return;}
   const rows=N.uniq.slice(0,8).map(r=>{
     const ratio=N.med?(r.score/N.med):0;
-    return `<tr><td><b>${esc(r.k)}</b> players</td><td><b>${esc(r.s)}</b> seasons</td>`+
+    const solid=r.worst<=8;
+    return `<tr${solid?'':' style="opacity:.6"'}><td><b>${esc(r.k)}</b> players</td><td><b>${esc(r.s)}</b> seasons</td>`+
       `<td>${esc(r.node.team)} · ${esc(SEAS[r.node.sid])} · ${esc(r.node.band)}</td>`+
       `<td>${r.score.toFixed(1)}</td><td>${ratio?'×'+ratio.toFixed(1):'—'}</td>`+
-      `<td class="code">${esc(r.players.slice(0,6).join(', '))}${r.players.length>6?' +'+(r.players.length-6):''}</td></tr>`;
+      `<td title="rank under ${esc(Object.values(WEIGHTS).map(w=>w.lab).join(' / '))}">`+
+      `${solid?'<span style="color:var(--stay)">holds</span>':'<span style="color:var(--text3)">formula-dependent</span>'}`+
+      ` <span class="tmeta">${r.ranks.join('/')}</span></td>`+
+      `<td class="code">${esc(labelPlayers(r.playerRecs||[],r.players))}</td></tr>`;
   }).join('');
   el.innerHTML=`<div class="psum" style="margin-bottom:10px">`+
     `<div class="ln">Across the <b>${N.teamsWithRun}</b> teams here that have a run at all: average <b>${N.avgRun.toFixed(1)}</b> seasons `+
     `with <b>${N.avgSize.toFixed(1)}</b> players · longest run <b>${N.longest}</b> seasons · median score <b>${N.med.toFixed(1)}</b> `+
-    `(<span style="color:var(--text3)">${esc(N.label)}</span>)</div></div>`+
-    `<div class="ptwrap"><table class="ptab"><tr><th>Nucleus</th><th>Run</th><th>Last seen</th><th>Score</th><th>vs median</th><th>Players</th></tr>${rows}</table></div>`;
+    `(<span style="color:var(--text3)">${esc(N.label)}</span>)</div>`+
+    `<div class="ln" style="color:var(--text3)">"holds" means this nucleus is top-8 under all three weightings, not just the one selected. `+
+    `The three ranks are shown in order: ${esc(Object.values(WEIGHTS).map(w=>w.lab).join(' / '))}. There is no blended score, because blending `+
+    `three formulas of the same shape just picks a fourth exponent and lets the largest-scale one dominate.</div>`+
+    (N.dupTeams?`<div class="ln" style="color:#ef5350"><b>${N.dupTeams}</b> team${N.dupTeams===1?'':'s'} here contain two player records sharing one name `+
+      `— almost certainly one person with two PlayHQ profiles that were never folded, which inflates that team's player count and any nucleus containing them. `+
+      `Affected: ${esc(N.dupNames.slice(0,12).join(', '))}${N.dupNames.length>12?' +'+(N.dupNames.length-12)+' more':''}. `+
+      `They are shown with their player code so the two records can be told apart; they are NOT merged here.</div>`:'')+
+    `</div>`+
+    `<div class="ptwrap"><table class="ptab"><tr><th>Nucleus</th><th>Run</th><th>Last seen</th><th>Score</th><th>vs median</th><th>Survives the formula?</th><th>Players</th></tr>${rows}</table></div>`;
 }
 function buildNames(pool){
   const edge=new Map(),node=new Map();
