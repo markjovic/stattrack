@@ -151,6 +151,7 @@ function initControls(){
     Object.keys(DLAB).map(k=>`<span><i class="sw" style="background:${DCOL[k]}"></i>${esc(DLAB[k])}</span>`).join('');
   document.getElementById('foot').innerHTML=
     `Teams within an age group are ordered by grade, strongest at the top, then by ladder position (shown bottom-right, e.g. <b>A · 3rd</b>). `+
+    `Ribbon thickness is a fixed width per player, the same everywhere on the page, so thickness is directly comparable between any two ribbons. `+
     `Ladder position is derived from each team's own completed fixtures: 2 points a win, 1 a draw, ties split on points difference. `+
     `A season still in progress shows "now 3rd" rather than a finishing position, and a grade with no completed game gets none at all. `+
     `Hovering a team also shows how long its players have been together, as an unbroken run: "6 for 3 seasons · 3 for 7 seasons" means six of them have been `+
@@ -346,7 +347,10 @@ function draw(vis,links,dest,src,BV){
   rib.sort((a,b)=>(LAID[a[1]]?LAID[a[1]].y:0)-(LAID[b[1]]?LAID[b[1]].y:0));
   const outOff={},inOff={},rl=[];let paths='';
   rib.forEach(([ka,kb,n,col,title])=>{const a=LAID[ka],b=LAID[kb];if(!a||!b)return;
-    const wdt=Math.max(1.4,Math.min(n/(a.cnt||1)*a.h,n/(b.cnt||1)*b.h));
+    // One fixed width per player, everywhere on the page. A box is already players × row height,
+    // so a box's ribbons sum to at most its height and can never overflow it — and two players
+    // look the same whether they leave a 3-player team or a 12-player one.
+    const wdt=Math.max(1.2,n*UNIT);
     const ao=outOff[ka]||0,bo=inOff[kb]||0,y1=a.y+ao+wdt/2,y2=b.y+bo+wdt/2;outOff[ka]=ao+wdt;inOff[kb]=bo+wdt;
     const x1=REV?a.x:a.x+a.w, x2=REV?b.x+b.w:b.x, mx=(x1+x2)/2;
     const d=`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
