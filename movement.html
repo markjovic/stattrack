@@ -153,7 +153,8 @@ function initControls(){
     `Teams within an age group are ordered by grade, strongest at the top, then by ladder position (shown bottom-right, e.g. <b>A · 3rd</b>). `+
     `Ladder position is derived from each team's own completed fixtures: 2 points a win, 1 a draw, ties split on points difference. `+
     `A season still in progress shows "now 3rd" rather than a finishing position, and a grade with no completed game gets none at all. `+
-    `Hovering a team also shows how far back its players go together: the largest group of that squad who were on one team in each earlier season. `+
+    `Hovering a team also shows how long its players have been together, as an unbroken run: "6 for 3 seasons · 3 for 7 seasons" means six of them have been `+
+    `on one team for the last three seasons, and three of those six for the last seven. A season apart ends the run. `+
     `A player holds ONE position per season — the team in their own (youngest) age group. Playing up is common: where a player also turned out for an older `+
     `age group, that older team shows them as "+N played up" rather than as a second position, so each player leaves and enters exactly one team per `+
     `season and the ribbon counts reconcile. A team carrying two grades in one season is a regrade and counts once. `+
@@ -211,20 +212,26 @@ function nodeBySid(p){
   p.h.forEach(h=>[h[0],h[1]].forEach(k=>{if(!isBox(k)&&NODE[k])m.set(NODE[k].sid,k);}));
   p._ns=m;return m;
 }
-// How far back this team's players go together: for each earlier season, the largest group of THIS
-// squad who were on one team then. Reported only where the number changes, earliest first.
-function togetherSince(key){
+// How long this team's players have been together, as an unbroken run. Walk back a season at a
+// time, keeping only those still on ONE team with each other, and stop when the group breaks. A
+// point-in-time measure would be wrong here: a squad together in 2023 and again now may well have
+// split in between, and calling that "together 7 seasons" claims a run nobody checked.
+function togetherFor(key){
   const n=NODE[key];if(!n||!n.sid)return '';
-  const pool=(COHORT?COHORT.players:PL).filter(p=>nodeBySid(p).get(n.sid)===key);
-  if(pool.length<2)return '';
-  const out=[];let last=1;
-  for(let s=0;s<n.sid;s++){
+  let group=(COHORT?COHORT.players:PL).filter(p=>nodeBySid(p).get(n.sid)===key);
+  if(group.length<2)return '';
+  const out=[];
+  for(let s=n.sid-1;s>=0;s--){
     const b=new Map();
-    pool.forEach(p=>{const k=nodeBySid(p).get(s);if(k)b.set(k,(b.get(k)||0)+1);});
-    const mx=b.size?Math.max(...b.values()):0;
-    if(mx>=2&&mx!==last){out.push(`${mx} since ${SEAS[s]}`);last=mx;}
+    group.forEach(p=>{const k=nodeBySid(p).get(s);if(k){let t=b.get(k);if(!t){t=[];b.set(k,t);}t.push(p);}});
+    let best=[];for(const v of b.values())if(v.length>best.length)best=v;
+    if(best.length<2)break;
+    const seasons=n.sid-s+1;
+    if(!out.length||out[out.length-1][0]!==best.length)out.push([best.length,seasons]);
+    else out[out.length-1][1]=seasons;
+    group=best;
   }
-  return out.join(' · ');
+  return out.map(([c,sn])=>`${c} for ${sn} season${sn===1?'':'s'}`).join(' · ');
 }
 function buildNames(pool){
   const edge=new Map(),node=new Map();
@@ -378,7 +385,7 @@ function draw(vis,links,dest,src,BV){
     const tip=[`${esc(n.team)} · ${esc(SEAS[n.sid])}`,
                `${n.band} · ${esc(n.g||'')}${posWord?' · '+posWord:''}`,
                `${n.n} players`];
-    const tog=togetherSince(k);
+    const tog=togetherFor(k);
     if(tog)tip.push(`together: ${tog}`);
     if(n.alsoN)tip.push(`${n.alsoN} more played up into this team while counted in their own age group`);
     if(ten)tip.push(`in ${SEAS[NS-1]}: ${ten}`);
@@ -456,7 +463,7 @@ function applySelection(){
     const n=NODE[sel.k];
     const pw=n.gp?(DONE(n.sid)?`finished ${ORD(n.gp)}`:`${ORD(n.gp)} on the ladder so far`):'no ladder yet';
     h+=`<div class="ln"><span style="color:var(--text3)">${esc(SEAS[n.sid])} · ${esc(n.g||'')}:</span> ${esc(pw)}</div>`;
-    const tog=togetherSince(sel.k);
+    const tog=togetherFor(sel.k);
     if(tog)h+=`<div class="ln"><span style="color:var(--text3)">Played together:</span> ${esc(tog)}</div>`;
   }
   if(list.length>1)SIX.forEach(s=>{h+=`<div class="ln"><span style="color:var(--text3)">${esc(SEAS[s])}:</span> ${tallyLine(list,s)}</div>`;});
