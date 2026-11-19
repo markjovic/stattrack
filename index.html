@@ -642,7 +642,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-spark i{flex:1;background:var(--text3);border-radius:1px;opacity:.5}
 .car-spark i.me{background:var(--accent);opacity:1}
 .car-avg{position:absolute;left:0;right:0;border-top:1px dashed var(--text2);opacity:.75;pointer-events:none}
-.car-avg b{position:absolute;left:0;top:-13px;font-size:0.5rem;font-weight:600;color:var(--text2);background:var(--surface);padding:0 2px;letter-spacing:.03em}
+.car-avgl{position:absolute;left:0;top:-13px;font-size:0.5rem;font-weight:600;color:var(--text2);letter-spacing:.03em;white-space:nowrap;pointer-events:none}
 .car-mini{display:flex;flex-wrap:wrap;padding:7px 6px 7px;border-top:1px solid var(--border);margin-top:7px}
 .car-mini .c{flex:1 0 33.33%;text-align:center;padding:3px 0}
 .car-mini .v{font-size:0.8rem;font-variant-numeric:tabular-nums}
@@ -730,7 +730,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.51</span>
+      <span class="rail-ver">v1.53</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2730,7 +2730,7 @@ function carCard(g,ctx){
     const lo=Math.max(0,Math.min(ord.length-CAR_BARS,at-Math.floor(CAR_BARS/2)));
     ord=ord.slice(lo,lo+CAR_BARS);
   }
-  const bars=ctx.bars?`<div class="car-spark"><div class="car-avg" style="bottom:${Math.round(avg/mx*100)}%">${first?`<b>avg ${hero==='ppg'?avg.toFixed(1):Math.round(avg)}</b>`:''}</div>${
+  const bars=ctx.bars?`<div class="car-spark"><div class="car-avg" style="bottom:${Math.round(avg/mx*100)}%"></div>${first?`<span class="car-avgl">avg ${hero==='ppg'?avg.toFixed(1):Math.round(avg)}</span>`:''}${
     ord.map(j=>{const c=chron[j];return `<i class="${g.range?((c.from&&c.to&&c.from<=g.to&&c.to>=g.from)?'me':''):(j===i?'me':'')}" style="height:${Math.max(8,Math.round(vals[j]/mx*100))}%"></i>`;}).join('')}</div>`:'';
   return`<div class="car-card${g.range?' rng':''}${(!g.range&&cur===g)?' cur':''}">
     <div class="car-ch"><div class="car-nm">${esc(g.name)}</div>
@@ -3751,7 +3751,7 @@ function tcSt(key){
   if(!TC[key])TC[key]={hero:'pts',per:'S',order:'H',chart:true,view:'C',sel:null,roster:[]};
   return TC[key];
 }
-const TC_STATS=[['pts','PTS','points'],['ppg','PPG','points per game'],['fg','FG','field goals'],
+const TC_STATS=[['gp','GP','games'],['pts','PTS','points'],['ppg','PPG','points per game'],['fg','FG','field goals'],
                 ['ft','FT','free throws'],['threePt','3PT','three-pointers'],['fouls','F','fouls']];
 /* A roster line and a career block carry the same stat names, so one accessor
    serves both modes. PPG is derived, never stored. */
@@ -3802,7 +3802,8 @@ function tcDraw(key){
   const avgv=vals.reduce((a,c)=>a+c,0)/Math.max(1,vals.length);
   const list=st.order==='H'?ranked:rows.slice().sort((a,c)=>String(a.name).localeCompare(String(c.name)));
   // A share is of a total, so PPG gets none: averages do not sum.
-  const teamHero=hero==='ppg'?0:rows.reduce((a,r)=>a+tcVal(r,hero,per),0);
+  const teamGames=rows.reduce((a,r)=>Math.max(a,tcVal(r,'gp',per)),0);
+  const teamHero=hero==='ppg'?0:(hero==='gp'?teamGames:rows.reduce((a,r)=>a+tcVal(r,hero,per),0));
 
   const chart=st.chart?`<div class="tc-chart">
     <div class="tc-chd"><b>Squad · ${esc(lbl)}</b><span>${rows.length} player${rows.length===1?'':'s'}</span></div>
@@ -3815,7 +3816,7 @@ function tcDraw(key){
   const tot=rows.map(r=>per==='C'?r.car:r.sea).reduce((a,q)=>({gp:Math.max(a.gp,q.gp||0),pts:a.pts+(q.pts||0),
     fg:a.fg+(q.fg||0),ft:a.ft+(q.ft||0),threePt:a.threePt+(q.threePt||0),fouls:a.fouls+(q.fouls||0)}),
     {gp:0,pts:0,fg:0,ft:0,threePt:0,fouls:0});
-  const totHero=hero==='ppg'?(tot.gp?((tot.pts/tot.gp).toFixed(1)):'—'):(tot[hero]||0);
+  const totHero=hero==='ppg'?(tot.gp?((tot.pts/tot.gp).toFixed(1)):'—'):(hero==='gp'?tot.gp:(tot[hero]||0));
   const summary=`<div class="tc-card sum">
     <div class="tc-h"><div class="tc-nm">Squad total</div></div>
     <div class="tc-mt">${rows.length} players · ${tot.gp} games${per==='C'?' · career':''}</div>
@@ -3828,7 +3829,7 @@ function tcDraw(key){
     return `<div class="tc-card${st.sel===r.uuid?' on':''}" onclick="tcPick('${esc(key)}','${esc(r.uuid)}')">
       <div class="tc-h"><div class="tc-nm" title="Open ${esc(r.name)}" onclick="event.stopPropagation();loadPlayer('${esc(r.uuid)}')">${esc(r.name)}</div>
         <div class="tc-rk">#${i+1}/${ranked.length}</div></div>
-      <div class="tc-mt">${q.gp||0} game${(q.gp||0)===1?'':'s'}${per==='C'?' · career':''}</div>
+      <div class="tc-mt">${hero==='gp'?`of ${teamGames} team game${teamGames===1?'':'s'}`:`${q.gp||0} game${(q.gp||0)===1?'':'s'}`}${per==='C'?' · career':''}</div>
       <div class="tc-hero"><div class="tc-big">${hero==='ppg'?v.toFixed(1):v}</div><div class="tc-unit">${esc(lbl)}</div>
         ${share?`<div class="tc-shr" title="${share}% of the squad's ${esc(word)}">${share}%</div>`:''}</div>
       <div class="tc-mini">${tcCells(q)}</div></div>`;}).join('')}</div>`;
