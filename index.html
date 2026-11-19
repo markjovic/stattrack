@@ -554,33 +554,24 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .h2h-none{padding:10px 12px;color:var(--text2);font-size:0.85rem}
 
 /* ── Movement map (v1.29) ───────────────────────────────────────────────── */
-/* ── CAREER CARDS (v1.30) ──────────────────────────────────────────────────
+/* ── CAREER CARDS (v1.31) ──────────────────────────────────────────────────
    One card per period (season, calendar year, or a custom date window), hero
    number leading, the whole career drawn as bars behind it. Season totals come
    from the PlayHQ-credited registration stats; year and range totals are summed
    from the dated per-game lines in the season game files. */
 .car-wrap{margin:10px 0 2px}
-.car-row{display:flex;align-items:flex-start;gap:10px}
-.car-cfg{flex:0 0 auto;width:42px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:width .26s ease,border-color .18s ease}
-.car-cfg.open{width:186px;border-color:var(--accent)}
-.car-gear{width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);border:0;background:transparent;font-size:1.05rem;padding:0}
-.car-gear:hover{color:var(--accent)}
-.car-cfg.open .car-gear{color:var(--accent);width:100%;justify-content:flex-start;padding:0 10px;border-bottom:1px solid var(--border);height:34px}
-.car-cbody{overflow:hidden;opacity:0;max-height:0;transition:opacity .16s ease,max-height .26s ease}
-.car-cfg.open .car-cbody{opacity:1;max-height:560px;padding:6px 8px 9px}
-.car-cbody .lbl{display:block;color:var(--text3);font-size:0.62rem;text-transform:uppercase;letter-spacing:.06em;margin:7px 0 3px 2px}
-.car-cbody .lbl:first-child{margin-top:0}
-.car-cbody .grp{display:flex;flex-wrap:wrap;gap:4px}
-.car-cbody button{border:1px solid var(--border);background:var(--elevated);color:var(--text2);border-radius:5px;cursor:pointer;font-size:0.72rem;padding:4px 8px;font-family:inherit}
-.car-cbody button:hover{color:var(--text);border-color:var(--text3)}
-.car-cbody button.on{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
-.car-rg{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
-.car-rg.on{display:block}
-.car-rg label{display:block;color:var(--text3);font-size:0.62rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-.car-rg input{display:block;width:100%;margin-top:2px;background:var(--elevated);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 6px;font:inherit;font-size:0.74rem;color-scheme:dark}
+.car-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px}
+.car-bar .lbl{color:var(--text3);font-size:0.65rem;text-transform:uppercase;letter-spacing:.05em;margin:0 2px 0 10px}
+.car-bar .lbl:first-child{margin-left:0}
+.car-bar button{border:1px solid var(--border);background:var(--elevated);color:var(--text2);border-radius:5px;cursor:pointer;font-size:0.74rem;padding:5px 9px;font-family:inherit}
+.car-bar button:hover{color:var(--text);border-color:var(--text3)}
+.car-bar button.on{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.car-rg{display:none;align-items:center;gap:8px;margin-left:10px;padding-left:10px;border-left:1px solid var(--border)}
+.car-rg.on{display:inline-flex}
+.car-rg label{color:var(--text3);font-size:0.65rem;text-transform:uppercase;letter-spacing:.05em;display:inline-flex;align-items:center;gap:5px}
+.car-rg input{background:var(--elevated);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 6px;font:inherit;font-size:0.74rem;color-scheme:dark}
 .car-rg input:focus{outline:none;border-color:var(--accent)}
-.car-hint{color:var(--text3);font-size:0.62rem;line-height:1.35;margin-top:4px}
-.car-strip{display:flex;align-items:flex-start;gap:10px;overflow-x:auto;padding:2px 2px 10px;flex:1;min-width:0}
+.car-strip{display:flex;align-items:flex-start;gap:10px;overflow-x:auto;padding:2px 2px 10px}
 .car-card{flex:0 0 186px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .car-card.cur{border-color:var(--accent)}
 .car-card.rng{border-color:var(--draw)}
@@ -621,7 +612,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.30</span>
+      <span class="rail-ver">v1.31</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2187,6 +2178,8 @@ async function hydrateClubs(p,groups){
 
 /* ── CAREER CARDS (v1.30) ─────────────────────────────────────────────────────
    Replaces the v1.29 movement map, which drew the wrong thing.
+   v1.31: season cards keyed on the season PERIOD not the sid; static settings
+   bar (the flyout rebuilt itself on every click); open-ended date windows.
 
    One card per period. The hero number leads, the career is drawn as bars behind
    it with the player's own average marked, and the teams that made up the period
@@ -2221,7 +2214,13 @@ const CAR_K=['pts','fg','ft','tp','f'];
 function carSum(ts,k){return ts.reduce((a,t)=>a+(t[k]||0),0);}
 function carFmtD(d){const p=String(d||'').split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0].slice(2)}`:String(d||'');}
 
-/* Season totals from registrations. */
+/* Season totals from registrations.
+
+   Grouped by season NAME, not sid. One season period routinely carries several
+   season ids — a domestic comp, a rep comp and a tournament all run inside
+   "Summer 2026/27" and each is its own sid. Keying on sid produced three cards
+   all headed Summer 2026/27, which is three answers to one question. The period
+   is the unit here; the sids inside it become its teams. */
 function carSeasonGroups(p){
   const out=[],seen=new Map();
   for(const{sn,tid,regs}of groupRegs(p.seasons||[])){
@@ -2230,15 +2229,18 @@ function carSeasonGroups(p){
       fg:Math.max(a.fg||0,s.fg||0),ft:Math.max(a.ft||0,s.ft||0),
       threePt:Math.max(a.threePt||0,s.threePt||0),fouls:Math.max(a.fouls||0,s.fouls||0)};},{});
     const wld=regs[0]&&regs[0].stats||{};
-    if(!seen.has(sn.sid)){const grp={sid:sn.sid,name:sn.sn||sn.sid,teams:[]};seen.set(sn.sid,grp);out.push(grp);}
-    seen.get(sn.sid).teams.push({tid,sid:sn.sid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sn.sid,
+    const key=sn.sn||sn.sid;
+    if(!seen.has(key)){const grp={key,name:key,sids:[],teams:[]};seen.set(key,grp);out.push(grp);}
+    const grp=seen.get(key);
+    if(grp.sids.indexOf(sn.sid)<0)grp.sids.push(sn.sid);
+    grp.teams.push({tid,sid:sn.sid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sn.sid,
       gp:st.gp||gamesForGroup(p,regs),pts:st.pts||0,fg:st.fg||0,ft:st.ft||0,tp:st.threePt||0,f:st.fouls||0,
       w:wld.wins||0,l:wld.losses||0,d:wld.draws||0});
   }
   out.reverse();                       // groupRegs is newest-first; chronological here
-  const st=CAR[p.uuid];
-  if(st&&st.rows)for(const g of out){   // real date span once the game lines are in
-    const ds=st.rows.filter(r=>r.sid===g.sid).map(r=>r.date).sort();
+  const cst=CAR[p.uuid];
+  if(cst&&cst.rows)for(const g of out){   // real date span once the game lines are in
+    const ds=cst.rows.filter(r=>g.sids.indexOf(r.sid)>=0).map(r=>r.date).sort();
     if(ds.length){g.from=ds[0];g.to=ds[ds.length-1];}
   }
   return out;
@@ -2261,11 +2263,12 @@ function carYearGroups(rows){
   return[...m.entries()].sort((a,b)=>a[0].localeCompare(b[0]))
     .map(([y,rs])=>({name:y,from:rs[0].date,to:rs[rs.length-1].date,teams:carAgg(rs)}));
 }
-function carRangeGroup(rows,a,b){
+function carRangeGroup(rows,a,b,label){
   const rs=rows.filter(r=>r.date>=a&&r.date<=b);
   if(!rs.length)return null;
-  return{name:carFmtD(a)+' – '+carFmtD(b),from:a,to:b,range:true,n:rs.length,teams:carAgg(rs)};
+  return{name:label||(carFmtD(a)+' – '+carFmtD(b)),from:a,to:b,range:true,n:rs.length,teams:carAgg(rs)};
 }
+
 
 /* One season game file per season played. Cached in S.games like every other
    reader of these files, so a season already opened costs nothing. */
@@ -2279,14 +2282,18 @@ async function carLoadRows(p){
   const sids=[...new Set((p.seasons||[]).map(s=>s.sid).filter(Boolean))];
   const mine=Array.isArray(p.games)?p.games:[];
   const rows=[],missing=[],seen=new Set();
+  let noDate=0,noLine=0,notInFile=0;
   for(const sid of sids){
     if(!S.games[sid]){const d=await sgj('games/bv',sid);if(d)S.games[sid]=d;}
     const gf=S.games[sid]&&S.games[sid].games;
     if(!gf){missing.push((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid);continue;}
     for(const gid of mine){
       if(seen.has(gid))continue;
-      const g=gf[gid];if(!g||!g.d)continue;
-      const ps=storedStats(g,uuid);if(!ps)continue;   // `c` games carry no line
+      const g=gf[gid];
+      if(!g){notInFile++;continue;}
+      if(!g.d){noDate++;seen.add(gid);continue;}
+      const ps=storedStats(g,uuid);
+      if(!ps){noLine++;seen.add(gid);continue;}        // `c` games carry no line
       seen.add(gid);
       const tid=(p.gameTids||{})[gid]||null;
       const ctx=tid?gameCtx(g,tid):null;
@@ -2299,14 +2306,21 @@ async function carLoadRows(p){
   }
   rows.sort((a,b)=>a.date.localeCompare(b.date));
   st.rows=rows;st.missing=missing;st.unlined=mine.length-rows.length;st.loading=false;
+  st.scan={seasons:sids.length,filesRead:sids.length-missing.length,credited:mine.length,
+           found:rows.length,noDate:noDate,noLine:noLine,
+           notInAnyFile:mine.filter(g=>!seen.has(g)).length};
   if(el('car-'+uuid))carDraw(uuid);
 }
 
-/* ── view ──────────────────────────────────────────────────────────────────── */
-function carToggleCfg(u){const c=el('carcfg-'+u);if(c)c.classList.toggle('open');}
+/* ── view ──────────────────────────────────────────────────────────────────
+   The settings bar is built ONCE and never re-rendered. The first cut drew it
+   inside the same innerHTML as the cards, so every click rebuilt the control
+   that had just been clicked: the flyout shut, and a half-typed date was wiped
+   on the change event. Only the strip, the hint and the button states update. */
 function carSet(u,k,v){const s=carSt(u);s[k]=v;carDraw(u);}
 function carFlag(u,k){const s=carSt(u);s[k]=!s[k];carDraw(u);}
 function carDate(u,which,v){const s=carSt(u);s[which]=v;carDraw(u);}
+function carToday(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);}
 function carHeroVal(g,hero){
   const pts=carSum(g.teams,'pts'),gp=carSum(g.teams,'gp');
   return hero==='pts'?pts:(gp?+(pts/gp).toFixed(1):0);
@@ -2342,44 +2356,62 @@ function carCard(g,ctx){
       <span class="car-tp">${t.pts}</span></div>`).join('')}</div>
   </div>`;
 }
-function carDraw(uuid){
-  const host=el('car-'+uuid);if(!host)return;
-  const st=carSt(uuid);
-  const p=st.p;
-  const on=(c)=>c?' on':'';
-  const cfg=`<div class="car-cfg" id="carcfg-${esc(uuid)}">
-    <button class="car-gear" title="Display options" onclick="carToggleCfg('${esc(uuid)}')">⚙</button>
-    <div class="car-cbody">
-      <span class="lbl">Hero</span><div class="grp">
-        <button class="${on(st.hero==='pts').trim()}" onclick="carSet('${esc(uuid)}','hero','pts')">PTS</button>
-        <button class="${on(st.hero==='ppg').trim()}" onclick="carSet('${esc(uuid)}','hero','ppg')">PPG</button></div>
-      <span class="lbl">Group by</span><div class="grp">
-        <button class="${on(st.mode==='S').trim()}" onclick="carSet('${esc(uuid)}','mode','S')">Season</button>
-        <button class="${on(st.mode==='Y').trim()}" onclick="carSet('${esc(uuid)}','mode','Y')">Calendar year</button></div>
-      <span class="lbl">Order</span><div class="grp">
-        <button class="${on(st.order==='N').trim()}" onclick="carSet('${esc(uuid)}','order','N')">Newest first</button>
-        <button class="${on(st.order==='O').trim()}" onclick="carSet('${esc(uuid)}','order','O')">Oldest first</button></div>
-      <span class="lbl">Show</span><div class="grp">
-        <button class="${on(st.bars).trim()}" onclick="carFlag('${esc(uuid)}','bars')">Career bars</button>
-        <button class="${on(st.range).trim()}" onclick="carFlag('${esc(uuid)}','range')">Custom range</button></div>
-      <div class="car-rg${on(st.range)}">
-        <label>From<input type="date" value="${esc(st.a)}" onchange="carDate('${esc(uuid)}','a',this.value)"></label>
-        <label>To<input type="date" value="${esc(st.b)}" onchange="carDate('${esc(uuid)}','b',this.value)"></label>
-        <div class="car-hint" id="carhint-${esc(uuid)}"></div>
-      </div>
-    </div></div>`;
 
+/* A window with one end open: a start alone runs to today, an end alone runs
+   back to the first game. The empty field stays empty — filling it in would be
+   this code inventing a date the user did not choose. */
+function carWindow(st){
+  if(!st.a&&!st.b)return null;
+  const a=st.a||'0000-01-01', b=st.b||carToday();
+  if(a>b)return{err:'Start date is after the end date.'};
+  const label=st.a&&st.b?carFmtD(st.a)+' – '+carFmtD(st.b)
+            :st.a?'From '+carFmtD(st.a)
+            :'Up to '+carFmtD(st.b);
+  return{a,b,label};
+}
+
+/* Why the game-line scan came back with nothing. A blank panel that says
+   "no seasons" when the player plainly has seasons is the silent-failure case:
+   name the stage that produced zero so it can be fixed rather than guessed. */
+function carWhyEmpty(st,p){
+  const n=st.scan||{};
+  if(!p||!Array.isArray(p.games)||!p.games.length)
+    return 'This profile holds no game list, so year and range totals cannot be built from it. Season totals still work.';
+  if(n.filesRead===0)
+    return 'None of the '+n.seasons+' season game files loaded'+(st.missing.length?' ('+st.missing.join(', ')+')':'')+'.';
+  const bits=[n.credited+' credited games'];
+  if(n.notInAnyFile)bits.push(n.notInAnyFile+' not present in any season file held');
+  if(n.noLine)bits.push(n.noLine+' with no stored stat line');
+  if(n.noDate)bits.push(n.noDate+' with no date');
+  if(st.missing.length)bits.push(st.missing.length+' season file(s) failed: '+st.missing.join(', '));
+  return 'No dated game lines found \u2014 '+bits.join(', ')+'.';
+}
+function carDraw(uuid){
+  const st=carSt(uuid), p=st.p;
+  const strip=el('carstrip-'+uuid), hintEl=el('carhint-'+uuid), noteEl=el('carnote-'+uuid), bar=el('carbar-'+uuid);
+  if(!strip)return;
+  if(bar){
+    bar.querySelectorAll('button[data-k]').forEach(btn=>{
+      const k=btn.dataset.k, v=btn.dataset.v;
+      btn.classList.toggle('on', v===undefined?!!st[k]:st[k]===v);
+    });
+    const rg=el('carrg-'+uuid); if(rg)rg.classList.toggle('on',!!st.range);
+  }
   const needRows=st.mode==='Y'||st.range;
   if(needRows&&!st.rows){
-    host.innerHTML=`<div class="car-row">${cfg}<div class="car-msg">${st.loading?'Reading season game files…':'Season game files not loaded.'}</div></div>`;
+    strip.innerHTML=`<div class="car-msg">${st.loading?'Reading season game files…':'Season game files not loaded.'}</div>`;
+    if(hintEl)hintEl.textContent='';
+    if(noteEl)noteEl.innerHTML='';
     if(!st.loading&&p)carLoadRows(p);
     return;
   }
-  let base=st.mode==='Y'?carYearGroups(st.rows||[]):carSeasonGroups(p||{seasons:[]});
-  if(!base.length){host.innerHTML=`<div class="car-row">${cfg}<div class="car-msg">No seasons to show.</div></div>`;return;}
+  const base=st.mode==='Y'?carYearGroups(st.rows||[]):carSeasonGroups(p||{seasons:[]});
+  if(!base.length){
+    strip.innerHTML=`<div class="car-msg">${esc(needRows?carWhyEmpty(st,p):'No seasons on this profile.')}</div>`;
+    if(hintEl)hintEl.textContent='';if(noteEl)noteEl.textContent='';
+    return;}
 
-  const chron=base.slice();
-  const hero=st.hero;
+  const chron=base.slice(), hero=st.hero;
   const vals=chron.map(g=>carHeroVal(g,hero));
   const mx=Math.max(...vals,1);
   const avg=vals.reduce((a,b)=>a+b,0)/Math.max(1,vals.length);
@@ -2388,33 +2420,53 @@ function carDraw(uuid){
 
   let hint='';
   if(st.range){
-    if(!st.rows)hint='Loading game lines…';
-    else if(!st.a||!st.b)hint='Pick a start and end date.';
-    else if(st.a>st.b)hint='Start date must be on or before the end date.';
-    else{const rg=carRangeGroup(st.rows,st.a,st.b);
-      if(rg)list.unshift(rg);else hint='No games in that window.';}
+    const win=carWindow(st);
+    if(!win)hint='Enter a start date, an end date, or both.';
+    else if(win.err)hint=win.err;
+    else{
+      const rg=carRangeGroup(st.rows||[],win.a,win.b,win.label);
+      if(rg)list.unshift(rg);else hint='No games in that window.';
+    }
   }
   const ctx={chron,vals,avg,mx,hero,cur,bars:st.bars,showSeason:st.mode!=='S'};
   const lead=list.find(g=>!g.range);          // leftmost period card carries the avg label
-  const cards=list.map(g=>carCard(g,{...ctx,first:lead===g})).join('');
+  strip.innerHTML=list.map(g=>carCard(g,{...ctx,first:lead===g})).join('');
+  if(hintEl)hintEl.textContent=hint;
 
-  let note='';
-  if(st.rows&&(st.mode==='Y'||st.range)){
-    const bits=[];
-    if(st.unlined>0)bits.push(`${st.unlined} credited game${st.unlined===1?'':'s'} carry no stored stat line and are not counted here`);
-    if(st.missing.length)bits.push(`${st.missing.length} season file${st.missing.length===1?'':'s'} did not load: ${st.missing.join(', ')}`);
-    if(bits.length)note=`<div class="car-hint" style="padding:0 2px 6px">${esc(bits.join(' · '))}</div>`;
+  if(noteEl){
+    let note='';
+    if(st.rows&&needRows){
+      const bits=[];
+      if(st.unlined>0)bits.push(`${st.unlined} credited game${st.unlined===1?'':'s'} carry no stored stat line and are not counted here`);
+      if(st.missing.length)bits.push(`${st.missing.length} season file${st.missing.length===1?'':'s'} did not load: ${st.missing.join(', ')}`);
+      if(bits.length)note=esc(bits.join(' · '));
+    }
+    noteEl.textContent=note;
   }
-  host.innerHTML=`<div class="car-row">${cfg}<div class="car-strip">${cards}</div></div>${note}`;
-  const hv=el('carhint-'+uuid);if(hv)hv.textContent=hint;
 }
 
 function hydrateCareer(p){
   const uuid=p.uuid,host=el('pmove-'+uuid);if(!host)return;
   carSt(uuid).p=p;
   if(!(p.seasons||[]).length){host.innerHTML='';return;}
+  const u=esc(uuid);
+  const b=(k,v,label)=>`<button data-k="${k}"${v===undefined?'':` data-v="${v}"`} onclick="${v===undefined?`carFlag('${u}','${k}')`:`carSet('${u}','${k}','${v}')`}">${label}</button>`;
   host.innerHTML=`<div class="slist"><div class="sec-lbl">Career</div>
-    <div class="car-wrap" id="car-${esc(uuid)}"></div></div>`;
+    <div class="car-wrap">
+      <div class="car-bar" id="carbar-${u}">
+        <span class="lbl">Hero</span>${b('hero','pts','PTS')}${b('hero','ppg','PPG')}
+        <span class="lbl">Group by</span>${b('mode','S','Season')}${b('mode','Y','Calendar year')}
+        <span class="lbl">Order</span>${b('order','N','Newest first')}${b('order','O','Oldest first')}
+        <span class="lbl">Show</span>${b('bars',undefined,'Career bars')}${b('range',undefined,'Custom range')}
+        <span class="car-rg" id="carrg-${u}">
+          <label>From <input type="date" onchange="carDate('${u}','a',this.value)"></label>
+          <label>To <input type="date" onchange="carDate('${u}','b',this.value)"></label>
+        </span>
+      </div>
+      <div class="car-hint" id="carhint-${u}"></div>
+      <div class="car-strip" id="carstrip-${u}"></div>
+      <div class="car-hint" id="carnote-${u}"></div>
+    </div></div>`;
   carDraw(uuid);
   carLoadRows(p);        // start the game files now so year/range are ready
 }
