@@ -128,6 +128,16 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .slist{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
 .sec-lbl{font-size:0.67rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:2px}
 .sc{background:var(--elevated);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+/* A season PERIOD that carries several registrations (a domestic comp, a rep
+   comp, a tournament — each its own sid) gets one header with the period total,
+   and its cards sit indented beneath it instead of reading as unrelated seasons. */
+.sp-hdr{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--border);border-bottom:0;border-radius:8px 8px 0 0;margin-top:6px}
+.sp-hdr .sp-info{flex:1;min-width:0;padding:7px 12px 6px}
+.sp-hdr .sp-n{font-weight:700;font-size:0.84rem}
+.sp-hdr .sp-s{color:var(--text3);font-size:0.66rem;margin-top:1px}
+.sp-cells{flex:7;min-width:0;display:flex}
+.sp-mem{border-top-left-radius:0;border-top-right-radius:0;margin-left:14px}
+.sp-mem+.sp-mem{margin-top:4px}
 .sc-hdr{border-left:3px solid transparent;padding:0;cursor:pointer;display:flex;align-items:center;gap:0;transition:background 0.1s;user-select:none;background:var(--elevated)}
 .sc-hdr:hover,.sc-hdr.open{background:#333}
 .sc-info{flex:1;min-width:0;padding:7px 12px 6px}
@@ -566,13 +576,33 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-bar button{border:1px solid var(--border);background:var(--elevated);color:var(--text2);border-radius:5px;cursor:pointer;font-size:0.74rem;padding:5px 9px;font-family:inherit}
 .car-bar button:hover{color:var(--text);border-color:var(--text3)}
 .car-bar button.on{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.car-rgwrap{display:none}
+.car-rgwrap.on{display:inline-flex;align-items:center}
 .car-rg{display:none;align-items:center;gap:8px;margin-left:10px;padding-left:10px;border-left:1px solid var(--border)}
 .car-rg.on{display:inline-flex}
 .car-rg label{color:var(--text3);font-size:0.65rem;text-transform:uppercase;letter-spacing:.05em;display:inline-flex;align-items:center;gap:5px}
 .car-rg input{background:var(--elevated);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 6px;font:inherit;font-size:0.74rem;color-scheme:dark}
 .car-rg input:focus{outline:none;border-color:var(--accent)}
-.car-strip{display:flex;align-items:flex-start;gap:10px;overflow-x:auto;padding:2px 2px 10px}
-.car-card{flex:0 0 186px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+/* One row, scrolled sideways. Wrapping was tried and rejected: the row is the
+   point — it is the career in order. What was wrong was the scrollbar, a 4px
+   system hairline that could barely be seen let alone grabbed. So: a thick
+   styled bar that is always visible, the wheel scrolls the row without holding
+   anything down, and arrows at each end for a card-by-card nudge. */
+.car-scroll{position:relative}
+.car-strip{display:flex;align-items:flex-start;gap:10px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 4px;scroll-behavior:smooth;overscroll-behavior-x:contain}
+.car-strip::-webkit-scrollbar{height:12px}
+.car-strip::-webkit-scrollbar-track{background:var(--elevated);border-radius:6px}
+.car-strip::-webkit-scrollbar-thumb{background:var(--text3);border-radius:6px;border:2px solid var(--elevated)}
+.car-strip::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+.car-strip{scrollbar-width:auto;scrollbar-color:var(--text3) var(--elevated)}
+.car-card{flex:0 0 186px}
+.car-nav{position:absolute;top:0;bottom:16px;width:30px;display:none;align-items:center;justify-content:center;
+  background:var(--bg);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:0.9rem;z-index:3;
+  border-radius:6px;opacity:.92}
+.car-nav:hover{color:var(--accent);border-color:var(--accent)}
+.car-nav.show{display:flex}
+.car-nav.l{left:-2px}.car-nav.r{right:-2px}
+.car-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .car-card.cur{border-color:var(--accent)}
 .car-card.rng{border-color:var(--draw)}
 .car-card.rng .car-nm{color:var(--draw)}
@@ -602,7 +632,10 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-tn em{display:block;font-style:normal;overflow:hidden;text-overflow:ellipsis}
 .car-tn i{display:block;font-style:normal;color:var(--text3);font-size:0.62rem;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
 .car-tp{font-weight:600;color:var(--text3);font-variant-numeric:tabular-nums}
-.car-msg{padding:10px;color:var(--text2);font-size:0.78rem}
+.car-msg{grid-column:1/-1;padding:10px;color:var(--text2);font-size:0.78rem;line-height:1.5;max-width:70ch}
+.car-go{border:1px solid var(--border);background:var(--elevated);color:var(--text);border-radius:5px;cursor:pointer;font-size:0.74rem;padding:5px 10px;font-family:inherit}
+.car-go:hover{border-color:var(--accent);color:var(--accent)}
+.car-go[disabled]{opacity:.5;cursor:default}
 </style>
 </head>
 <body>
@@ -612,7 +645,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.31</span>
+      <span class="rail-ver">v1.36</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2247,6 +2280,81 @@ function carSeasonGroups(p){
 }
 
 /* Everything else is a slice of the dated game lines. */
+function carRow(g,gid,sid,ps,info,uuid){
+  const tid=info.tids[gid]||null;
+  const ctx=tid?gameCtx(g,tid):null;
+  return{date:String(g.d).slice(0,10),gid,sid,tid,
+    tn:(info.map[tid]&&info.map[tid].tn)||'Unknown team',
+    season:(info.map[tid]&&info.map[tid].season)||((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid),
+    pts:ps.pts||0,fg:(ps.pt2||0)+(ps.pt3||0),ft:ps.pt1||0,tp:ps.pt3||0,f:ps.fouls||0,
+    res:ctx?resLetter(ctx.myS,ctx.oppS):null};
+}
+
+/* Box scores, one request per game, through the same Worker and the same
+   S.boxes cache the game rows use — so a game fetched here is free when the
+   season below is expanded, and the other way round.
+
+   This exists because the season game files turned out NOT to carry hp/ap for
+   this dataset: every credited game needs its box score. That is one request
+   per game, not one per season, so it is an explicit action with a count on it
+   rather than something that happens quietly when a profile opens. */
+async function carBuild(uuid){
+  const st=carSt(uuid),p=st.p;
+  if(!p||st.building)return;
+  const pend=st.pend||[];
+  if(!pend.length)return;
+  st.building=true;st.cancel=false;
+  const info=carInfo(p);
+  const prog=el('carprog-'+uuid);
+  let done=0,got=0;
+  const CONC=6;
+  const show=()=>{if(prog)prog.textContent=`Reading box scores\u2026 ${done} of ${pend.length}`;};
+  show();
+  const queue=pend.slice();
+  await Promise.all(Array.from({length:Math.min(CONC,queue.length)},async()=>{
+    while(queue.length&&!st.cancel){
+      const item=queue.shift();
+      const bs=await fetchBox(item.gid);
+      done++;if(done%5===0)show();
+      if(!bs)continue;
+      const mine=[...(bs.h||[]),...(bs.a||[])].find(x=>matchP(x.profileID,uuid));
+      if(!mine)continue;
+      st.rows.push(carRow(item.g,item.gid,item.sid,mine,info,uuid));
+      got++;
+    }
+  }));
+  st.rows.sort((a,b)=>a.date.localeCompare(b.date));
+  st.pend=st.cancel?queue:[];
+  st.unlined=(Array.isArray(p.games)?p.games.length:0)-st.rows.length;
+  st.building=false;
+  if(prog)prog.textContent='';
+  carDraw(uuid);
+}
+function carScroll(uuid,dir){
+  const s=el('carstrip-'+uuid); if(!s)return;
+  s.scrollLeft+=dir*(196*Math.max(1,Math.floor(s.clientWidth/196)-1));
+}
+function carNav(uuid){
+  const s=el('carstrip-'+uuid),L=el('carL-'+uuid),R=el('carR-'+uuid);
+  if(!s||!L||!R)return;
+  const over=s.scrollWidth-s.clientWidth>4;
+  L.classList.toggle('show',over&&s.scrollLeft>2);
+  R.classList.toggle('show',over&&s.scrollLeft<s.scrollWidth-s.clientWidth-2);
+}
+function carWheel(uuid){
+  const s=el('carstrip-'+uuid); if(!s||s.dataset.wheel)return;
+  s.dataset.wheel='1';
+  s.addEventListener('wheel',e=>{
+    if(Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;      // a real sideways gesture: leave it
+    if(s.scrollWidth-s.clientWidth<=4)return;              // nothing to scroll: let the page have it
+    const at=(e.deltaY<0&&s.scrollLeft<=0)||(e.deltaY>0&&s.scrollLeft>=s.scrollWidth-s.clientWidth-1);
+    if(at)return;                                          // at the end: hand the page back
+    e.preventDefault(); s.scrollLeft+=e.deltaY;
+  },{passive:false});
+  s.addEventListener('scroll',()=>carNav(uuid),{passive:true});
+}
+function carCancel(uuid){const st=carSt(uuid);st.cancel=true;}
+
 function carAgg(rows){
   const m=new Map();
   for(const r of rows){
@@ -2272,17 +2380,22 @@ function carRangeGroup(rows,a,b,label){
 
 /* One season game file per season played. Cached in S.games like every other
    reader of these files, so a season already opened costs nothing. */
+function carInfo(p){
+  const map={},tids=(p&&p.gameTids)||{};
+  for(const sn of p.seasons||[])for(const r of sn.regs||[])
+    if(r.tid)map[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid};
+  return{map,tids};
+}
 async function carLoadRows(p){
   const uuid=p.uuid,st=carSt(uuid);
   if(st.rows||st.loading)return;
   st.loading=true;
-  const info={};
-  for(const sn of p.seasons||[])for(const r of sn.regs||[])
-    if(r.tid)info[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid};
+  const info=carInfo(p);
   const sids=[...new Set((p.seasons||[]).map(s=>s.sid).filter(Boolean))];
   const mine=Array.isArray(p.games)?p.games:[];
   const rows=[],missing=[],seen=new Set();
   let noDate=0,noLine=0,notInFile=0;
+  const pend=[];
   for(const sid of sids){
     if(!S.games[sid]){const d=await sgj('games/bv',sid);if(d)S.games[sid]=d;}
     const gf=S.games[sid]&&S.games[sid].games;
@@ -2293,19 +2406,13 @@ async function carLoadRows(p){
       if(!g){notInFile++;continue;}
       if(!g.d){noDate++;seen.add(gid);continue;}
       const ps=storedStats(g,uuid);
-      if(!ps){noLine++;seen.add(gid);continue;}        // `c` games carry no line
+      if(!ps){noLine++;seen.add(gid);pend.push({gid,sid,g});continue;}
       seen.add(gid);
-      const tid=(p.gameTids||{})[gid]||null;
-      const ctx=tid?gameCtx(g,tid):null;
-      rows.push({date:String(g.d).slice(0,10),gid,sid,tid,
-        tn:(info[tid]&&info[tid].tn)||'Unknown team',
-        season:(info[tid]&&info[tid].season)||((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid),
-        pts:ps.pts||0,fg:(ps.pt2||0)+(ps.pt3||0),ft:ps.pt1||0,tp:ps.pt3||0,f:ps.fouls||0,
-        res:ctx?resLetter(ctx.myS,ctx.oppS):null});
+      rows.push(carRow(g,gid,sid,ps,info,uuid));
     }
   }
   rows.sort((a,b)=>a.date.localeCompare(b.date));
-  st.rows=rows;st.missing=missing;st.unlined=mine.length-rows.length;st.loading=false;
+  st.rows=rows;st.missing=missing;st.unlined=mine.length-rows.length;st.pend=pend;st.loading=false;
   st.scan={seasons:sids.length,filesRead:sids.length-missing.length,credited:mine.length,
            found:rows.length,noDate:noDate,noLine:noLine,
            notInAnyFile:mine.filter(g=>!seen.has(g)).length};
@@ -2353,7 +2460,7 @@ function carCard(g,ctx){
     <div class="car-wl"><b style="color:var(--win)">${w}W</b> <b style="color:var(--loss)">${l}L</b>${d?` <b style="color:var(--draw)">${d}D</b>`:''}${(w||l)?` · ${Math.round(w/(w+l)*100)}%`:''}</div>
     <div class="car-teams">${g.teams.map(t=>`<div class="car-t"${t.tid&&t.sid?` onclick="loadTeam('${esc(t.tid)}','${esc(t.sid)}')"`:''}>
       <span class="car-tn"><em>${esc(t.tn)}</em>${ctx.showSeason?`<i>${esc(t.season)}</i>`:''}</span>
-      <span class="car-tp">${t.pts}</span></div>`).join('')}</div>
+      <span class="car-tp">${hero==='ppg'?(t.gp?(t.pts/t.gp).toFixed(1):'\u2014'):t.pts}</span></div>`).join('')}</div>
   </div>`;
 }
 
@@ -2376,15 +2483,16 @@ function carWindow(st){
 function carWhyEmpty(st,p){
   const n=st.scan||{};
   if(!p||!Array.isArray(p.games)||!p.games.length)
-    return 'This profile holds no game list, so year and range totals cannot be built from it. Season totals still work.';
+    return{msg:'This profile holds no game list, so year and range totals cannot be built from it. Season totals still work.'};
   if(n.filesRead===0)
-    return 'None of the '+n.seasons+' season game files loaded'+(st.missing.length?' ('+st.missing.join(', ')+')':'')+'.';
+    return{msg:'None of the '+n.seasons+' season game files loaded'+(st.missing.length?' ('+st.missing.join(', ')+')':'')+'.'};
+  const pend=(st.pend||[]).length;
+  if(pend)return{msg:'The season files hold no stat line for '+pend+' of this player\u2019s '+n.credited+' games, so these totals need each game\u2019s box score \u2014 '+pend+' request'+(pend===1?'':'s')+', a few seconds. They are cached, so the season game rows below load instantly afterwards.',build:pend};
   const bits=[n.credited+' credited games'];
   if(n.notInAnyFile)bits.push(n.notInAnyFile+' not present in any season file held');
-  if(n.noLine)bits.push(n.noLine+' with no stored stat line');
   if(n.noDate)bits.push(n.noDate+' with no date');
   if(st.missing.length)bits.push(st.missing.length+' season file(s) failed: '+st.missing.join(', '));
-  return 'No dated game lines found \u2014 '+bits.join(', ')+'.';
+  return{msg:'No dated game lines found \u2014 '+bits.join(', ')+'.'};
 }
 function carDraw(uuid){
   const st=carSt(uuid), p=st.p;
@@ -2395,9 +2503,12 @@ function carDraw(uuid){
       const k=btn.dataset.k, v=btn.dataset.v;
       btn.classList.toggle('on', v===undefined?!!st[k]:st[k]===v);
     });
-    const rg=el('carrg-'+uuid); if(rg)rg.classList.toggle('on',!!st.range);
+    const yr=st.mode==='Y';
+    const rgw=el('carrgw-'+uuid); if(rgw)rgw.classList.toggle('on',yr);
+    const rg=el('carrg-'+uuid); if(rg)rg.classList.toggle('on',yr&&!!st.range);
   }
-  const needRows=st.mode==='Y'||st.range;
+  const rangeOn=st.range&&st.mode==='Y';   // a date window is a slice of game lines
+  const needRows=st.mode==='Y';
   if(needRows&&!st.rows){
     strip.innerHTML=`<div class="car-msg">${st.loading?'Reading season game files…':'Season game files not loaded.'}</div>`;
     if(hintEl)hintEl.textContent='';
@@ -2407,7 +2518,12 @@ function carDraw(uuid){
   }
   const base=st.mode==='Y'?carYearGroups(st.rows||[]):carSeasonGroups(p||{seasons:[]});
   if(!base.length){
-    strip.innerHTML=`<div class="car-msg">${esc(needRows?carWhyEmpty(st,p):'No seasons on this profile.')}</div>`;
+    const why=needRows?carWhyEmpty(st,p):{msg:'No seasons on this profile.'};
+    strip.innerHTML=`<div class="car-msg">${esc(why.msg)}${why.build?`
+      <div style="margin-top:8px;display:flex;align-items:center;gap:10px">
+        <button class="car-go" onclick="carBuild('${esc(uuid)}')"${st.building?' disabled':''}>Read ${why.build} box score${why.build===1?'':'s'}</button>
+        ${st.building?`<button class="car-go" onclick="carCancel('${esc(uuid)}')">Stop</button>`:''}
+        <span class="car-hint" id="carprog-${esc(uuid)}"></span></div>`:''}</div>`;
     if(hintEl)hintEl.textContent='';if(noteEl)noteEl.textContent='';
     return;}
 
@@ -2419,7 +2535,7 @@ function carDraw(uuid){
   const cur=st.order==='N'?list[0]:list[list.length-1];
 
   let hint='';
-  if(st.range){
+  if(rangeOn){
     const win=carWindow(st);
     if(!win)hint='Enter a start date, an end date, or both.';
     else if(win.err)hint=win.err;
@@ -2431,6 +2547,7 @@ function carDraw(uuid){
   const ctx={chron,vals,avg,mx,hero,cur,bars:st.bars,showSeason:st.mode!=='S'};
   const lead=list.find(g=>!g.range);          // leftmost period card carries the avg label
   strip.innerHTML=list.map(g=>carCard(g,{...ctx,first:lead===g})).join('');
+  carWheel(uuid);carNav(uuid);
   if(hintEl)hintEl.textContent=hint;
 
   if(noteEl){
@@ -2457,18 +2574,25 @@ function hydrateCareer(p){
         <span class="lbl">Hero</span>${b('hero','pts','PTS')}${b('hero','ppg','PPG')}
         <span class="lbl">Group by</span>${b('mode','S','Season')}${b('mode','Y','Calendar year')}
         <span class="lbl">Order</span>${b('order','N','Newest first')}${b('order','O','Oldest first')}
-        <span class="lbl">Show</span>${b('bars',undefined,'Career bars')}${b('range',undefined,'Custom range')}
+        <span class="lbl">Show</span>${b('bars',undefined,'Career bars')}
+        <span class="car-rgwrap" id="carrgw-${u}">${b('range',undefined,'Custom range')}</span>
         <span class="car-rg" id="carrg-${u}">
           <label>From <input type="date" onchange="carDate('${u}','a',this.value)"></label>
           <label>To <input type="date" onchange="carDate('${u}','b',this.value)"></label>
         </span>
       </div>
       <div class="car-hint" id="carhint-${u}"></div>
-      <div class="car-strip" id="carstrip-${u}"></div>
+      <div class="car-scroll">
+        <button class="car-nav l" id="carL-${u}" onclick="carScroll('${u}',-1)">‹</button>
+        <div class="car-strip" id="carstrip-${u}"></div>
+        <button class="car-nav r" id="carR-${u}" onclick="carScroll('${u}',1)">›</button>
+      </div>
       <div class="car-hint" id="carnote-${u}"></div>
     </div></div>`;
   carDraw(uuid);
-  carLoadRows(p);        // start the game files now so year/range are ready
+  carWheel(uuid);
+  setTimeout(()=>carNav(uuid),0);
+  carLoadRows(p);        // season files only — cheap, and free if already cached
 }
 
 function renderPlayer(p){
@@ -2566,7 +2690,39 @@ function renderPlayer(p){
   h+=`<div class="pclub-wrap" id="pclub-${esc(uuid)}"></div>`;
   h+=`<div class="pmove-wrap" id="pmove-${esc(uuid)}"></div>`;
   h+='<div class="slist"><div class="sec-lbl">Season history</div>';
+  // ── PERIOD TOTALS (v1.31) ────────────────────────────────────────────────
+  // groups is one entry per (sid,tid). One season period often holds several
+  // sids, so three cards all headed "Summer 2026/27" is three answers to one
+  // question. Total them under one header; single-registration periods are
+  // untouched. Per-group stats use the same MAX-across-siblings rule as the
+  // card below (T20) and are then SUMMED across different tids.
+  const periodOf=g=>g.sn.sn||g.sn.sid;
+  const gst=groups.map(({regs})=>{
+    const st=regs.reduce((a,r)=>{const q=r.stats||{};return{
+      gp:Math.max(a.gp||0,q.gp||0),pts:Math.max(a.pts||0,q.pts||0),fg:Math.max(a.fg||0,q.fg||0),
+      ft:Math.max(a.ft||0,q.ft||0),threePt:Math.max(a.threePt||0,q.threePt||0),
+      fouls:Math.max(a.fouls||0,q.fouls||0)};},{});
+    const w=regs[0]&&regs[0].stats||{};
+    return{st,w:w.wins||0,l:w.losses||0,d:w.draws||0};
+  });
+  const periods=new Map();
+  groups.forEach((g,i)=>{
+    const k=periodOf(g);
+    if(!periods.has(k))periods.set(k,{n:0,first:i,gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0});
+    const t=periods.get(k),x=gst[i];
+    t.n++;t.gp+=x.st.gp||gamesForGroup(p,g.regs);t.pts+=x.st.pts||0;t.fg+=x.st.fg||0;
+    t.ft+=x.st.ft||0;t.tp+=x.st.threePt||0;t.f+=x.st.fouls||0;t.w+=x.w;t.l+=x.l;t.d+=x.d;
+  });
   groups.forEach(({sn,tid,regs},gi)=>{
+    const pk=periodOf({sn}),pt=periods.get(pk);
+    if(pt&&pt.n>1&&pt.first===gi){
+      const pppg=pt.gp?(pt.pts/pt.gp).toFixed(1):'\u2014';
+      h+=`<div class="sp-hdr"><div class="sp-info"><div class="sp-n">${esc(pk)}</div>
+        <div class="sp-s">${pt.n} teams \u00b7 <span style="color:var(--win)">${pt.w}W</span> <span style="color:var(--loss)">${pt.l}L</span>${pt.d?` <span style="color:var(--draw)">${pt.d}D</span>`:''}</div></div>
+        <div class="sp-cells">${[[pt.gp,'GP'],[pppg,'PPG'],[pt.pts,'PTS'],[pt.fg,'FG'],[pt.ft,'FT'],[pt.tp,'3PT'],[pt.f,'F']]
+          .map(([v,l],i)=>statCell(v,l,i===6,null)).join('')}</div></div>`;
+    }
+    const inPeriod=pt&&pt.n>1;
     // Use last reg as team link target (most stable).
     const primary=regs[regs.length-1];
     // Sibling regs sharing a tid carry IDENTICAL season-cumulative stat blocks (the
@@ -2620,13 +2776,13 @@ function renderPlayer(p){
     // Locked marker keys on locked ONLY — never archivedAt: where a season is
     // SERVED from must stay invisible in the interface.
     const sLocked=S.idx?.seasons?.[sn.sid]?.locked===true;
-    h+=`<div class="sc">
+    h+=`<div class="sc${inPeriod?' sp-mem':''}">
       <div class="sc-hdr" data-cid="${esc(cid)}" data-si="${gi}" onclick="toggleGames(this)">
         <div class="sc-info" class="sc-info">
           <div style="display:flex;align-items:flex-start;gap:5px">
             <span class="chev" style="flex-shrink:0;margin-top:3px">\u25b6</span>
             <div style="min-width:0">
-              <div class="sc-name${sLocked?' sc-name-locked':''}">${esc(sn.sn)} \u00b7 ${esc(primary.tn||sn.club)}${medal}${sLocked?' <span class="sc-lock-pill">LOCKED</span>':''}</div>
+              <div class="sc-name${sLocked?' sc-name-locked':''}">${inPeriod?'':esc(sn.sn)+' \u00b7 '}${esc(primary.tn||sn.club)}${medal}${sLocked?' <span class="sc-lock-pill">LOCKED</span>':''}</div>
               <div>${teamLink}</div>
             </div>
           </div>
