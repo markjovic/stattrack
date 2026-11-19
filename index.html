@@ -552,6 +552,26 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .h2h-warn{padding:10px 12px;font-size:0.8rem;color:var(--warn,#c47f00);
   border-top:1px solid var(--border)}
 .h2h-none{padding:10px 12px;color:var(--text2);font-size:0.85rem}
+
+/* ── Movement panel (v1.27) ─────────────────────────────────────────────── */
+.pmove-wrap{margin:10px 0 2px}
+.pmove-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pmove-hint{font-size:0.74rem;color:var(--text3);margin:2px 0 6px}
+.pmove-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+.pmove-svg{display:block}
+.pmv-col{fill:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.pmv-name{fill:var(--text-primary);font-size:11.5px;font-weight:600}
+.pmv-meta{fill:var(--text3);font-size:9.5px}
+.pmv-box{cursor:pointer}
+.pmv-box rect{rx:5}
+.pmv-box.on rect{stroke-width:2.2}
+.pmv-link{fill:none;opacity:.5}
+.pmv-mates{margin-top:8px;font-size:0.82rem}
+.pmv-mate{display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:0.5px solid var(--border)}
+.pmv-mate:last-child{border-bottom:0}
+.pmv-mate .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--text-primary)}
+.pmv-mate .gp{color:var(--text3);font-size:0.74rem;white-space:nowrap}
+.pmv-mate .fromto{color:var(--text3);font-size:0.72rem;white-space:nowrap;max-width:44%;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -561,7 +581,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.25</span>
+      <span class="rail-ver">v1.27</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2124,6 +2144,167 @@ async function hydrateClubs(p,groups){
   }));
 }
 
+
+/* ── MOVEMENT (v1.27) ─────────────────────────────────────────────────────────
+   One player's path: a column per season they are registered in, a box per team
+   — several in a column when they played more than one grade that season — and a
+   ribbon between consecutive seasons.
+
+   It draws with NO extra fetch. Team name, grade and season are already on the
+   registration in the player file this screen has loaded; club comes from the
+   club maps the Clubs panel above has just fetched.
+
+   Teammates are the only thing that costs a request, and only when a team is
+   opened: team-stats/bv/{sid}.json through sgj, so a locked season reads from the
+   archive origin. "Where they came from / went to" is one small player file per
+   teammate and is a second, explicit click — never automatic.
+
+   Failure is shown, not swallowed: a season whose team-stats will not load says
+   so and names the season, rather than rendering an empty roster. */
+
+function pmvSeasonRows(p){
+  const rows=[];
+  for(const sn of (p.seasons||[])){
+    const si=S.idx?.seasons?.[sn.sid]||{};
+    const byTid=new Map();
+    for(const r of (sn.regs||[])){
+      const tid=r.tid||'_'; if(!byTid.has(tid))byTid.set(tid,[]);
+      byTid.get(tid).push(r);
+    }
+    const teams=[...byTid.entries()].map(([tid,regs])=>({
+      tid,
+      tn:regs[regs.length-1].tn||tid,
+      gn:regs[regs.length-1].gn||'',
+      // Sibling regs on one tid carry identical cumulative blocks — MAX, never sum (T20).
+      gp:regs.reduce((a,r)=>Math.max(a,(r.stats||{}).gp||0),0),
+    })).sort((a,b)=>b.gp-a.gp||String(a.tn).localeCompare(String(b.tn)));
+    if(teams.length)rows.push({sid:sn.sid,name:si.name||sn.sn||sn.sid,start:si.startDate||'',teams});
+  }
+  rows.sort((a,b)=>String(a.start).localeCompare(String(b.start))||String(a.name).localeCompare(String(b.name)));
+  return rows;
+}
+
+function pmvGradeShort(gn){
+  const t=String(gn||'').replace(/^.*?\bU\s?\d{1,2}\b\s*/i,'').replace(/\b(boys?|girls?|mixed|men|women)\b/ig,'').trim();
+  const out=t||String(gn||'');
+  return out.length>12?out.slice(0,11)+'…':out;
+}
+function pmvAge(gn){ const m=String(gn||'').match(/\bU\s?(\d{1,2})\b/i); return m?('U'+m[1]):''; }
+
+async function hydrateMovement(p){
+  const uuid=p.uuid, host=el('pmove-'+uuid); if(!host)return;
+  const rows=pmvSeasonRows(p);
+  if(rows.length<1){ host.innerHTML=''; return; }
+  host.innerHTML=`<div class="slist"><div class="sec-lbl">Movement</div>
+    <div class="pmove-hint">A column per season, a box per team. Tap a team to see who they played with.</div>
+    <div class="pmove-scroll" id="pmv-sc-${esc(uuid)}"></div>
+    <div id="pmv-mates-${esc(uuid)}"></div></div>`;
+  let clubOf=()=>'';
+  try{
+    const maps=await clubMapsFor(rows.map(r=>r.sid));
+    const names=await clubNameMap();
+    clubOf=(sid,tid)=>{ const m=maps[sid]; if(!m)return ''; const id=m[tid]; return id?(names[id]||id):''; };
+  }catch(e){ /* club labels are decoration here; the panel stands without them */ }
+  const sc=el('pmv-sc-'+uuid); if(!sc)return;
+  sc.innerHTML=pmvSvg(rows,clubOf,uuid);
+  sc.querySelectorAll('.pmv-box').forEach(g=>{
+    g.addEventListener('click',()=>pmvOpen(uuid,g.dataset.sid,g.dataset.tid,g.dataset.tn,g.dataset.sn));
+  });
+}
+
+function pmvSvg(rows,clubOf,uuid){
+  const W=168,GAPX=34,H=52,GAPY=12,TOP=20,PAD=6;
+  const colX=i=>PAD+i*(W+GAPX);
+  const maxT=Math.max(...rows.map(r=>r.teams.length));
+  const height=TOP+maxT*(H+GAPY)+10;
+  const width=PAD*2+rows.length*W+(rows.length-1)*GAPX;
+  const pos={};
+  let boxes='',labels='';
+  rows.forEach((r,i)=>{
+    labels+=`<text class="pmv-col" x="${colX(i)}" y="12">${esc(r.name)}</text>`;
+    r.teams.forEach((t,j)=>{
+      const x=colX(i), y=TOP+j*(H+GAPY);
+      pos[r.sid+'|'+t.tid]={x,y};
+      const cl=clubOf(r.sid,t.tid), age=pmvAge(t.gn), gr=pmvGradeShort(t.gn);
+      const meta=[age,gr].filter(Boolean).join(' · ');
+      boxes+=`<g class="pmv-box" data-sid="${esc(r.sid)}" data-tid="${esc(t.tid)}" data-tn="${esc(t.tn)}" data-sn="${esc(r.name)}">
+        <rect x="${x}" y="${y}" width="${W}" height="${H}" fill="var(--surface-2,rgba(255,255,255,.04))" stroke="var(--border-strong,#3a3f47)"></rect>
+        <text class="pmv-name" x="${x+8}" y="${y+17}">${esc(String(t.tn).slice(0,24))}</text>
+        <text class="pmv-meta" x="${x+8}" y="${y+31}">${esc(meta)}</text>
+        <text class="pmv-meta" x="${x+8}" y="${y+44}">${esc(cl?String(cl).slice(0,26):'')}</text>
+        <text class="pmv-meta" x="${x+W-8}" y="${y+17}" text-anchor="end">${t.gp} GP</text>
+      </g>`;
+    });
+  });
+  // One ribbon per consecutive pair, from the team with most games in each season.
+  let links='';
+  for(let i=0;i<rows.length-1;i++){
+    const a=pos[rows[i].sid+'|'+rows[i].teams[0].tid], b=pos[rows[i+1].sid+'|'+rows[i+1].teams[0].tid];
+    if(!a||!b)continue;
+    const x1=a.x+W, y1=a.y+H/2, x2=b.x, y2=b.y+H/2, mx=(x1+x2)/2;
+    links+=`<path class="pmv-link" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" stroke="var(--accent,#4da3ff)" stroke-width="3"></path>`;
+  }
+  return `<svg class="pmove-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${links}${boxes}${labels}</svg>`;
+}
+
+async function pmvOpen(uuid,sid,tid,tn,sn){
+  const box=el('pmv-mates-'+uuid); if(!box)return;
+  const sc=el('pmv-sc-'+uuid);
+  if(sc)sc.querySelectorAll('.pmv-box').forEach(g=>g.classList.toggle('on',g.dataset.sid===sid&&g.dataset.tid===tid));
+  box.innerHTML=`<div class="pmv-mates"><div style="color:var(--text3);padding:6px 0">Loading ${esc(tn)} — ${esc(sn)}…</div></div>`;
+  const ts=await sgj('team-stats/bv',sid);
+  if(!ts){
+    box.innerHTML=`<div class="pmv-mates"><div style="color:var(--loss,#e5534b);padding:6px 0">team-stats/bv/${esc(sid)}.json did not load, so the team sheet for ${esc(tn)} cannot be shown. This is a missing file, not an empty team.</div></div>`;
+    return;
+  }
+  const t=ts[tid];
+  if(!t||!t.roster||!Object.keys(t.roster).length){
+    box.innerHTML=`<div class="pmv-mates"><div style="color:var(--text3);padding:6px 0">No team sheet recorded for ${esc(tn)} in ${esc(sn)}.</div></div>`;
+    return;
+  }
+  const me=t13(uuid);
+  const mates=Object.entries(t.roster)
+    .filter(([id])=>id!==me)
+    .map(([id,v])=>({id,name:(v&&v.name)||('Player #'+t13(id)),gp:(v&&v.gp)||0}))
+    .sort((a,b)=>b.gp-a.gp||String(a.name).localeCompare(String(b.name)));
+  box.innerHTML=`<div class="pmv-mates">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px">
+      <b>${esc(tn)}</b> <span style="color:var(--text3)">${esc(sn)} · ${mates.length} team-mate${mates.length===1?'':'s'}</span>
+      <button class="rbtn" style="border:0.5px solid var(--border-strong);padding:3px 10px;border-radius:var(--radius);color:var(--text-primary);font-size:0.72rem"
+        onclick="pmvFromTo('${esc(uuid)}','${esc(sid)}','${esc(tid)}',this)">Where they came from ↗</button>
+    </div>
+    ${mates.map(m=>`<div class="pmv-mate" data-id="${esc(m.id)}">
+      <span class="nm" onclick="loadPlayer('${esc(m.id)}')">${esc(m.name)}</span>
+      <span class="fromto"></span><span class="gp">${m.gp} GP</span></div>`).join('')}
+  </div>`;
+}
+
+/* One small player file per team-mate. Explicit click, never automatic: it is a
+   request per person, and most of the time the roster alone is what was wanted. */
+async function pmvFromTo(uuid,sid,tid,btn){
+  const box=el('pmv-mates-'+uuid); if(!box)return;
+  const rowsEl=[...box.querySelectorAll('.pmv-mate')];
+  if(btn){btn.disabled=true;btn.textContent='Loading…';}
+  const order=(S.idx?.seasons)||{};
+  const startOf=s=>order[s]?.startDate||'';
+  const thisStart=startOf(sid);
+  let failed=0;
+  for(const row of rowsEl){
+    const id=row.dataset.id, cell=row.querySelector('.fromto');
+    const pl=await loadPlayerFile(id);
+    if(!pl){ failed++; if(cell)cell.textContent='no record'; continue; }
+    const seen=(pl.seasons||[]).map(sn=>({sid:sn.sid,start:startOf(sn.sid),
+      tn:(sn.regs||[])[0]?.tn||''})).filter(x=>x.start);
+    const before=seen.filter(x=>x.start<thisStart).sort((a,b)=>b.start.localeCompare(a.start))[0];
+    const after=seen.filter(x=>x.start>thisStart).sort((a,b)=>a.start.localeCompare(b.start))[0];
+    const bits=[];
+    if(before)bits.push('← '+before.tn);
+    if(after)bits.push('→ '+after.tn);
+    if(cell)cell.textContent=bits.join('  ')||'—';
+  }
+  if(btn){btn.disabled=false;btn.textContent=failed?`Where they came from ↗ (${failed} unreadable)`:'Where they came from ↗';}
+}
+
 function renderPlayer(p){
   const ve=el('view-player');
   const uuid=p.uuid;
@@ -2217,6 +2398,7 @@ function renderPlayer(p){
     h+='</div>';
   }
   h+=`<div class="pclub-wrap" id="pclub-${esc(uuid)}"></div>`;
+  h+=`<div class="pmove-wrap" id="pmove-${esc(uuid)}"></div>`;
   h+='<div class="slist"><div class="sec-lbl">Season history</div>';
   groups.forEach(({sn,tid,regs},gi)=>{
     // Use last reg as team link target (most stable).
@@ -2298,6 +2480,7 @@ function renderPlayer(p){
   ve._groups=groups;
   if(cs.finalsStats)hydrateFinals(uuid,cs.finalsStats);
   hydrateClubs(p,groups);
+  hydrateMovement(p);
 }
 
 /* ── UNREGISTERED APPEARANCES ─────────────────────────────────────────────────
