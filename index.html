@@ -645,7 +645,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-unit{font-size:0.64rem;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
 .car-delta{margin-left:auto;font-size:0.7rem;font-weight:600;font-variant-numeric:tabular-nums}
 .car-up{color:var(--win)}.car-dn{color:var(--loss)}.car-flat{color:var(--text3)}
-.car-spark{height:28px;margin:13px 10px 0;display:flex;align-items:flex-end;gap:2px;position:relative}
+.car-spark{height:20px;margin:13px 10px 0;display:flex;align-items:flex-end;gap:3px;position:relative}
 .car-spark i{flex:1;background:var(--text3);border-radius:1px;opacity:.5}
 .car-spark i.me{background:var(--accent);opacity:1}
 .car-avg{position:absolute;left:0;right:0;border-top:1px dashed var(--text2);opacity:.75;pointer-events:none}
@@ -740,7 +740,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-gv{width:38px;text-align:right;font-size:0.68rem;color:var(--text3);font-variant-numeric:tabular-nums}
 .car-gavg{position:absolute;top:19px;bottom:6px;border-left:1px dashed var(--text2);opacity:.6;pointer-events:none}
 .car-gavg b{position:absolute;top:-15px;left:3px;font-size:0.5rem;font-weight:600;color:var(--text2);letter-spacing:.03em;white-space:nowrap}
-.car-gspark{height:22px;margin:11px 0 2px;display:flex;align-items:flex-end;gap:2px;position:relative}
+.car-gspark{height:16px;margin:11px 0 3px;display:flex;align-items:flex-end;gap:3px;position:relative}
 .car-gspark i{flex:1;background:var(--text3);border-radius:1px;opacity:.5}
 .car-gspark i.me{background:var(--accent);opacity:1}
 .car-gsavg{position:absolute;left:0;right:0;border-top:1px dashed var(--text2);opacity:.7;pointer-events:none}
@@ -779,7 +779,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.64</span>
+      <span class="rail-ver">v1.65</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2941,7 +2941,7 @@ function carGameChart(uuid,g,hero){
   const vals=games.map(r=>r[stat]||0);
   const mx=Math.max(...vals,1);
   const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
-  const unit=(TC_STATS.find(s=>s[0]===(hero==='tp'?'threePt':hero))||[])[1]||hero.toUpperCase();
+  const unit=hero==='ppg'?'PTS':((TC_STATS.find(s=>s[0]===(hero==='tp'?'threePt':hero))||[])[1]||hero.toUpperCase());
   return `<div class="car-gwrap">${head}
     <div class="car-gcards">${games.map(r=>{
       const cells=[[r.pts,'PTS'],[r.fg,'FG'],[r.ft,'FT'],[r.tp,'3PT'],[r.f,'F'],[r.sc||'\u2014','SCORE']];
