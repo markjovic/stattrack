@@ -734,7 +734,12 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-gv{width:38px;text-align:right;font-size:0.68rem;color:var(--text3);font-variant-numeric:tabular-nums}
 .car-gavg{position:absolute;top:19px;bottom:6px;border-left:1px dashed var(--text2);opacity:.6;pointer-events:none}
 .car-gavg b{position:absolute;top:-15px;left:3px;font-size:0.5rem;font-weight:600;color:var(--text2);letter-spacing:.03em;white-space:nowrap}
-.car-gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:0 10px 10px;border-top:1px solid var(--border);padding-top:10px}
+.car-gspark{height:22px;margin:11px 0 2px;display:flex;align-items:flex-end;gap:2px;position:relative}
+.car-gspark i{flex:1;background:var(--text3);border-radius:1px;opacity:.5}
+.car-gspark i.me{background:var(--accent);opacity:1}
+.car-gsavg{position:absolute;left:0;right:0;border-top:1px dashed var(--text2);opacity:.7;pointer-events:none}
+.car-gsl{position:absolute;left:0;top:-12px;font-size:0.48rem;font-weight:600;color:var(--text2);letter-spacing:.03em;white-space:nowrap;pointer-events:none}
+.car-gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding:10px}
 .car-gc{background:var(--elevated);border:1px solid var(--border);border-radius:6px;padding:6px 8px;cursor:pointer;min-width:0}
 .car-gc:hover{border-color:var(--accent)}
 .car-gch{display:flex;align-items:baseline;gap:6px}
@@ -768,7 +773,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.60</span>
+      <span class="rail-ver">v1.61</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2910,22 +2915,19 @@ function carGameChart(uuid,g,hero){
   const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
   const unit=hero==='ppg'?'PTS':((TC_STATS.find(s=>s[0]===(hero==='tp'?'threePt':hero))||[])[1]||hero.toUpperCase());
   return `<div class="car-gwrap">${head}
-    <div class="car-gb"><div class="car-gavg" style="left:calc(170px + (100% - 236px)*${(avg/mx).toFixed(4)})"><b>avg ${avg.toFixed(1)}</b></div>
-    ${games.map((r,i)=>`<div class="car-gr" onclick="openSheet('${esc(r.gid)}','${esc(r.sid)}')" title="${esc([r.rn,r.date,r.opp,r.sc].filter(Boolean).join(' \u00b7 '))}">
-      <span class="car-gn"><em>${esc(r.opp||'\u2014')}</em><i>${esc(r.rn||carFmtD(r.date))}</i></span>
-      <span class="car-gres r${r.res||'U'}">${esc(r.res||'\u00b7')}</span>
-      <span class="car-gt"><i style="width:${Math.max(2,Math.round((vals[i]/mx)*100))}%"></i></span>
-      <span class="car-gv">${vals[i]}</span></div>`).join('')}
-    </div><div class="car-hint" style="padding:4px 10px 8px">${esc(unit)} per game \u00b7 click a row for the game sheet</div>
     <div class="car-gcards">${games.map(r=>{
       const cells=[[r.pts,'PTS'],[r.fg,'FG'],[r.ft,'FT'],[r.tp,'3PT'],[r.f,'F'],[r.sc||'\u2014','SCORE']];
       const v=r[stat]||0;
       const d=avg?Math.round((v-avg)/avg*100):null;
+      const me=games.indexOf(r);
       return `<div class="car-gc" onclick="openSheet('${esc(r.gid)}','${esc(r.sid)}')">
         <div class="car-gch"><span class="nm">${esc(r.opp||'\u2014')}</span><span class="car-gres r${r.res||'U'}">${esc(r.res||'\u00b7')}</span></div>
         <div class="car-gcm">${esc([r.rn,carFmtD(r.date)].filter(Boolean).join(' \u00b7 '))}</div>
         <div class="car-gcv"><b>${v}</b><span>${esc(unit)}</span>${
           d===null?'':`<i class="${d>0?'up':d<0?'dn':''}">${d>0?'+':''}${d}%</i>`}</div>
+        <div class="car-gspark"><div class="car-gsavg" style="bottom:${Math.round(avg/mx*100)}%"></div>${
+          me===0?`<span class="car-gsl">avg ${avg.toFixed(1)}</span>`:''}${
+          vals.map((x,j)=>`<i class="${j===me?'me':''}" style="height:${Math.max(8,Math.round(x/mx*100))}%"></i>`).join('')}</div>
         <div class="car-gcg">${cells.map(([x,l])=>`<div class="c"><div class="v">${esc(String(x))}</div><div class="l">${l}</div></div>`).join('')}</div>
       </div>`;}).join('')}</div></div>`;
 }
