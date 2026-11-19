@@ -181,7 +181,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .pclub-exp.open{display:block}
 .pclub-tot,.pclub-treg{display:flex;align-items:stretch;border-top:1px solid var(--border)}
 .pclub-tot{border-top:0;background:var(--accent-dim)}
-.pclub-tl{flex:1;min-width:0;padding:6px 10px;font-size:0.78rem}
+.pclub-tl{flex:1;min-width:0;padding:7px 12px;font-size:0.78rem}
 .pclub-ts{color:var(--text3);font-size:0.65rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pclub-cells{flex:7;min-width:0;display:flex}
 .pclub-fold{font-size:0.6rem;color:var(--draw);border:1px solid var(--border);border-radius:3px;padding:0 4px;white-space:nowrap}
@@ -680,7 +680,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.48</span>
+      <span class="rail-ver">v1.49</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2267,18 +2267,22 @@ function clubRegStats(groups,maps,p,types,keys,names){
   return out;
 }
 function clubExpandHtml(o){
-  const cells=t=>{const ppg=t.gp?(t.pts/t.gp).toFixed(1):'\u2014';
-    return [[t.gp,'GP'],[ppg,'PPG'],[t.pts,'PTS'],[t.fg,'FG'],[t.ft,'FT'],[t.tp,'3PT'],[t.f,'F']]
-      .map(([v,l],i)=>statCell(v,l,i===6,null)).join('');};
   const wl=t=>(t.w||t.l||t.d)
-    ? `<span style="color:var(--win)">${t.w}W</span> <span style="color:var(--loss)">${t.l}L</span>${t.d?` <span style="color:var(--draw)">${t.d}D</span>`:''}`
-    : '\u2014';
-  return `<div class="pclub-tot"><div class="pclub-tl">All teams at this club<div class="pclub-ts">${wl(o)}</div></div>
+    ? `${t.w?`<span style="color:var(--win)">${t.w}W</span>`:''}${t.l?` <span style="color:var(--loss)">${t.l}L</span>`:''}${t.d?` <span style="color:var(--draw)">${t.d}D</span>`:''}`
+    : '<span style="color:var(--text3)">\u2014</span>';
+  const cells=t=>{const ppg=t.gp?(t.pts/t.gp).toFixed(1):'\u2014';
+    const pc=(t.w+t.l+t.d)>0?Math.round(t.w/(t.w+t.l+t.d)*100)+'%':'';
+    return [[t.gp,'GP'],[ppg,'PPG'],[t.pts,'PTS'],[t.fg,'FG'],[t.ft,'FT'],[t.tp,'3PT'],[t.f,'F']]
+      .map(([v,l])=>statCell(v,l,false,null)).join('')
+     + `<div style="flex:1;text-align:center;padding:6px 4px;min-width:0;overflow:hidden">
+          <div style="font-size:0.75rem;font-weight:700;display:flex;gap:3px;justify-content:center;white-space:nowrap;font-variant-numeric:tabular-nums">${wl(t)}</div>
+          <div style="font-size:0.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-top:1px">${pc}</div></div>`;};
+  return `<div class="pclub-tot"><div class="pclub-tl">All teams at this club<div class="pclub-ts">${o.teams.length} registration${o.teams.length===1?'':'s'}</div></div>
       <div class="pclub-cells">${cells(o)}</div></div>`
    + o.teams.map(t=>`<div class="pclub-treg" title="${esc([t.tn,t.grade,t.compFull,t.season].filter(Boolean).join(' \u00b7 '))}">
       <div class="pclub-tl">${esc(t.tn)}${t.grade?` <b class="car-gr">${esc(t.grade)}</b>`:''}${
         t.foldedFrom?` <span class="pclub-fold" title="PlayHQ attributed this team to ${esc(t.foldedFrom)}; matched to this club by team name">via ${esc(carTidy(t.foldedFrom))}</span>`:''}
-      <div class="pclub-ts">${esc([t.season,t.comp].filter(Boolean).join(' \u00b7 '))} \u00b7 ${wl(t)}</div></div>
+      <div class="pclub-ts">${esc([t.season,t.comp].filter(Boolean).join(' \u00b7 '))}</div></div>
       <div class="pclub-cells">${cells(t)}</div></div>`).join('');
 }
 
