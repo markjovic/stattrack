@@ -662,7 +662,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.41</span>
+      <span class="rail-ver">v1.42</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2289,7 +2289,7 @@ function carSeasonGroups(p){
     if(!seen.has(key)){const grp={key,name:key,sids:[],teams:[]};seen.set(key,grp);out.push(grp);}
     const grp=seen.get(key);
     if(grp.sids.indexOf(sn.sid)<0)grp.sids.push(sn.sid);
-    grp.teams.push({tid,sid:sn.sid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sn.sid,
+    grp.teams.push({tid,sid:sn.sid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sn.sid,comp:carComp(sn.sid),
       gp:st.gp||gamesForGroup(p,regs),pts:st.pts||0,fg:st.fg||0,ft:st.ft||0,tp:st.threePt||0,f:st.fouls||0,
       w:wld.wins||0,l:wld.losses||0,d:wld.draws||0});
   }
@@ -2308,6 +2308,7 @@ function carRow(g,gid,sid,ps,info,uuid){
   const ctx=tid?gameCtx(g,tid):null;
   return{date:String(g.d).slice(0,10),gid,sid,tid,
     tn:(info.map[tid]&&info.map[tid].tn)||teamNameFromGame(g,tid)||'Unknown team',
+    comp:(info.map[tid]&&info.map[tid].comp)||carComp(sid),
     season:(info.map[tid]&&info.map[tid].season)||((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid),
     pts:ps.pts||0,fg:(ps.pt2||0)+(ps.pt3||0),ft:ps.pt1||0,tp:ps.pt3||0,f:ps.fouls||0,
     res:ctx?resLetter(ctx.myS,ctx.oppS):null};
@@ -2382,7 +2383,7 @@ function carAgg(rows){
   const m=new Map();
   for(const r of rows){
     const k=r.tid||('?'+r.season);
-    if(!m.has(k))m.set(k,{tid:r.tid,sid:r.sid,tn:r.tn,season:r.season,gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0});
+    if(!m.has(k))m.set(k,{tid:r.tid,sid:r.sid,tn:r.tn,season:r.season,comp:r.comp,gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0});
     const t=m.get(k);t.gp++;CAR_K.forEach(x=>t[x]+=r[x]||0);
     if(r.res==='W')t.w++;else if(r.res==='L')t.l++;else if(r.res==='D')t.d++;
   }
@@ -2403,11 +2404,26 @@ function carRangeGroup(rows,a,b,label){
 
 /* One season game file per season played. Cached in S.games like every other
    reader of these files, so a season already opened costs nothing. */
+/* The competition and association behind a season id. There is no PlayHQ field
+   that says "this is a tournament" — the nearest published signal is a team's
+   organisation.type (CLUB vs ASSOCIATION, captured as `ty` on the club index),
+   and that marks teams entered under a host organisation rather than seasons.
+   But the competition NAME answers the question on sight: "Nunawading Spectres
+   Tournament 2026" against "Kilsyth Junior Domestic". So show it and infer
+   nothing. */
+function carComp(sid){
+  const si=(S.idx&&S.idx.seasons&&S.idx.seasons[sid])||null;
+  if(!si)return '';
+  const c=(si.compName||'').trim(), o=(si.orgName||'').trim();
+  if(!c)return o;
+  if(!o||c.toLowerCase().includes(o.toLowerCase()))return c;
+  return c+' \u2014 '+o;
+}
 function carInfo(p){
   const map={},tids=(p&&p.gameTids)||{},bySid={},mine=new Set();
   for(const sn of p.seasons||[])for(const r of sn.regs||[]){
     if(!r.tid)continue;
-    map[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid,sid:sn.sid};
+    map[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid,sid:sn.sid,comp:carComp(sn.sid)};
     mine.add(r.tid);
     (bySid[sn.sid]=bySid[sn.sid]||new Set()).add(r.tid);
   }
@@ -2515,7 +2531,8 @@ function carCard(g,ctx){
     <div class="car-mini">${carMini(g,hero)}</div>
     <div class="car-wl"><b style="color:var(--win)">${w}W</b> <b style="color:var(--loss)">${l}L</b>${d?` <b style="color:var(--draw)">${d}D</b>`:''}${(w||l)?` · ${Math.round(w/(w+l)*100)}%`:''}</div>
     <div class="car-teams">${g.teams.map(t=>`<div class="car-t"${t.tid&&t.sid?` onclick="loadTeam('${esc(t.tid)}','${esc(t.sid)}')"`:''}>
-      <span class="car-tn"><em>${esc(t.tn)}</em>${ctx.showSeason?`<i>${esc(t.season)}</i>`:''}</span>
+      <span class="car-tn" title="${esc([t.tn,t.comp].filter(Boolean).join(' \u00b7 '))}"><em>${esc(t.tn)}</em>${
+        ctx.showSeason?`<i>${esc(t.season)}</i>`:(t.comp?`<i>${esc(t.comp)}</i>`:'')}</span>
       <span class="car-tp">${hero==='ppg'?(t.gp?(t.pts/t.gp).toFixed(1):'\u2014'):t.pts}</span></div>`).join('')}</div>
   </div>`;
 }
@@ -2572,7 +2589,12 @@ function carDraw(uuid){
     if(!st.loading&&p)carLoadRows(p);
     return;
   }
-  const base=st.mode==='Y'?carYearGroups(st.rows||[]):carSeasonGroups(p||{seasons:[]});
+  // A registration with no games played is not a period in a career — a team
+  // entered for next season renders a card of zeros and a -100% against the
+  // season before it. Dropped from the cards; the season history below still
+  // lists it, which is where an upcoming registration belongs.
+  const base=(st.mode==='Y'?carYearGroups(st.rows||[]):carSeasonGroups(p||{seasons:[]}))
+    .filter(g=>carSum(g.teams,'gp')>0);
   if(!base.length){
     const why=needRows?carWhyEmpty(st,p):{msg:'No seasons on this profile.'};
     strip.innerHTML=`<div class="car-msg">${esc(why.msg)}</div>`;
