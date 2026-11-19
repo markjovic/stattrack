@@ -628,7 +628,8 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-nav.show{display:flex}
 .car-nav.l{left:-2px}.car-nav.r{right:-2px}
 .car-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;align-self:stretch}
-.car-card.cur{border-color:var(--accent)}
+.car-card.open{border-color:var(--accent)}
+.car-card.open .car-nm{color:var(--accent)}
 .car-card.rng{border-color:var(--draw)}
 .car-card.rng .car-nm{color:var(--draw)}
 .car-ch{padding:8px 10px 0}
@@ -773,7 +774,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.61</span>
+      <span class="rail-ver">v1.62</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2810,7 +2811,7 @@ function carCard(g,ctx){
   }
   const bars=ctx.bars?`<div class="car-spark"><div class="car-avg" style="bottom:${Math.round(avg/mx*100)}%"></div>${first?`<span class="car-avgl">avg ${hero==='ppg'?avg.toFixed(1):Math.round(avg)}</span>`:''}${
     ord.map(j=>{const c=chron[j];return `<i class="${g.range?((c.from&&c.to&&c.from<=g.to&&c.to>=g.from)?'me':''):(j===i?'me':'')}" style="height:${Math.max(8,Math.round(vals[j]/mx*100))}%"></i>`;}).join('')}</div>`:'';
-  return`<div class="car-card${g.range?' rng':''}${(!g.range&&cur===g)?' cur':''}${ctx.drill===g.name?' open':''}"
+  return`<div class="car-card${g.range?' rng':''}${ctx.drill===g.name?' open':''}"
      onclick="carDrill('${esc(ctx.uuid)}','${esc(g.name)}')" title="Show this period game by game">
     <div class="car-ch"><div class="car-nm">${esc(g.name)}</div>
       <div class="car-mt" title="${esc(g.teams.length===1?(g.teams[0].compFull||''):'')}">${g.range?`${g.n} game${g.n===1?'':'s'} · `:''}${(!g.range&&g.teams.length===1&&g.teams[0].comp)?esc(g.teams[0].comp):`${g.teams.length} team${g.teams.length===1?'':'s'}`}</div></div>
@@ -2897,8 +2898,12 @@ async function carDrill(uuid,name){
   if(!st.drill)return;
   const g=(st.groups||[]).find(x=>x.name===name);
   if(!g)return;
-  const pend=carPendOf(st,g);
+  st.drilling=true; carDraw(uuid);
+  if(!st.rows&&st.p){ await carLoadRows(st.p); carDraw(uuid); }
+  const g2=(st.groups||[]).find(x=>x.name===name)||g;
+  const pend=carPendOf(st,g2);
   if(pend.length)await carBuild(uuid,pend);
+  st.drilling=false;
   if(el('carstrip-'+uuid))carDraw(uuid);
 }
 function carGameChart(uuid,g,hero){
@@ -2908,7 +2913,7 @@ function carGameChart(uuid,g,hero){
     <span>${games.length} game${games.length===1?'':'s'}</span>
     <button class="car-gx" onclick="carDrill('${esc(uuid)}','${esc(g.name)}')">Close</button></div>`;
   if(!games.length)return `<div class="car-gwrap">${head}<div class="car-msg">${
-    st.building?'Reading box scores\u2026':'No game lines held for this period.'}</div></div>`;
+    (st.building||st.drilling||st.loading)?'Reading game lines\u2026':'No game lines held for this period.'}</div></div>`;
   const stat=hero==='ppg'?'pts':hero;
   const vals=games.map(r=>r[stat]||0);
   const mx=Math.max(...vals,1);
