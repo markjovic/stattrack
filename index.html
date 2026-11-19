@@ -731,7 +731,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.57</span>
+      <span class="rail-ver">v1.59</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2655,6 +2655,24 @@ function carTid(gid,g,sid,info){
   if(only&&only.size===1)return[...only][0];
   return t||null;
 }
+const SEASON_INFLIGHT={};
+async function loadSeasonGames(sids,onDone){
+  const need=[...new Set(sids.filter(Boolean))].filter(sid=>!S.games[sid]);
+  let done=0;
+  if(onDone)onDone(0,need.length);
+  for(let i=0;i<need.length;i+=6){
+    await Promise.all(need.slice(i,i+6).map(async sid=>{
+      if(!SEASON_INFLIGHT[sid])SEASON_INFLIGHT[sid]=sgj('games/bv',sid).then(d=>{
+        if(d)S.games[sid]=d; delete SEASON_INFLIGHT[sid]; return d;
+      }).catch(()=>{delete SEASON_INFLIGHT[sid];return null;});
+      await SEASON_INFLIGHT[sid];
+      done++;
+    }));
+    if(onDone)onDone(done,need.length);
+  }
+  return need.length;
+}
+
 async function carLoadRows(p){
   const uuid=p.uuid,st=carSt(uuid);
   if(st.rows||st.loading)return;
@@ -2665,8 +2683,15 @@ async function carLoadRows(p){
   const rows=[],missing=[],seen=new Set();
   let noDate=0,noLine=0,notInFile=0;
   const pend=[];
+  // Six at a time, not one after another. A twenty-season career fetched
+  // sequentially is twenty round trips of a season-sized file before anything
+  // appears — "Reading season game files..." and then nothing for ages. The
+  // clubs panel already fetches its maps this way (PCLUB_FETCH_BATCH).
+  await loadSeasonGames(sids,(done,total)=>{
+    const e=el('carstrip-'+uuid);
+    if(e&&total&&!st.rows)e.innerHTML=`<div class="car-msg">Reading season game files\u2026 ${done} of ${total}</div>`;
+  });
   for(const sid of sids){
-    if(!S.games[sid]){const d=await sgj('games/bv',sid);if(d)S.games[sid]=d;}
     const gf=S.games[sid]&&S.games[sid].games;
     if(!gf){missing.push((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid);continue;}
     for(const gid of mine){
@@ -2915,7 +2940,6 @@ function hydrateCareer(p){
   carDraw(uuid);
   carWheel(uuid);
   setTimeout(()=>carNav(uuid),0);
-  carLoadRows(p);        // season files only — cheap, and free if already cached
 }
 
 function renderPlayer(p){
@@ -3246,10 +3270,10 @@ async function hydrateDiff(p){
   const c=((p.sports||{})[sport]||{}).c;
   if(!Array.isArray(c)||!c.length)return;
   const uuid=p.uuid, want=new Set(c), held=new Set();
+  await loadSeasonGames((p.seasons||[]).map(sn=>sn.sid));
   for(const sn of p.seasons||[]){
     if(!want.size)break;
     const sid=sn.sid; if(!sid)continue;
-    if(!S.games[sid]){const d=await sgj('games/bv',sid);if(d)S.games[sid]=d;}
     const gf=(S.games[sid]||{}).games||{};
     for(const gid of [...want]){
       const g=gf[gid]; if(!g)continue;
