@@ -249,6 +249,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 
 /* width:auto, not 100%: the table is as wide as its columns need and sits left,
    rather than stretching across a desktop viewport and dragging the numbers with it. */
+.tc-tlbl{font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin:4px 14px 6px}
 .rtbl{width:auto;max-width:100%;border-collapse:collapse;table-layout:fixed}
 /* ⚠️ A NAME COLUMN IS A FIXED WIDTH, NOT A SHARE OF THE VIEWPORT. It was 34% and
    then 30%: on a 1600px screen that is ~480px of empty space between the name and
@@ -730,7 +731,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.53</span>
+      <span class="rail-ver">v1.55</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -3748,7 +3749,7 @@ function hydrateCareers(keys){
 /* ── TEAM CARDS (v1.51) ───────────────────────────────────────────────────── */
 const TC={};
 function tcSt(key){
-  if(!TC[key])TC[key]={hero:'pts',per:'S',order:'H',chart:true,view:'C',sel:null,roster:[]};
+  if(!TC[key])TC[key]={hero:'pts',per:'S',order:'H',chart:true,sel:null,roster:[]};
   return TC[key];
 }
 const TC_STATS=[['gp','GP','games'],['pts','PTS','points'],['ppg','PPG','points per game'],['fg','FG','field goals'],
@@ -3780,13 +3781,11 @@ function tcDraw(key){
   const bar=`<div class="tc-bar">
     <span class="lbl">Hero stat</span>${TC_STATS.map(([k,l])=>b('hero',k,l)).join('')}
     <span class="lbl">Totals</span>${b('per','S','This season')}${b('per','C','Career')}
-    <span class="lbl">View</span>${b('view','C','Cards')}${b('view','T','Table')}
     <span class="lbl">Order</span>${b('order','H','By '+lbl)}${b('order','N','By name')}
     <span class="lbl">Show</span>${b('chart',undefined,'Squad chart')}</div>`;
 
   const tbl=el('tc-table-'+key);
-  if(tbl)tbl.classList.toggle('hidden',st.view!=='T');
-  if(st.view==='T'){host.innerHTML=bar;return;}
+  if(tbl)tbl.classList.remove('hidden');
 
   // Career mode needs the player files; they are already being fetched for the
   // table's career rows, so this only waits, it never adds a request.
@@ -3802,7 +3801,11 @@ function tcDraw(key){
   const avgv=vals.reduce((a,c)=>a+c,0)/Math.max(1,vals.length);
   const list=st.order==='H'?ranked:rows.slice().sort((a,c)=>String(a.name).localeCompare(String(c.name)));
   // A share is of a total, so PPG gets none: averages do not sum.
-  const teamGames=rows.reduce((a,r)=>Math.max(a,tcVal(r,'gp',per)),0);
+  // GP's denominator is the team's games, and that exists only for a season.
+  // Careers span different teams and seasons, so there is nothing to be a share
+  // OF: "218 of 218 team games, 100%" was the longest career on the roster
+  // being compared against itself.
+  const teamGames=per==='S'?rows.reduce((a,r)=>Math.max(a,tcVal(r,'gp','S')),0):0;
   const teamHero=hero==='ppg'?0:(hero==='gp'?teamGames:rows.reduce((a,r)=>a+tcVal(r,hero,per),0));
 
   const chart=st.chart?`<div class="tc-chart">
@@ -3813,13 +3816,13 @@ function tcDraw(key){
         <span class="v">${hero==='ppg'?v.toFixed(1):v}</span></div>`;}).join('')}
     </div></div>`:'';
 
-  const tot=rows.map(r=>per==='C'?r.car:r.sea).reduce((a,q)=>({gp:Math.max(a.gp,q.gp||0),pts:a.pts+(q.pts||0),
+  const tot=rows.map(r=>per==='C'?r.car:r.sea).reduce((a,q)=>({gp:per==='S'?Math.max(a.gp,q.gp||0):a.gp+(q.gp||0),pts:a.pts+(q.pts||0),
     fg:a.fg+(q.fg||0),ft:a.ft+(q.ft||0),threePt:a.threePt+(q.threePt||0),fouls:a.fouls+(q.fouls||0)}),
     {gp:0,pts:0,fg:0,ft:0,threePt:0,fouls:0});
-  const totHero=hero==='ppg'?(tot.gp?((tot.pts/tot.gp).toFixed(1)):'—'):(hero==='gp'?tot.gp:(tot[hero]||0));
+  const totHero=hero==='ppg'?(tot.gp?((tot.pts/tot.gp).toFixed(1)):'—'):(tot[hero]||0);
   const summary=`<div class="tc-card sum">
     <div class="tc-h"><div class="tc-nm">Squad total</div></div>
-    <div class="tc-mt">${rows.length} players · ${tot.gp} games${per==='C'?' · career':''}</div>
+    <div class="tc-mt">${rows.length} players · ${tot.gp} ${per==='S'?'games':'appearances'}${per==='C'?' · career':''}</div>
     <div class="tc-hero"><div class="tc-big">${totHero}</div><div class="tc-unit">${hero==='ppg'?'team ppg':esc(lbl)}</div></div>
     <div class="tc-mini">${tcCells(tot).replace('>PPG<','>TEAM PPG<')}</div></div>`;
 
@@ -3829,7 +3832,7 @@ function tcDraw(key){
     return `<div class="tc-card${st.sel===r.uuid?' on':''}" onclick="tcPick('${esc(key)}','${esc(r.uuid)}')">
       <div class="tc-h"><div class="tc-nm" title="Open ${esc(r.name)}" onclick="event.stopPropagation();loadPlayer('${esc(r.uuid)}')">${esc(r.name)}</div>
         <div class="tc-rk">#${i+1}/${ranked.length}</div></div>
-      <div class="tc-mt">${hero==='gp'?`of ${teamGames} team game${teamGames===1?'':'s'}`:`${q.gp||0} game${(q.gp||0)===1?'':'s'}`}${per==='C'?' · career':''}</div>
+      <div class="tc-mt">${(hero==='gp'&&teamGames)?`of ${teamGames} team game${teamGames===1?'':'s'}`:`${q.gp||0} game${(q.gp||0)===1?'':'s'}`}${per==='C'?' · career':''}</div>
       <div class="tc-hero"><div class="tc-big">${hero==='ppg'?v.toFixed(1):v}</div><div class="tc-unit">${esc(lbl)}</div>
         ${share?`<div class="tc-shr" title="${share}% of the squad's ${esc(word)}">${share}%</div>`:''}</div>
       <div class="tc-mini">${tcCells(q)}</div></div>`;}).join('')}</div>`;
@@ -3864,7 +3867,7 @@ function renderTeam(td,tid,sid){
   </div>
   <div id="r${tesc}" class="tpane on">
     <div id="tc-${tesc}"></div>
-    <div id="tc-table-${tesc}" class="hidden">`;
+    <div id="tc-table-${tesc}"><div class="tc-tlbl">Full table · season and career</div>`;
   if(!roster.length){h+='<div class="empty">No roster data</div>';}
   else{
     const sortBy=(col)=>{
