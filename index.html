@@ -612,7 +612,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
    styled bar that is always visible, the wheel scrolls the row without holding
    anything down, and arrows at each end for a card-by-card nudge. */
 .car-scroll{position:relative}
-.car-strip{display:flex;align-items:flex-start;gap:10px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 4px;scroll-behavior:smooth;overscroll-behavior-x:contain}
+.car-strip{display:flex;align-items:stretch;gap:10px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 4px;scroll-behavior:smooth;overscroll-behavior-x:contain}
 .car-strip::-webkit-scrollbar{height:12px}
 .car-strip::-webkit-scrollbar-track{background:var(--elevated);border-radius:6px}
 .car-strip::-webkit-scrollbar-thumb{background:var(--text3);border-radius:6px;border:2px solid var(--elevated)}
@@ -625,7 +625,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-nav:hover{color:var(--accent);border-color:var(--accent)}
 .car-nav.show{display:flex}
 .car-nav.l{left:-2px}.car-nav.r{right:-2px}
-.car-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.car-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;align-self:stretch}
 .car-card.cur{border-color:var(--accent)}
 .car-card.rng{border-color:var(--draw)}
 .car-card.rng .car-nm{color:var(--draw)}
@@ -648,7 +648,12 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-mini .l{font-size:0.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
 .car-wl{padding:5px 10px;border-top:1px solid var(--border);font-size:0.68rem;font-variant-numeric:tabular-nums;color:var(--text3)}
 .car-wl b{font-weight:600}
-.car-teams{border-top:1px solid var(--border);padding:6px 10px 7px}
+.car-teams{border-top:1px solid var(--border);padding:6px 10px 7px;margin-top:auto}
+.car-teams.car-cut .car-tlist .car-t:nth-child(n+5){display:none}
+.car-teams.car-cut.open .car-tlist .car-t{display:flex}
+.car-more{display:block;width:100%;margin-top:4px;border:1px solid var(--border);background:transparent;color:var(--text3);
+  border-radius:4px;cursor:pointer;font-size:0.64rem;padding:3px 0;font-family:inherit}
+.car-more:hover{color:var(--accent);border-color:var(--accent)}
 .car-t{font-size:0.7rem;color:var(--text2);display:flex;gap:6px;align-items:baseline;padding:1px 0;cursor:pointer}
 .car-t:hover .car-tn em{color:var(--accent)}
 .car-gp{flex:0 0 auto;min-width:17px;text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;font-size:0.68rem}
@@ -673,7 +678,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.44</span>
+      <span class="rail-ver">v1.46</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2243,7 +2248,9 @@ function clubRegStats(groups,maps,p){
     o.teams.push({sid,tid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sid,comp:carComp(sid),
       gp,pts:st.pts,fg:st.fg,ft:st.ft,tp:st.tp,f:st.f,w:w.wins||0,l:w.losses||0,d:w.draws||0});
   }
-  for(const o of Object.values(out))o.teams.sort((a,b)=>b.pts-a.pts);
+  // Chronological, not by points. groups arrives from groupRegs in
+  // sortSeasonsDesc order, so preserving insertion order gives newest first —
+  // the same direction as the season history below.
   return out;
 }
 function clubExpandHtml(o){
@@ -2335,6 +2342,7 @@ function carSt(uuid){
 }
 const CAR_K=['pts','fg','ft','tp','f'];
 const CAR_BARS=16;            // most bars a card draws; see carCard
+const CAR_TEAMS=4;            // team lines shown before a card needs expanding
 function carSum(ts,k){return ts.reduce((a,t)=>a+(t[k]||0),0);}
 function carFmtD(d){const p=String(d||'').split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0].slice(2)}`:String(d||'');}
 
@@ -2614,11 +2622,14 @@ function carCard(g,ctx){
     ${bars}
     <div class="car-mini">${carMini(g,hero)}</div>
     <div class="car-wl"><b style="color:var(--win)">${w}W</b> <b style="color:var(--loss)">${l}L</b>${d?` <b style="color:var(--draw)">${d}D</b>`:''}${(w||l)?` · ${Math.round(w/(w+l)*100)}%`:''}</div>
-    <div class="car-teams">${g.teams.map(t=>`<div class="car-t"${t.tid&&t.sid?` onclick="loadTeam('${esc(t.tid)}','${esc(t.sid)}')"`:''}>
-      <span class="car-gp">${t.gp}</span>
-      <span class="car-tn" title="${esc([t.tn,t.comp].filter(Boolean).join(' \u00b7 '))}"><em>${esc(t.tn)}</em>${
-        ctx.showSeason?`<i>${esc(t.season)}</i>`:(t.comp?`<i>${esc(t.comp)}</i>`:'')}</span>
-      <span class="car-tp">${hero==='ppg'?(t.gp?(t.pts/t.gp).toFixed(1):'\u2014'):t.pts}</span></div>`).join('')}</div>
+    <div class="car-teams${g.teams.length>CAR_TEAMS?' car-cut':''}">
+      <div class="car-tlist">${g.teams.map(t=>`<div class="car-t"${t.tid&&t.sid?` onclick="loadTeam('${esc(t.tid)}','${esc(t.sid)}')"`:''}>
+        <span class="car-gp">${t.gp}</span>
+        <span class="car-tn" title="${esc([t.tn,t.comp].filter(Boolean).join(' \u00b7 '))}"><em>${esc(t.tn)}</em>${
+          ctx.showSeason?`<i>${esc(t.season)}</i>`:(t.comp?`<i>${esc(t.comp)}</i>`:'')}</span>
+        <span class="car-tp">${hero==='ppg'?(t.gp?(t.pts/t.gp).toFixed(1):'\u2014'):t.pts}</span></div>`).join('')}</div>
+      ${g.teams.length>CAR_TEAMS?`<button class="car-more" data-n="${g.teams.length-CAR_TEAMS}" onclick="carMore(this)">+${g.teams.length-CAR_TEAMS} more</button>`:''}
+    </div>
   </div>`;
 }
 
@@ -2651,6 +2662,13 @@ function carWhyEmpty(st,p){
   if(n.noDate)bits.push(n.noDate+' with no date');
   if(st.missing.length)bits.push(st.missing.length+' season file(s) failed: '+st.missing.join(', '));
   return{msg:'No dated game lines found \u2014 '+bits.join(', ')+'.'};
+}
+/* A thirteen-team year ran the card down the page and left every other card in
+   the row short. The list stops at CAR_TEAMS and says how many it is holding
+   back; the cards stay one height until you ask one of them to grow. */
+function carMore(btn){
+  const box=btn.parentElement, open=box.classList.toggle('open');
+  btn.textContent=open?'Show fewer':('+'+btn.dataset.n+' more');
 }
 function carDraw(uuid){
   const st=carSt(uuid), p=st.p;
