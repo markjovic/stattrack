@@ -658,8 +658,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-t:hover .car-tn em{color:var(--accent)}
 .car-gp{flex:0 0 auto;min-width:17px;text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;font-size:0.68rem}
 .car-tn{flex:1;min-width:0;overflow:hidden}
-.car-tn em{display:block;font-style:normal;overflow:hidden;text-overflow:ellipsis}
-.car-tn i{display:block;font-style:normal;color:var(--text3);font-size:0.62rem;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
+.car-tn em{display:block;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.car-tn i{display:block;font-style:normal;color:var(--text3);font-size:0.62rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.car-gr{font-weight:600;color:var(--accent);font-size:0.62rem;opacity:.85}
 .car-tp{font-weight:600;color:var(--text3);font-variant-numeric:tabular-nums}
 .car-msg{grid-column:1/-1;padding:10px;color:var(--text2);font-size:0.78rem;line-height:1.5;max-width:70ch}
 .car-build{display:none;margin:0 0 8px;padding:6px 10px;border:1px solid var(--border);border-left:3px solid var(--draw);
@@ -678,7 +679,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.46</span>
+      <span class="rail-ver">v1.47</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2246,6 +2247,7 @@ function clubRegStats(groups,maps,p){
     o.gp+=gp;o.pts+=st.pts;o.fg+=st.fg;o.ft+=st.ft;o.tp+=st.tp;o.f+=st.f;
     o.w+=w.wins||0;o.l+=w.losses||0;o.d+=w.draws||0;
     o.teams.push({sid,tid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sid,comp:carComp(sid),
+      compFull:carCompFull(sid),grade:abbreviateGrades([...new Set(regs.map(r=>r.gn).filter(Boolean))]),
       gp,pts:st.pts,fg:st.fg,ft:st.ft,tp:st.tp,f:st.f,w:w.wins||0,l:w.losses||0,d:w.draws||0});
   }
   // Chronological, not by points. groups arrives from groupRegs in
@@ -2262,7 +2264,8 @@ function clubExpandHtml(o){
     : '\u2014';
   return `<div class="pclub-tot"><div class="pclub-tl">All teams at this club<div class="pclub-ts">${wl(o)}</div></div>
       <div class="pclub-cells">${cells(o)}</div></div>`
-   + o.teams.map(t=>`<div class="pclub-treg"><div class="pclub-tl">${esc(t.tn)}
+   + o.teams.map(t=>`<div class="pclub-treg" title="${esc([t.tn,t.grade,t.compFull,t.season].filter(Boolean).join(' \u00b7 '))}">
+      <div class="pclub-tl">${esc(t.tn)}${t.grade?` <b class="car-gr">${esc(t.grade)}</b>`:''}
       <div class="pclub-ts">${esc([t.season,t.comp].filter(Boolean).join(' \u00b7 '))} \u00b7 ${wl(t)}</div></div>
       <div class="pclub-cells">${cells(t)}</div></div>`).join('');
 }
@@ -2366,8 +2369,16 @@ function carSeasonGroups(p){
     const grp=seen.get(key);
     if(grp.sids.indexOf(sn.sid)<0)grp.sids.push(sn.sid);
     grp.teams.push({tid,sid:sn.sid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sn.sid,comp:carComp(sn.sid),
+      compFull:carCompFull(sn.sid),gradeFull:abbreviateGrades([...new Set(regs.map(r=>r.gn).filter(Boolean))]),
       gp:st.gp||gamesForGroup(p,regs),pts:st.pts||0,fg:st.fg||0,ft:st.ft||0,tp:st.threePt||0,f:st.fouls||0,
       w:wld.wins||0,l:wld.losses||0,d:wld.draws||0});
+  }
+  // "U13 Boys BRES" next to "U13 MMB08" is the age group said twice. Strip the
+  // prefix every grade in the period shares, exactly as the season card does
+  // with gradeAbbrev, so what is left is the part that differs: BRES, DR / D.
+  for(const g of out){
+    const all=[...new Set(g.teams.map(t=>t.gradeFull).filter(Boolean))];
+    for(const t of g.teams)t.grade=t.gradeFull?gradeAbbrev(t.gradeFull,all):'';
   }
   out.reverse();                       // groupRegs is newest-first; chronological here
   const cst=CAR[p.uuid];
@@ -2385,6 +2396,8 @@ function carRow(g,gid,sid,ps,info,uuid){
   return{date:String(g.d).slice(0,10),gid,sid,tid,
     tn:(info.map[tid]&&info.map[tid].tn)||teamNameFromGame(g,tid)||'Unknown team',
     comp:(info.map[tid]&&info.map[tid].comp)||carComp(sid),
+    compFull:(info.map[tid]&&info.map[tid].compFull)||carCompFull(sid),
+    grade:(info.map[tid]&&info.map[tid].grade)||'',
     season:(info.map[tid]&&info.map[tid].season)||((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid),
     pts:ps.pts||0,fg:(ps.pt2||0)+(ps.pt3||0),ft:ps.pt1||0,tp:ps.pt3||0,f:ps.fouls||0,
     res:ctx?resLetter(ctx.myS,ctx.oppS):null};
@@ -2459,7 +2472,7 @@ function carAgg(rows){
   const m=new Map();
   for(const r of rows){
     const k=r.tid||('?'+r.season);
-    if(!m.has(k))m.set(k,{tid:r.tid,sid:r.sid,tn:r.tn,season:r.season,comp:r.comp,gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0});
+    if(!m.has(k))m.set(k,{tid:r.tid,sid:r.sid,tn:r.tn,season:r.season,comp:r.comp,compFull:r.compFull,grade:r.grade,gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0});
     const t=m.get(k);t.gp++;CAR_K.forEach(x=>t[x]+=r[x]||0);
     if(r.res==='W')t.w++;else if(r.res==='L')t.l++;else if(r.res==='D')t.d++;
   }
@@ -2490,16 +2503,44 @@ function carRangeGroup(rows,a,b,label){
 function carComp(sid){
   const si=(S.idx&&S.idx.seasons&&S.idx.seasons[sid])||null;
   if(!si)return '';
-  const c=(si.compName||'').trim(), o=(si.orgName||'').trim();
+  return carShort((si.compName||'').trim(),(si.orgName||'').trim());
+}
+/* "Junior Domestic - Saturday Competition (GEBC) - Melbourne East Basketball
+   Association (MEBA)" is three lines of a 186px card to say two things. An
+   organisation that publishes its own acronym in brackets gets used as that
+   acronym; the words every basketball competition carries are dropped; and the
+   association is suppressed when the competition name already contains it. The
+   full string stays on the row's title attribute, so nothing is lost. */
+const CAR_FILLER=/\s*\b(competition|basketball association(?: inc\.?)?|basketball club|basketball|association)\b/gi;
+function carAcro(x){
+  const m=String(x||'').match(/\(([A-Z][A-Za-z0-9&]{1,9})\)\s*$/);
+  return m?m[1]:null;
+}
+function carTidy(x){
+  return String(x||'').replace(/\([^)]*\)/g,' ').replace(CAR_FILLER,' ')
+    .replace(/\s{2,}/g,' ').replace(/[\s.,\u2013\u2014-]+$/,'').trim();
+}
+/* The acronym rule is for the ORGANISATION only. Applied to the competition it
+   threw away the half that distinguishes it: "Junior Domestic - Saturday
+   Competition (GEBC)" became "GEBC", which says who runs it and not which
+   competition it is. */
+function carShort(comp,org){
+  const c=carTidy(comp), o=carAcro(org)||carTidy(org);
   if(!c)return o;
   if(!o||c.toLowerCase().includes(o.toLowerCase()))return c;
-  return c+' \u2014 '+o;
+  return c+' \u00b7 '+o;
+}
+function carCompFull(sid){
+  const si=(S.idx&&S.idx.seasons&&S.idx.seasons[sid])||null;
+  if(!si)return '';
+  const c=(si.compName||'').trim(), o=(si.orgName||'').trim();
+  return (!c)?o:(!o||c.toLowerCase().includes(o.toLowerCase()))?c:(c+' \u2014 '+o);
 }
 function carInfo(p){
   const map={},tids=(p&&p.gameTids)||{},bySid={},mine=new Set();
   for(const sn of p.seasons||[])for(const r of sn.regs||[]){
     if(!r.tid)continue;
-    map[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid,sid:sn.sid,comp:carComp(sn.sid)};
+    map[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid,sid:sn.sid,comp:carComp(sn.sid),compFull:carCompFull(sn.sid),grade:r.gn||''};
     mine.add(r.tid);
     (bySid[sn.sid]=bySid[sn.sid]||new Set()).add(r.tid);
   }
@@ -2625,7 +2666,8 @@ function carCard(g,ctx){
     <div class="car-teams${g.teams.length>CAR_TEAMS?' car-cut':''}">
       <div class="car-tlist">${g.teams.map(t=>`<div class="car-t"${t.tid&&t.sid?` onclick="loadTeam('${esc(t.tid)}','${esc(t.sid)}')"`:''}>
         <span class="car-gp">${t.gp}</span>
-        <span class="car-tn" title="${esc([t.tn,t.comp].filter(Boolean).join(' \u00b7 '))}"><em>${esc(t.tn)}</em>${
+        <span class="car-tn" title="${esc([t.tn,t.grade,t.compFull||t.comp,t.season].filter(Boolean).join(' \u00b7 '))}"><em>${esc(t.tn)}${
+          t.grade?` <b class="car-gr">${esc(t.grade)}</b>`:''}</em>${
           ctx.showSeason?`<i>${esc(t.season)}</i>`:(t.comp?`<i>${esc(t.comp)}</i>`:'')}</span>
         <span class="car-tp">${hero==='ppg'?(t.gp?(t.pts/t.gp).toFixed(1):'\u2014'):t.pts}</span></div>`).join('')}</div>
       ${g.teams.length>CAR_TEAMS?`<button class="car-more" data-n="${g.teams.length-CAR_TEAMS}" onclick="carMore(this)">+${g.teams.length-CAR_TEAMS} more</button>`:''}
