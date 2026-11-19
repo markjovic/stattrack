@@ -633,6 +633,10 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-tn i{display:block;font-style:normal;color:var(--text3);font-size:0.62rem;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
 .car-tp{font-weight:600;color:var(--text3);font-variant-numeric:tabular-nums}
 .car-msg{grid-column:1/-1;padding:10px;color:var(--text2);font-size:0.78rem;line-height:1.5;max-width:70ch}
+.car-build{display:none;margin:0 0 8px;padding:8px 10px;border:1px solid var(--border);border-left:3px solid var(--draw);
+  border-radius:5px;background:var(--surface);color:var(--text2);font-size:0.76rem;line-height:1.45}
+.car-build.on{display:block}
+.car-build .r{display:flex;align-items:center;gap:10px;margin-top:7px}
 .car-go{border:1px solid var(--border);background:var(--elevated);color:var(--text);border-radius:5px;cursor:pointer;font-size:0.74rem;padding:5px 10px;font-family:inherit}
 .car-go:hover{border-color:var(--accent);color:var(--accent)}
 .car-go[disabled]{opacity:.5;cursor:default}
@@ -645,7 +649,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.36</span>
+      <span class="rail-ver">v1.37</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2519,11 +2523,14 @@ function carDraw(uuid){
   const base=st.mode==='Y'?carYearGroups(st.rows||[]):carSeasonGroups(p||{seasons:[]});
   if(!base.length){
     const why=needRows?carWhyEmpty(st,p):{msg:'No seasons on this profile.'};
-    strip.innerHTML=`<div class="car-msg">${esc(why.msg)}${why.build?`
-      <div style="margin-top:8px;display:flex;align-items:center;gap:10px">
-        <button class="car-go" onclick="carBuild('${esc(uuid)}')"${st.building?' disabled':''}>Read ${why.build} box score${why.build===1?'':'s'}</button>
+    strip.innerHTML=`<div class="car-msg">${esc(why.msg)}</div>`;
+    const bEl0=el('carbuild-'+uuid);
+    if(bEl0){
+      bEl0.classList.toggle('on',!!why.build);
+      bEl0.innerHTML=why.build?`<div class="r"><button class="car-go" onclick="carBuild('${esc(uuid)}')"${st.building?' disabled':''}>${st.building?'Reading\u2026':'Read '+why.build+' box score'+(why.build===1?'':'s')}</button>
         ${st.building?`<button class="car-go" onclick="carCancel('${esc(uuid)}')">Stop</button>`:''}
-        <span class="car-hint" id="carprog-${esc(uuid)}"></span></div>`:''}</div>`;
+        <span class="car-hint" id="carprog-${esc(uuid)}"></span></div>`:'';
+    }
     if(hintEl)hintEl.textContent='';if(noteEl)noteEl.textContent='';
     return;}
 
@@ -2543,6 +2550,18 @@ function carDraw(uuid){
       const rg=carRangeGroup(st.rows||[],win.a,win.b,win.label);
       if(rg)list.unshift(rg);else hint='No games in that window.';
     }
+  }
+  // Year totals built from an incomplete set are a silent wrong answer, so the
+  // offer to finish them sits above the cards whenever games are still missing —
+  // not only when nothing rendered at all.
+  const bEl=el('carbuild-'+uuid), pend=(st.pend||[]).length;
+  if(bEl){
+    const show=needRows&&pend>0;
+    bEl.classList.toggle('on',show);
+    bEl.innerHTML=show?`These totals are missing ${pend} of this player’s ${(st.scan&&st.scan.credited)||pend} games. The season files hold no stat line for them, so each needs its box score — the same request the game rows below make when you expand a season, and cached the same way.
+      <div class="r"><button class="car-go" onclick="carBuild('${esc(uuid)}')"${st.building?' disabled':''}>${st.building?'Reading…':'Read '+pend+' box score'+(pend===1?'':'s')}</button>
+      ${st.building?`<button class="car-go" onclick="carCancel('${esc(uuid)}')">Stop</button>`:''}
+      <span class="car-hint" id="carprog-${esc(uuid)}"></span></div>`:'';
   }
   const ctx={chron,vals,avg,mx,hero,cur,bars:st.bars,showSeason:st.mode!=='S'};
   const lead=list.find(g=>!g.range);          // leftmost period card carries the avg label
@@ -2582,6 +2601,7 @@ function hydrateCareer(p){
         </span>
       </div>
       <div class="car-hint" id="carhint-${u}"></div>
+      <div class="car-build" id="carbuild-${u}"></div>
       <div class="car-scroll">
         <button class="car-nav l" id="carL-${u}" onclick="carScroll('${u}',-1)">‹</button>
         <div class="car-strip" id="carstrip-${u}"></div>
