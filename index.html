@@ -731,7 +731,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.55</span>
+      <span class="rail-ver">v1.57</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2358,13 +2358,17 @@ async function hydrateClubs(p,groups){
   host.querySelectorAll('.pclub-row[data-cid]').forEach(r=>{
     const cid=r.dataset.cid, st=perClub[cid];
     if(!st||!st.teams.length)return;
-    // No arrow. Nothing else in the app uses one — a name is a link and the
-    // row around it is the control.
     const nameEl=r.querySelector('.pclub-n');
-    if(nameEl){
-      nameEl.classList.add('pclub-link');
-      nameEl.title='Open '+r.dataset.cn+' in Clubs';
-      nameEl.addEventListener('click',e=>{
+    if(nameEl&&!nameEl.querySelector('.pclub-link')){
+      const tag=nameEl.querySelector('.pclub-tag');
+      const txt=document.createElement('span');
+      txt.className='pclub-link';
+      txt.title='Open '+r.dataset.cn+' in Clubs';
+      txt.textContent=r.dataset.cn;
+      nameEl.textContent='';
+      nameEl.appendChild(txt);
+      if(tag)nameEl.appendChild(tag);
+      txt.addEventListener('click',e=>{
         e.stopPropagation();
         loadClub(cid,r.dataset.cn,null);
         if(window.innerWidth<=768) el('rail').classList.add('mob-hide');
@@ -2376,7 +2380,10 @@ async function hydrateClubs(p,groups){
     r.addEventListener('click',()=>{
       const open=box.classList.toggle('open');
       r.classList.toggle('open',open);
-      if(open&&!box.dataset.built){box.innerHTML=clubExpandHtml(st);box.dataset.built='1';}
+      if(open&&!box.dataset.built){
+        box.innerHTML=clubExpandHtml(st);
+        box.dataset.built='1';
+      }
     });
   });
 }
@@ -2678,7 +2685,7 @@ async function carLoadRows(p){
   st.scan={seasons:sids.length,filesRead:sids.length-missing.length,credited:mine.length,
            found:rows.length,noDate:noDate,noLine:noLine,
            notInAnyFile:mine.filter(g=>!seen.has(g)).length};
-  if(el('car-'+uuid))carDraw(uuid);
+  if(el('carstrip-'+uuid))carDraw(uuid);
 }
 
 /* ── view ──────────────────────────────────────────────────────────────────
