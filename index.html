@@ -174,8 +174,8 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .fin-note.open{display:block}
 .pclub-row{display:flex;align-items:baseline;gap:8px;padding:5px 8px;margin-bottom:4px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer}
 .pclub-row.pclub-na{cursor:default;opacity:0.7}
-.pclub-go{flex:0 0 auto;color:var(--text3);padding:0 2px;cursor:pointer}
-.pclub-go:hover{color:var(--accent)}
+.pclub-link{cursor:pointer}
+.pclub-link:hover{color:var(--accent)}
 .pclub-row.open{border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0}
 .pclub-exp{display:none;border:1px solid var(--accent);border-top:0;border-radius:0 0 5px 5px;background:var(--surface);margin-bottom:4px}
 .pclub-exp.open{display:block}
@@ -638,11 +638,11 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-unit{font-size:0.64rem;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
 .car-delta{margin-left:auto;font-size:0.7rem;font-weight:600;font-variant-numeric:tabular-nums}
 .car-up{color:var(--win)}.car-dn{color:var(--loss)}.car-flat{color:var(--text3)}
-.car-spark{height:28px;margin:2px 10px 0;display:flex;align-items:flex-end;gap:2px;position:relative}
+.car-spark{height:28px;margin:13px 10px 0;display:flex;align-items:flex-end;gap:2px;position:relative}
 .car-spark i{flex:1;background:var(--text3);border-radius:1px;opacity:.5}
 .car-spark i.me{background:var(--accent);opacity:1}
 .car-avg{position:absolute;left:0;right:0;border-top:1px dashed var(--text2);opacity:.75;pointer-events:none}
-.car-avg b{position:absolute;left:0;top:-8px;font-size:0.5rem;font-weight:600;color:var(--text2);background:var(--surface);padding:0 2px;letter-spacing:.03em}
+.car-avg b{position:absolute;left:0;top:-13px;font-size:0.5rem;font-weight:600;color:var(--text2);background:var(--surface);padding:0 2px;letter-spacing:.03em}
 .car-mini{display:flex;flex-wrap:wrap;padding:7px 6px 7px;border-top:1px solid var(--border);margin-top:7px}
 .car-mini .c{flex:1 0 33.33%;text-align:center;padding:3px 0}
 .car-mini .v{font-size:0.8rem;font-variant-numeric:tabular-nums}
@@ -664,6 +664,55 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-gr{font-weight:600;color:var(--accent);font-size:0.62rem;opacity:.85}
 .car-tn i.car-gb{color:var(--accent);opacity:.85;font-weight:600}
 .car-tp{font-weight:600;color:var(--text3);font-variant-numeric:tabular-nums}
+/* ── TEAM CARDS (v1.51) ────────────────────────────────────────────────────
+   The roster as one chart plus a card per player, in the same language as the
+   career cards on a player profile. Every figure comes from the team-stats file
+   the view already loads; the career totals come from the player files
+   hydrateCareers already fetches, so neither mode costs a request this view was
+   not already making. */
+.tc-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 14px 8px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px}
+.tc-bar .lbl{color:var(--text3);font-size:0.65rem;text-transform:uppercase;letter-spacing:.05em;margin:0 2px 0 10px}
+.tc-bar .lbl:first-child{margin-left:0}
+.tc-bar button{border:1px solid var(--border);background:var(--elevated);color:var(--text2);border-radius:5px;cursor:pointer;font-size:0.74rem;padding:5px 9px;font-family:inherit}
+.tc-bar button:hover{color:var(--text);border-color:var(--text3)}
+.tc-bar button.on{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.tc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(186px,1fr));gap:10px;align-items:stretch;padding:0 14px 12px}
+.tc-chart{grid-column:span 2;grid-row:span 2;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.tc-chd{padding:8px 10px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:8px}
+.tc-chd b{font-size:0.82rem}
+.tc-chd span{color:var(--text3);font-size:0.67rem;margin-left:auto;font-variant-numeric:tabular-nums}
+.tc-chb{padding:21px 10px 9px;position:relative;flex:1}
+.tc-cr{display:flex;align-items:center;gap:7px;height:19px;cursor:pointer}
+.tc-cr .n{width:88px;flex:0 0 88px;font-size:0.68rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-cr .t{flex:1;min-width:0;height:9px;background:var(--elevated);border-radius:2px;overflow:hidden}
+.tc-cr .t i{display:block;height:100%;background:var(--text3);opacity:.6;border-radius:2px}
+.tc-cr .v{width:40px;text-align:right;font-size:0.68rem;color:var(--text3);font-variant-numeric:tabular-nums}
+.tc-cr:hover .n{color:var(--text)}
+.tc-cr.on .n{color:var(--accent);font-weight:600}
+.tc-cr.on .t i{background:var(--accent);opacity:1}
+.tc-cr.on .v{color:var(--accent)}
+.tc-avg{position:absolute;top:19px;bottom:9px;border-left:1px dashed var(--text2);opacity:.6;pointer-events:none}
+.tc-avg b{position:absolute;top:-15px;left:3px;font-size:0.5rem;font-weight:600;color:var(--text2);background:var(--surface);padding:0 2px;letter-spacing:.03em;white-space:nowrap}
+.tc-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;min-width:0}
+.tc-card.on{border-color:var(--accent)}
+.tc-card.sum{border-color:var(--text3);cursor:default}
+.tc-card.sum .tc-big{color:var(--accent)}
+.tc-h{padding:8px 10px 0;display:flex;align-items:baseline;gap:6px}
+.tc-nm{font-weight:600;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;cursor:pointer}
+.tc-nm:hover{color:var(--accent)}
+.tc-card.sum .tc-nm{cursor:default}
+.tc-card.sum .tc-nm:hover{color:var(--text)}
+.tc-rk{font-size:0.6rem;color:var(--text3);font-variant-numeric:tabular-nums}
+.tc-mt{color:var(--text3);font-size:0.67rem;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-hero{padding:5px 10px 2px;display:flex;align-items:baseline;gap:7px}
+.tc-big{font-size:2.1rem;line-height:1;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tc-unit{font-size:0.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.tc-shr{margin-left:auto;font-size:0.68rem;color:var(--text3);font-variant-numeric:tabular-nums}
+.tc-mini{display:flex;flex-wrap:wrap;padding:7px 6px;border-top:1px solid var(--border);margin-top:auto}
+.tc-mini .c{flex:1 0 33.33%;text-align:center;padding:3px 0}
+.tc-mini .v{font-size:0.8rem;font-variant-numeric:tabular-nums}
+.tc-mini .l{font-size:0.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+@media(max-width:560px){.tc-chart{grid-column:1/-1;grid-row:auto}}
 .car-msg{grid-column:1/-1;padding:10px;color:var(--text2);font-size:0.78rem;line-height:1.5;max-width:70ch}
 .car-build{display:none;margin:0 0 8px;padding:6px 10px;border:1px solid var(--border);border-left:3px solid var(--draw);
   border-radius:5px;background:var(--surface);color:var(--text2);font-size:0.74rem}
@@ -681,7 +730,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.50</span>
+      <span class="rail-ver">v1.51</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2308,16 +2357,22 @@ async function hydrateClubs(p,groups){
   host.querySelectorAll('.pclub-row[data-cid]').forEach(r=>{
     const cid=r.dataset.cid, st=perClub[cid];
     if(!st||!st.teams.length)return;
-    r.insertAdjacentHTML('beforeend',`<span class="pclub-go" title="Open ${esc(r.dataset.cn)} in Clubs">\u2192</span>`);
+    // No arrow. Nothing else in the app uses one — a name is a link and the
+    // row around it is the control.
+    const nameEl=r.querySelector('.pclub-n');
+    if(nameEl){
+      nameEl.classList.add('pclub-link');
+      nameEl.title='Open '+r.dataset.cn+' in Clubs';
+      nameEl.addEventListener('click',e=>{
+        e.stopPropagation();
+        loadClub(cid,r.dataset.cn,null);
+        if(window.innerWidth<=768) el('rail').classList.add('mob-hide');
+      });
+    }
     const box=document.createElement('div');
     box.className='pclub-exp';
     r.after(box);
-    r.addEventListener('click',e=>{
-      if(e.target.classList.contains('pclub-go')){
-        loadClub(cid,r.dataset.cn,null);
-        if(window.innerWidth<=768) el('rail').classList.add('mob-hide');
-        return;
-      }
+    r.addEventListener('click',()=>{
       const open=box.classList.toggle('open');
       r.classList.toggle('open',open);
       if(open&&!box.dataset.built){box.innerHTML=clubExpandHtml(st);box.dataset.built='1';}
@@ -3690,6 +3745,108 @@ function hydrateCareers(keys){
   }
 }
 
+/* ── TEAM CARDS (v1.51) ───────────────────────────────────────────────────── */
+const TC={};
+function tcSt(key){
+  if(!TC[key])TC[key]={hero:'pts',per:'S',order:'H',chart:true,view:'C',sel:null,roster:[]};
+  return TC[key];
+}
+const TC_STATS=[['pts','PTS','points'],['ppg','PPG','points per game'],['fg','FG','field goals'],
+                ['ft','FT','free throws'],['threePt','3PT','three-pointers'],['fouls','F','fouls']];
+/* A roster line and a career block carry the same stat names, so one accessor
+   serves both modes. PPG is derived, never stored. */
+function tcVal(r,k,per){
+  const q=per==='C'?r.car:r.sea;
+  if(!q)return 0;
+  return k==='ppg'?(q.gp?+((q.pts||0)/q.gp).toFixed(1):0):(q[k]||0);
+}
+function tcSet(key,k,v){const s=tcSt(key);s[k]=v;tcDraw(key);}
+function tcFlag(key,k){const s=tcSt(key);s[k]=!s[k];tcDraw(key);}
+function tcPick(key,uuid){const s=tcSt(key);s.sel=(s.sel===uuid?null:uuid);tcDraw(key);}
+
+function tcCells(q){
+  const ppg=q.gp?((q.pts||0)/q.gp).toFixed(1):'—';
+  return [[q.pts||0,'PTS'],[ppg,'PPG'],[q.fouls||0,'F'],[q.ft||0,'FT'],[q.fg||0,'FG'],[q.threePt||0,'3PT']]
+    .map(([v,l])=>`<div class="c"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function tcDraw(key){
+  const host=el('tc-'+key); if(!host)return;
+  const st=tcSt(key), hero=st.hero, per=st.per;
+  const lbl=(TC_STATS.find(s=>s[0]===hero)||[])[1]||'';
+  const word=(TC_STATS.find(s=>s[0]===hero)||[])[2]||'';
+  const on=c=>c?' on':'';
+  const b=(k,v,t)=>`<button class="${(v===undefined?st[k]:st[k]===v)?'on':''}" onclick="${v===undefined?`tcFlag('${key}','${k}')`:`tcSet('${key}','${k}','${v}')`}">${t}</button>`;
+  const bar=`<div class="tc-bar">
+    <span class="lbl">Hero stat</span>${TC_STATS.map(([k,l])=>b('hero',k,l)).join('')}
+    <span class="lbl">Totals</span>${b('per','S','This season')}${b('per','C','Career')}
+    <span class="lbl">View</span>${b('view','C','Cards')}${b('view','T','Table')}
+    <span class="lbl">Order</span>${b('order','H','By '+lbl)}${b('order','N','By name')}
+    <span class="lbl">Show</span>${b('chart',undefined,'Squad chart')}</div>`;
+
+  const tbl=el('tc-table-'+key);
+  if(tbl)tbl.classList.toggle('hidden',st.view!=='T');
+  if(st.view==='T'){host.innerHTML=bar;return;}
+
+  // Career mode needs the player files; they are already being fetched for the
+  // table's career rows, so this only waits, it never adds a request.
+  const rows=st.roster.filter(r=>per!=='C'||r.car);
+  if(!rows.length){
+    host.innerHTML=bar+`<div class="tc-bar" style="background:none;border:0;color:var(--text2);font-size:0.78rem">${
+      per==='C'?'Reading career totals…':'No roster data.'}</div>`;
+    return;
+  }
+  const ranked=rows.slice().sort((a,c)=>tcVal(c,hero,per)-tcVal(a,hero,per));
+  const vals=ranked.map(r=>tcVal(r,hero,per));
+  const mx=Math.max(...vals,1);
+  const avgv=vals.reduce((a,c)=>a+c,0)/Math.max(1,vals.length);
+  const list=st.order==='H'?ranked:rows.slice().sort((a,c)=>String(a.name).localeCompare(String(c.name)));
+  // A share is of a total, so PPG gets none: averages do not sum.
+  const teamHero=hero==='ppg'?0:rows.reduce((a,r)=>a+tcVal(r,hero,per),0);
+
+  const chart=st.chart?`<div class="tc-chart">
+    <div class="tc-chd"><b>Squad · ${esc(lbl)}</b><span>${rows.length} player${rows.length===1?'':'s'}</span></div>
+    <div class="tc-chb"><div class="tc-avg" style="left:calc(105px + (100% - 162px)*${(avgv/mx).toFixed(4)})"><b>avg ${hero==='ppg'?avgv.toFixed(1):Math.round(avgv)}</b></div>
+      ${list.map(r=>{const v=tcVal(r,hero,per);return `<div class="tc-cr${st.sel===r.uuid?' on':''}" onclick="tcPick('${esc(key)}','${esc(r.uuid)}')">
+        <span class="n">${esc(r.name)}</span><span class="t"><i style="width:${Math.max(2,Math.round(v/mx*100))}%"></i></span>
+        <span class="v">${hero==='ppg'?v.toFixed(1):v}</span></div>`;}).join('')}
+    </div></div>`:'';
+
+  const tot=rows.map(r=>per==='C'?r.car:r.sea).reduce((a,q)=>({gp:Math.max(a.gp,q.gp||0),pts:a.pts+(q.pts||0),
+    fg:a.fg+(q.fg||0),ft:a.ft+(q.ft||0),threePt:a.threePt+(q.threePt||0),fouls:a.fouls+(q.fouls||0)}),
+    {gp:0,pts:0,fg:0,ft:0,threePt:0,fouls:0});
+  const totHero=hero==='ppg'?(tot.gp?((tot.pts/tot.gp).toFixed(1)):'—'):(tot[hero]||0);
+  const summary=`<div class="tc-card sum">
+    <div class="tc-h"><div class="tc-nm">Squad total</div></div>
+    <div class="tc-mt">${rows.length} players · ${tot.gp} games${per==='C'?' · career':''}</div>
+    <div class="tc-hero"><div class="tc-big">${totHero}</div><div class="tc-unit">${hero==='ppg'?'team ppg':esc(lbl)}</div></div>
+    <div class="tc-mini">${tcCells(tot).replace('>PPG<','>TEAM PPG<')}</div></div>`;
+
+  host.innerHTML=bar+`<div class="tc-grid">${chart}${summary}${list.map(r=>{
+    const i=ranked.indexOf(r), v=tcVal(r,hero,per), q=per==='C'?r.car:r.sea;
+    const share=teamHero?Math.round(tcVal(r,hero,per)/teamHero*100):0;
+    return `<div class="tc-card${st.sel===r.uuid?' on':''}" onclick="tcPick('${esc(key)}','${esc(r.uuid)}')">
+      <div class="tc-h"><div class="tc-nm" title="Open ${esc(r.name)}" onclick="event.stopPropagation();loadPlayer('${esc(r.uuid)}')">${esc(r.name)}</div>
+        <div class="tc-rk">#${i+1}/${ranked.length}</div></div>
+      <div class="tc-mt">${q.gp||0} game${(q.gp||0)===1?'':'s'}${per==='C'?' · career':''}</div>
+      <div class="tc-hero"><div class="tc-big">${hero==='ppg'?v.toFixed(1):v}</div><div class="tc-unit">${esc(lbl)}</div>
+        ${share?`<div class="tc-shr" title="${share}% of the squad's ${esc(word)}">${share}%</div>`:''}</div>
+      <div class="tc-mini">${tcCells(q)}</div></div>`;}).join('')}</div>`;
+}
+
+/* Career blocks land asynchronously; repaint when they do, but only while this
+   team is still on screen. */
+function tcHydrate(key,uuids){
+  for(const uuid of uuids){
+    playerFile(uuid).then(()=>{
+      const st=TC[key]; if(!st)return;
+      const row=st.roster.find(r=>r.uuid===uuid); if(!row)return;
+      row.car=careerOf(S.players[uuid])||null;
+      if(el('tc-'+key))tcDraw(key);
+    }).catch(()=>{});
+  }
+}
+
 function renderTeam(td,tid,sid){
   const ve=el('view-team');
   const meta=td.meta||{};
@@ -3704,7 +3861,9 @@ function renderTeam(td,tid,sid){
     <button class="vtab on" onclick="switchTTab(this,'r${tesc}','f${tesc}')">Roster</button>
     <button class="vtab" onclick="switchTTab(this,'f${tesc}','r${tesc}')">Fixtures</button>
   </div>
-  <div id="r${tesc}" class="tpane on">`;
+  <div id="r${tesc}" class="tpane on">
+    <div id="tc-${tesc}"></div>
+    <div id="tc-table-${tesc}" class="hidden">`;
   if(!roster.length){h+='<div class="empty">No roster data</div>';}
   else{
     const sortBy=(col)=>{
@@ -3744,7 +3903,7 @@ function renderTeam(td,tid,sid){
     for(const[uuid,pr]of roster){ h+=rosterRows(uuid,pr); }
     h+=`</tbody></table>`;
   }
-  h+=`</div><div id="f${tesc}" class="tpane">`;
+  h+=`</div></div><div id="f${tesc}" class="tpane">`;
   if(!fixtures.length){h+='<div class="empty">No fixture data</div>';}
   else{
     const priors=fixturePriors(td,tid);
@@ -3764,6 +3923,19 @@ function renderTeam(td,tid,sid){
   ve.innerHTML=h;
   // Career lines fill in after paint — the season rows are already on screen.
   hydrateCareers(Object.keys(td.roster||{}));
+  // The cards read the same roster and the same career blocks, so they add no
+  // request of their own: tcHydrate waits on playerFile's cache, which
+  // hydrateCareers has already warmed.
+  {
+    const key=tesc, stc=tcSt(key);
+    stc.sel=null;
+    stc.roster=Object.entries(td.roster||{}).map(([uuid,pr])=>({
+      uuid, name:pr.name||('#'+String(uuid).slice(0,8)),
+      sea:{gp:pr.gp||0,pts:pr.pts||0,fg:pr.fg||0,ft:pr.ft||0,threePt:pr.threePt||0,fouls:pr.fouls||0},
+      car:careerOf(S.players[uuid])||null}));
+    tcDraw(key);
+    tcHydrate(key,stc.roster.map(r=>r.uuid));
+  }
   ve.querySelectorAll('.frow').forEach(r=>r.addEventListener('click',()=>{
     const sid2=r.dataset.sid;
     const gid2=r.dataset.gid;
