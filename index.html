@@ -174,6 +174,16 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .fin-note.open{display:block}
 .pclub-row{display:flex;align-items:baseline;gap:8px;padding:5px 8px;margin-bottom:4px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer}
 .pclub-row.pclub-na{cursor:default;opacity:0.7}
+.pclub-go{flex:0 0 auto;color:var(--text3);padding:0 2px;cursor:pointer}
+.pclub-go:hover{color:var(--accent)}
+.pclub-row.open{border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0}
+.pclub-exp{display:none;border:1px solid var(--accent);border-top:0;border-radius:0 0 5px 5px;background:var(--surface);margin-bottom:4px}
+.pclub-exp.open{display:block}
+.pclub-tot,.pclub-treg{display:flex;align-items:stretch;border-top:1px solid var(--border)}
+.pclub-tot{border-top:0;background:var(--accent-dim)}
+.pclub-tl{flex:1;min-width:0;padding:6px 10px;font-size:0.78rem}
+.pclub-ts{color:var(--text3);font-size:0.65rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pclub-cells{flex:7;min-width:0;display:flex}
 .pclub-row:not(.pclub-na):hover{background:rgba(0,245,212,0.06)}
 .pclub-n{flex:1 1 0;min-width:0;font-size:0.82rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pclub-row.pclub-na .pclub-n{font-weight:500;color:var(--text2)}
@@ -641,6 +651,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-teams{border-top:1px solid var(--border);padding:6px 10px 7px}
 .car-t{font-size:0.7rem;color:var(--text2);display:flex;gap:6px;align-items:baseline;padding:1px 0;cursor:pointer}
 .car-t:hover .car-tn em{color:var(--accent)}
+.car-gp{flex:0 0 auto;min-width:17px;text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;font-size:0.68rem}
 .car-tn{flex:1;min-width:0;overflow:hidden}
 .car-tn em{display:block;font-style:normal;overflow:hidden;text-overflow:ellipsis}
 .car-tn i{display:block;font-style:normal;color:var(--text3);font-size:0.62rem;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
@@ -662,7 +673,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.42</span>
+      <span class="rail-ver">v1.44</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2212,6 +2223,43 @@ function renderClubTotals(t,priv){
 /* Async, like hydrateFinals: renderPlayer is synchronous and must not wait on a
    network round trip to paint the career strip. Bails if the user has navigated
    to another player while the maps were in flight. */
+/* The player's own record at each club, built from the registrations rather
+   than from the club bucket, so it uses exactly the figures the season cards
+   use: per-stat MAX across siblings sharing a tid (T20), summed across tids. */
+function clubRegStats(groups,maps,p){
+  const out={};
+  for(const{sn,tid,regs}of groups||[]){
+    const sid=sn&&sn.sid; if(!sid||!tid)continue;
+    const cid=((maps||{})[sid]||{})[tid]; if(!cid)continue;
+    const st=regs.reduce((a,r)=>{const q=r.stats||{};return{
+      gp:Math.max(a.gp||0,q.gp||0),pts:Math.max(a.pts||0,q.pts||0),fg:Math.max(a.fg||0,q.fg||0),
+      ft:Math.max(a.ft||0,q.ft||0),tp:Math.max(a.tp||0,q.threePt||0),f:Math.max(a.f||0,q.fouls||0)};},{});
+    const w=regs[0]&&regs[0].stats||{};
+    const gp=st.gp||gamesForGroup(p,regs);
+    if(!out[cid])out[cid]={gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0,teams:[]};
+    const o=out[cid];
+    o.gp+=gp;o.pts+=st.pts;o.fg+=st.fg;o.ft+=st.ft;o.tp+=st.tp;o.f+=st.f;
+    o.w+=w.wins||0;o.l+=w.losses||0;o.d+=w.draws||0;
+    o.teams.push({sid,tid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sid,comp:carComp(sid),
+      gp,pts:st.pts,fg:st.fg,ft:st.ft,tp:st.tp,f:st.f,w:w.wins||0,l:w.losses||0,d:w.draws||0});
+  }
+  for(const o of Object.values(out))o.teams.sort((a,b)=>b.pts-a.pts);
+  return out;
+}
+function clubExpandHtml(o){
+  const cells=t=>{const ppg=t.gp?(t.pts/t.gp).toFixed(1):'\u2014';
+    return [[t.gp,'GP'],[ppg,'PPG'],[t.pts,'PTS'],[t.fg,'FG'],[t.ft,'FT'],[t.tp,'3PT'],[t.f,'F']]
+      .map(([v,l],i)=>statCell(v,l,i===6,null)).join('');};
+  const wl=t=>(t.w||t.l||t.d)
+    ? `<span style="color:var(--win)">${t.w}W</span> <span style="color:var(--loss)">${t.l}L</span>${t.d?` <span style="color:var(--draw)">${t.d}D</span>`:''}`
+    : '\u2014';
+  return `<div class="pclub-tot"><div class="pclub-tl">All teams at this club<div class="pclub-ts">${wl(o)}</div></div>
+      <div class="pclub-cells">${cells(o)}</div></div>`
+   + o.teams.map(t=>`<div class="pclub-treg"><div class="pclub-tl">${esc(t.tn)}
+      <div class="pclub-ts">${esc([t.season,t.comp].filter(Boolean).join(' \u00b7 '))} \u00b7 ${wl(t)}</div></div>
+      <div class="pclub-cells">${cells(t)}</div></div>`).join('');
+}
+
 async function hydrateClubs(p,groups){
   const uuid=p.uuid;
   if(!document.getElementById('pclub-'+uuid)) return;
@@ -2225,10 +2273,29 @@ async function hydrateClubs(p,groups){
   host.innerHTML=renderClubTotals(buildClubTotals(groups,maps,names,p,S.clubTypes,S.clubKeys),isPrivate(p));
   // Listener, not an inline onclick: esc() does not escape an apostrophe, and
   // "St Mary's" inside onclick="loadClub('...')" would end the JS string.
-  host.querySelectorAll('.pclub-row[data-cid]').forEach(r=>r.addEventListener('click',()=>{
-    loadClub(r.dataset.cid,r.dataset.cn,null);
-    if(window.innerWidth<=768) el('rail').classList.add('mob-hide');
-  }));
+  // Clicking a club used to leave the profile for that club's fixture view,
+  // which answers a different question than the one the row asks. It now opens
+  // the player's own record at that club in place: a totals strip and a line per
+  // registration. The arrow still goes to the club.
+  const perClub=clubRegStats(groups,maps,p);
+  host.querySelectorAll('.pclub-row[data-cid]').forEach(r=>{
+    const cid=r.dataset.cid, st=perClub[cid];
+    if(!st||!st.teams.length)return;
+    r.insertAdjacentHTML('beforeend',`<span class="pclub-go" title="Open ${esc(r.dataset.cn)} in Clubs">\u2192</span>`);
+    const box=document.createElement('div');
+    box.className='pclub-exp';
+    r.after(box);
+    r.addEventListener('click',e=>{
+      if(e.target.classList.contains('pclub-go')){
+        loadClub(cid,r.dataset.cn,null);
+        if(window.innerWidth<=768) el('rail').classList.add('mob-hide');
+        return;
+      }
+      const open=box.classList.toggle('open');
+      r.classList.toggle('open',open);
+      if(open&&!box.dataset.built){box.innerHTML=clubExpandHtml(st);box.dataset.built='1';}
+    });
+  });
 }
 
 
@@ -2267,6 +2334,7 @@ function carSt(uuid){
   return CAR[uuid];
 }
 const CAR_K=['pts','fg','ft','tp','f'];
+const CAR_BARS=16;            // most bars a card draws; see carCard
 function carSum(ts,k){return ts.reduce((a,t)=>a+(t[k]||0),0);}
 function carFmtD(d){const p=String(d||'').split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0].slice(2)}`:String(d||'');}
 
@@ -2516,12 +2584,28 @@ function carCard(g,ctx){
   const{chron,vals,avg,mx,hero,cur,first}=ctx;
   const i=chron.indexOf(g);
   const v=g.range?carHeroVal(g,hero):vals[i];
-  let dpc=(!g.range&&i>0&&vals[i-1])?Math.round((v-vals[i-1])/vals[i-1]*100):null;
-  if(dpc!==null&&dpc>200)dpc=null;              // early-career jumps say nothing
+  // No cap. A blanket "drop anything over 200%" was meant to mute early-career
+  // noise and instead hid the real jumps: 20 points to 87 is +335% and is the
+  // most interesting thing on the card. Only an absent or zero previous value
+  // suppresses it, because that division has no answer.
+  const dpc=(!g.range&&i>0&&vals[i-1])?Math.round((v-vals[i-1])/vals[i-1]*100):null;
   const dcl=dpc===null?'car-flat':dpc>2?'car-up':dpc<-2?'car-dn':'car-flat';
   const w=carSum(g.teams,'w'),l=carSum(g.teams,'l'),d=carSum(g.teams,'d');
+  // At most CAR_BARS bars, centred on this card and spread evenly either side
+  // until it runs out of career or out of room. Twenty-odd seasons drawn in a
+  // 166px strip is a picket fence; the neighbourhood is what carries meaning.
+  // Bars run in the same direction as the cards. Reading right-to-left on a
+  // newest-first row and left-to-right on an oldest-first one was two
+  // chronologies on one screen.
+  let ord=chron.map((_,j)=>j);
+  if(ctx.rev)ord.reverse();
+  if(ord.length>CAR_BARS){
+    const at=g.range?Math.round((ord.length-1)/2):ord.indexOf(i);
+    const lo=Math.max(0,Math.min(ord.length-CAR_BARS,at-Math.floor(CAR_BARS/2)));
+    ord=ord.slice(lo,lo+CAR_BARS);
+  }
   const bars=ctx.bars?`<div class="car-spark"><div class="car-avg" style="bottom:${Math.round(avg/mx*100)}%">${first?`<b>avg ${hero==='ppg'?avg.toFixed(1):Math.round(avg)}</b>`:''}</div>${
-    chron.map((c,j)=>`<i class="${g.range?((c.from&&c.to&&c.from<=g.to&&c.to>=g.from)?'me':''):(j===i?'me':'')}" style="height:${Math.max(8,Math.round(vals[j]/mx*100))}%"></i>`).join('')}</div>`:'';
+    ord.map(j=>{const c=chron[j];return `<i class="${g.range?((c.from&&c.to&&c.from<=g.to&&c.to>=g.from)?'me':''):(j===i?'me':'')}" style="height:${Math.max(8,Math.round(vals[j]/mx*100))}%"></i>`;}).join('')}</div>`:'';
   return`<div class="car-card${g.range?' rng':''}${(!g.range&&cur===g)?' cur':''}">
     <div class="car-ch"><div class="car-nm">${esc(g.name)}</div>
       <div class="car-mt">${g.range?`${g.n} game${g.n===1?'':'s'} · `:''}${g.teams.length} team${g.teams.length===1?'':'s'}</div></div>
@@ -2531,6 +2615,7 @@ function carCard(g,ctx){
     <div class="car-mini">${carMini(g,hero)}</div>
     <div class="car-wl"><b style="color:var(--win)">${w}W</b> <b style="color:var(--loss)">${l}L</b>${d?` <b style="color:var(--draw)">${d}D</b>`:''}${(w||l)?` · ${Math.round(w/(w+l)*100)}%`:''}</div>
     <div class="car-teams">${g.teams.map(t=>`<div class="car-t"${t.tid&&t.sid?` onclick="loadTeam('${esc(t.tid)}','${esc(t.sid)}')"`:''}>
+      <span class="car-gp">${t.gp}</span>
       <span class="car-tn" title="${esc([t.tn,t.comp].filter(Boolean).join(' \u00b7 '))}"><em>${esc(t.tn)}</em>${
         ctx.showSeason?`<i>${esc(t.season)}</i>`:(t.comp?`<i>${esc(t.comp)}</i>`:'')}</span>
       <span class="car-tp">${hero==='ppg'?(t.gp?(t.pts/t.gp).toFixed(1):'\u2014'):t.pts}</span></div>`).join('')}</div>
@@ -2637,21 +2722,20 @@ function carDraw(uuid){
     bEl.innerHTML=busy?`<span id="carprog-${esc(uuid)}">Reading ${pend} box score${pend===1?'':'s'}\u2026</span>`:'';
     if(needRows&&pend>0&&!st.building)carBuild(uuid);
   }
-  const ctx={chron,vals,avg,mx,hero,cur,bars:st.bars,showSeason:st.mode!=='S'};
+  const ctx={chron,vals,avg,mx,hero,cur,bars:st.bars,rev:st.order==='N',showSeason:st.mode!=='S'};
   const lead=list.find(g=>!g.range);          // leftmost period card carries the avg label
   strip.innerHTML=list.map(g=>carCard(g,{...ctx,first:lead===g})).join('');
   carWheel(uuid);carNav(uuid);
   if(hintEl)hintEl.textContent=hint;
 
-  if(noteEl){
-    let note='';
-    if(st.rows&&needRows){
-      const bits=[];
-      if(st.unlined>0)bits.push(`${st.unlined} credited game${st.unlined===1?'':'s'} carry no stored stat line and are not counted here`);
-      if(st.missing.length)bits.push(`${st.missing.length} season file${st.missing.length===1?'':'s'} did not load: ${st.missing.join(', ')}`);
-      if(bits.length)note=esc(bits.join(' · '));
-    }
-    noteEl.textContent=note;
+  // Nothing about the fetch belongs on screen. A game whose box score held no
+  // line for this player is already counted in the season figures; a season file
+  // that would not load is a fault for the console, not a caption under a chart.
+  if(noteEl)noteEl.textContent='';
+  if(needRows&&st.missing.length&&!st._warned){
+    st._warned=1;
+    console.warn('[career] season game files did not load for '+(p&&p.uuid)+':',st.missing.join(', '),
+      '\u2014 sgj returned null from both origins, so either games/bv/{sid}.json does not exist for these seasons or both fetches failed.');
   }
 }
 
