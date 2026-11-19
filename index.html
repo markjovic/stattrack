@@ -184,6 +184,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .pclub-tl{flex:1;min-width:0;padding:6px 10px;font-size:0.78rem}
 .pclub-ts{color:var(--text3);font-size:0.65rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pclub-cells{flex:7;min-width:0;display:flex}
+.pclub-fold{font-size:0.6rem;color:var(--draw);border:1px solid var(--border);border-radius:3px;padding:0 4px;white-space:nowrap}
 .pclub-row:not(.pclub-na):hover{background:rgba(0,245,212,0.06)}
 .pclub-n{flex:1 1 0;min-width:0;font-size:0.82rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pclub-row.pclub-na .pclub-n{font-weight:500;color:var(--text2)}
@@ -679,7 +680,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.47</span>
+      <span class="rail-ver">v1.48</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2232,11 +2233,21 @@ function renderClubTotals(t,priv){
 /* The player's own record at each club, built from the registrations rather
    than from the club bucket, so it uses exactly the figures the season cards
    use: per-stat MAX across siblings sharing a tid (T20), summed across tids. */
-function clubRegStats(groups,maps,p){
+function clubRegStats(groups,maps,p,types,keys,names){
   const out={};
   for(const{sn,tid,regs}of groups||[]){
     const sid=sn&&sn.sid; if(!sid||!tid)continue;
-    const cid=((maps||{})[sid]||{})[tid]; if(!cid)continue;
+    // Same resolution as buildClubTotals, fold and all. Without it this panel
+    // totalled 21 GP under a row reading 26: a tournament registration is mapped
+    // to the tournament ORGANISATION, and only the name-match fold puts it under
+    // the club. Two totals on one row that disagree is worse than either absent.
+    let cid=((maps||{})[sid]||{})[tid]; if(!cid)continue;
+    let foldedFrom=null;
+    if((types||{})[cid]==='ASSOCIATION'){
+      let hit=null;
+      for(const r of regs){ hit=inferClubFromName(r&&r.tn,keys||[]); if(hit) break; }
+      if(hit&&hit.id!==cid){ foldedFrom=(names||{})[cid]||cid; cid=hit.id; }
+    }
     const st=regs.reduce((a,r)=>{const q=r.stats||{};return{
       gp:Math.max(a.gp||0,q.gp||0),pts:Math.max(a.pts||0,q.pts||0),fg:Math.max(a.fg||0,q.fg||0),
       ft:Math.max(a.ft||0,q.ft||0),tp:Math.max(a.tp||0,q.threePt||0),f:Math.max(a.f||0,q.fouls||0)};},{});
@@ -2247,7 +2258,7 @@ function clubRegStats(groups,maps,p){
     o.gp+=gp;o.pts+=st.pts;o.fg+=st.fg;o.ft+=st.ft;o.tp+=st.tp;o.f+=st.f;
     o.w+=w.wins||0;o.l+=w.losses||0;o.d+=w.draws||0;
     o.teams.push({sid,tid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sid,comp:carComp(sid),
-      compFull:carCompFull(sid),grade:abbreviateGrades([...new Set(regs.map(r=>r.gn).filter(Boolean))]),
+      compFull:carCompFull(sid),grade:abbreviateGrades([...new Set(regs.map(r=>r.gn).filter(Boolean))]),foldedFrom,
       gp,pts:st.pts,fg:st.fg,ft:st.ft,tp:st.tp,f:st.f,w:w.wins||0,l:w.losses||0,d:w.draws||0});
   }
   // Chronological, not by points. groups arrives from groupRegs in
@@ -2265,7 +2276,8 @@ function clubExpandHtml(o){
   return `<div class="pclub-tot"><div class="pclub-tl">All teams at this club<div class="pclub-ts">${wl(o)}</div></div>
       <div class="pclub-cells">${cells(o)}</div></div>`
    + o.teams.map(t=>`<div class="pclub-treg" title="${esc([t.tn,t.grade,t.compFull,t.season].filter(Boolean).join(' \u00b7 '))}">
-      <div class="pclub-tl">${esc(t.tn)}${t.grade?` <b class="car-gr">${esc(t.grade)}</b>`:''}
+      <div class="pclub-tl">${esc(t.tn)}${t.grade?` <b class="car-gr">${esc(t.grade)}</b>`:''}${
+        t.foldedFrom?` <span class="pclub-fold" title="PlayHQ attributed this team to ${esc(t.foldedFrom)}; matched to this club by team name">via ${esc(carTidy(t.foldedFrom))}</span>`:''}
       <div class="pclub-ts">${esc([t.season,t.comp].filter(Boolean).join(' \u00b7 '))} \u00b7 ${wl(t)}</div></div>
       <div class="pclub-cells">${cells(t)}</div></div>`).join('');
 }
@@ -2287,7 +2299,7 @@ async function hydrateClubs(p,groups){
   // which answers a different question than the one the row asks. It now opens
   // the player's own record at that club in place: a totals strip and a line per
   // registration. The arrow still goes to the club.
-  const perClub=clubRegStats(groups,maps,p);
+  const perClub=clubRegStats(groups,maps,p,S.clubTypes,S.clubKeys,names);
   host.querySelectorAll('.pclub-row[data-cid]').forEach(r=>{
     const cid=r.dataset.cid, st=perClub[cid];
     if(!st||!st.teams.length)return;
@@ -2657,7 +2669,7 @@ function carCard(g,ctx){
     ord.map(j=>{const c=chron[j];return `<i class="${g.range?((c.from&&c.to&&c.from<=g.to&&c.to>=g.from)?'me':''):(j===i?'me':'')}" style="height:${Math.max(8,Math.round(vals[j]/mx*100))}%"></i>`;}).join('')}</div>`:'';
   return`<div class="car-card${g.range?' rng':''}${(!g.range&&cur===g)?' cur':''}">
     <div class="car-ch"><div class="car-nm">${esc(g.name)}</div>
-      <div class="car-mt">${g.range?`${g.n} game${g.n===1?'':'s'} · `:''}${g.teams.length} team${g.teams.length===1?'':'s'}</div></div>
+      <div class="car-mt" title="${esc(g.teams.length===1?(g.teams[0].compFull||''):'')}">${g.range?`${g.n} game${g.n===1?'':'s'} · `:''}${(!g.range&&g.teams.length===1&&g.teams[0].comp)?esc(g.teams[0].comp):`${g.teams.length} team${g.teams.length===1?'':'s'}`}</div></div>
     <div class="car-hero"><div class="car-big">${hero==='ppg'?(+v).toFixed(1):v}</div><div class="car-unit">${hero==='ppg'?'ppg':'pts'}</div>
       ${dpc===null?'':`<div class="car-delta ${dcl}">${dpc>0?'+':''}${dpc}%</div>`}</div>
     ${bars}
