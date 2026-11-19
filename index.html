@@ -554,36 +554,64 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .h2h-none{padding:10px 12px;color:var(--text2);font-size:0.85rem}
 
 /* ── Movement map (v1.29) ───────────────────────────────────────────────── */
-.pmove-wrap{margin:10px 0 2px}
-.pmove-hint{font-size:0.74rem;color:var(--text3);margin:2px 0 6px}
-.pmove-scroll{overflow:auto;max-height:70vh;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:6px;background:var(--bg);padding:4px}
-.pmove-svg{display:block}
-.pmv-col{fill:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.pmv-name{fill:var(--text);font-size:11px;font-weight:600}
-.pmv-meta{fill:var(--text3);font-size:9.5px}
-.pmv-box{cursor:pointer}
-.pmv-box rect{fill:var(--surface);stroke:var(--border);stroke-width:1}
-.pmv-box.mine rect{stroke:var(--accent);stroke-width:2}
-.pmv-box.dim{opacity:.25}
-.pmv-box.on rect{stroke:var(--text);stroke-width:2.4}
-.pmv-link{fill:none;stroke:var(--text3);opacity:.45}
-.pmv-link.mine{stroke:var(--accent);opacity:.95}
-.pmv-link.dim{opacity:.07}
-.pmv-rl{fill:var(--text);font-size:10px;font-weight:700;paint-order:stroke;stroke:var(--bg);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
-.pmv-rl.dim{opacity:.1}
-.pmv-go{border:1px solid var(--border);background:var(--elevated);color:var(--text);border-radius:5px;cursor:pointer;font-size:0.74rem;padding:5px 10px}
-.pmv-go:hover{border-color:var(--accent);color:var(--accent)}
-.pmv-panel{margin-top:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface)}
-.pmv-phd{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border)}
-.pmv-phd .sn{color:var(--text2);font-size:0.76rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pmv-x{border:1px solid var(--border);background:var(--elevated);color:var(--text2);border-radius:5px;cursor:pointer;font-size:0.76rem;padding:4px 8px}
-.pmv-x:hover{color:var(--text);border-color:var(--text3)}
-.pmv-mate{display:flex;align-items:center;gap:8px;padding:4px 10px;border-bottom:1px solid var(--border)}
-.pmv-mate:last-child{border-bottom:0}
-.pmv-mate .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);cursor:pointer}
-.pmv-mate .nm:hover{color:var(--accent)}
-.pmv-mate .gp{color:var(--text3);font-size:0.74rem;white-space:nowrap}
-.pmv-prog{padding:8px 10px;color:var(--text2);font-size:0.8rem}
+/* ── CAREER CARDS (v1.30) ──────────────────────────────────────────────────
+   One card per period (season, calendar year, or a custom date window), hero
+   number leading, the whole career drawn as bars behind it. Season totals come
+   from the PlayHQ-credited registration stats; year and range totals are summed
+   from the dated per-game lines in the season game files. */
+.car-wrap{margin:10px 0 2px}
+.car-row{display:flex;align-items:flex-start;gap:10px}
+.car-cfg{flex:0 0 auto;width:42px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:width .26s ease,border-color .18s ease}
+.car-cfg.open{width:186px;border-color:var(--accent)}
+.car-gear{width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);border:0;background:transparent;font-size:1.05rem;padding:0}
+.car-gear:hover{color:var(--accent)}
+.car-cfg.open .car-gear{color:var(--accent);width:100%;justify-content:flex-start;padding:0 10px;border-bottom:1px solid var(--border);height:34px}
+.car-cbody{overflow:hidden;opacity:0;max-height:0;transition:opacity .16s ease,max-height .26s ease}
+.car-cfg.open .car-cbody{opacity:1;max-height:560px;padding:6px 8px 9px}
+.car-cbody .lbl{display:block;color:var(--text3);font-size:0.62rem;text-transform:uppercase;letter-spacing:.06em;margin:7px 0 3px 2px}
+.car-cbody .lbl:first-child{margin-top:0}
+.car-cbody .grp{display:flex;flex-wrap:wrap;gap:4px}
+.car-cbody button{border:1px solid var(--border);background:var(--elevated);color:var(--text2);border-radius:5px;cursor:pointer;font-size:0.72rem;padding:4px 8px;font-family:inherit}
+.car-cbody button:hover{color:var(--text);border-color:var(--text3)}
+.car-cbody button.on{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.car-rg{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.car-rg.on{display:block}
+.car-rg label{display:block;color:var(--text3);font-size:0.62rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.car-rg input{display:block;width:100%;margin-top:2px;background:var(--elevated);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 6px;font:inherit;font-size:0.74rem;color-scheme:dark}
+.car-rg input:focus{outline:none;border-color:var(--accent)}
+.car-hint{color:var(--text3);font-size:0.62rem;line-height:1.35;margin-top:4px}
+.car-strip{display:flex;align-items:flex-start;gap:10px;overflow-x:auto;padding:2px 2px 10px;flex:1;min-width:0}
+.car-card{flex:0 0 186px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.car-card.cur{border-color:var(--accent)}
+.car-card.rng{border-color:var(--draw)}
+.car-card.rng .car-nm{color:var(--draw)}
+.car-ch{padding:8px 10px 0}
+.car-nm{font-weight:600;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.car-mt{color:var(--text3);font-size:0.67rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.car-hero{padding:6px 10px 2px;display:flex;align-items:baseline;gap:7px}
+.car-big{font-size:2.3rem;line-height:1;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.car-unit{font-size:0.64rem;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.car-delta{margin-left:auto;font-size:0.7rem;font-weight:600;font-variant-numeric:tabular-nums}
+.car-up{color:var(--win)}.car-dn{color:var(--loss)}.car-flat{color:var(--text3)}
+.car-spark{height:28px;margin:2px 10px 0;display:flex;align-items:flex-end;gap:2px;position:relative}
+.car-spark i{flex:1;background:var(--text3);border-radius:1px;opacity:.5}
+.car-spark i.me{background:var(--accent);opacity:1}
+.car-avg{position:absolute;left:0;right:0;border-top:1px dashed var(--text2);opacity:.75;pointer-events:none}
+.car-avg b{position:absolute;left:0;top:-8px;font-size:0.5rem;font-weight:600;color:var(--text2);background:var(--surface);padding:0 2px;letter-spacing:.03em}
+.car-mini{display:flex;flex-wrap:wrap;padding:7px 6px 7px;border-top:1px solid var(--border);margin-top:7px}
+.car-mini .c{flex:1 0 33.33%;text-align:center;padding:3px 0}
+.car-mini .v{font-size:0.8rem;font-variant-numeric:tabular-nums}
+.car-mini .l{font-size:0.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+.car-wl{padding:5px 10px;border-top:1px solid var(--border);font-size:0.68rem;font-variant-numeric:tabular-nums;color:var(--text3)}
+.car-wl b{font-weight:600}
+.car-teams{border-top:1px solid var(--border);padding:6px 10px 7px}
+.car-t{font-size:0.7rem;color:var(--text2);display:flex;gap:6px;align-items:baseline;padding:1px 0;cursor:pointer}
+.car-t:hover .car-tn em{color:var(--accent)}
+.car-tn{flex:1;min-width:0;overflow:hidden}
+.car-tn em{display:block;font-style:normal;overflow:hidden;text-overflow:ellipsis}
+.car-tn i{display:block;font-style:normal;color:var(--text3);font-size:0.62rem;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
+.car-tp{font-weight:600;color:var(--text3);font-variant-numeric:tabular-nums}
+.car-msg{padding:10px;color:var(--text2);font-size:0.78rem}
 </style>
 </head>
 <body>
@@ -593,7 +621,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.29</span>
+      <span class="rail-ver">v1.30</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2157,197 +2185,238 @@ async function hydrateClubs(p,groups){
 }
 
 
-/* ── MOVEMENT MAP (v1.29) ─────────────────────────────────────────────────────
-   The club movement diagram, scoped to one player: a column per season period,
-   a box per team, and ribbons carrying the GROUP of players between teams, with
-   this player's own path picked out in the accent colour. Ribbon thickness and
-   the number on it are how many of the tracked players made that move.
+/* ── CAREER CARDS (v1.30) ─────────────────────────────────────────────────────
+   Replaces the v1.29 movement map, which drew the wrong thing.
 
-   v1.28 drew a single-player timeline with a roster list under it. That is not
-   this: here every box is a team several of these players were on, so you can see
-   a group arriving together, splitting, or following each other up the grades.
+   One card per period. The hero number leads, the career is drawn as bars behind
+   it with the player's own average marked, and the teams that made up the period
+   are listed at the foot of every card.
 
-   WHAT IT COSTS. The player file alone cannot show this — it knows nothing about
-   anyone else. Building the map fetches, for each season the player played:
-   team-stats/bv/{sid}.json (through sgj, so locked seasons read from the archive),
-   then one small player file per team-mate, deduplicated across seasons. A long
-   career is roughly 60-80 requests. That is why it sits behind a button and is
-   never built automatically.
+   THREE GROUPINGS, TWO DATA SOURCES — the distinction matters:
 
-   Tracked set = this player plus everyone who shared a team with them in any
-   season. Their whole careers are then laid out, so a team-mate's earlier and
-   later teams appear as boxes in the flow rather than as a separate list. */
+   * Season      from the PlayHQ-credited registration stats already in the
+                 player file. Free, instant, and identical to the figures on the
+                 season cards below. Several registrations under one tid are a
+                 regrade, so per-stat MAX, never a sum (T20); different tids in
+                 one season are genuinely different teams and DO sum.
 
-function pmvCut(x,n){ const t=String(x||''); return t.length>n?t.slice(0,n-1)+'…':t; }
-function pmvAge(gn){ const m=String(gn||'').match(/\bU\s?(\d{1,2})\b/i); return m?('U'+m[1]):''; }
+   * Year/Range  summed from the dated per-game lines in games/bv/{sid}.json
+                 (g.hp / g.ap, read by storedStats). Exact, not apportioned — a
+                 summer season straddling 1 January splits on the real dates.
+                 Costs one season game file per season played; they are fetched
+                 in the background as soon as a profile opens, and cached in
+                 S.games alongside everything else that reads them.
 
-/* One team per person per period: the one they played most games for. Several
-   grades in a period is normal (playing up, a tournament) and the others are not
-   a second position — that is what keeps the ribbon counts reconcilable. */
-function pmvTeamByPeriod(pl,idx){
-  const out=new Map();
-  for(const sn of pl?.seasons||[]){
-    const si=idx?.[sn.sid]||{}; const label=si.name||sn.sn||sn.sid;
-    const byTid=new Map();
-    for(const r of sn.regs||[]){ const tid=r.tid||'_'; if(!byTid.has(tid))byTid.set(tid,[]); byTid.get(tid).push(r); }
-    for(const [tid,regs] of byTid){
-      const gp=regs.reduce((a,r)=>Math.max(a,(r.stats||{}).gp||0),0);
-      const cur=out.get(label);
-      if(!cur||gp>cur.gp)out.set(label,{sid:sn.sid,tid,tn:regs[regs.length-1].tn||tid,gn:regs[regs.length-1].gn||'',gp});
-    }
+   Games PlayHQ credits where the player is on neither team sheet (`c` games)
+   carry no stored line. They are counted and reported on the card rather than
+   silently dropped — a year total that quietly omits games is worse than none. */
+
+const CAR={};
+function carSt(uuid){
+  if(!CAR[uuid])CAR[uuid]={hero:'pts',mode:'S',order:'N',bars:true,range:false,
+    a:'',b:'',rows:null,loading:false,missing:[],unlined:0,p:null};
+  return CAR[uuid];
+}
+const CAR_K=['pts','fg','ft','tp','f'];
+function carSum(ts,k){return ts.reduce((a,t)=>a+(t[k]||0),0);}
+function carFmtD(d){const p=String(d||'').split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0].slice(2)}`:String(d||'');}
+
+/* Season totals from registrations. */
+function carSeasonGroups(p){
+  const out=[],seen=new Map();
+  for(const{sn,tid,regs}of groupRegs(p.seasons||[])){
+    const st=regs.reduce((a,r)=>{const s=r.stats||{};return{
+      gp:Math.max(a.gp||0,s.gp||0),pts:Math.max(a.pts||0,s.pts||0),
+      fg:Math.max(a.fg||0,s.fg||0),ft:Math.max(a.ft||0,s.ft||0),
+      threePt:Math.max(a.threePt||0,s.threePt||0),fouls:Math.max(a.fouls||0,s.fouls||0)};},{});
+    const wld=regs[0]&&regs[0].stats||{};
+    if(!seen.has(sn.sid)){const grp={sid:sn.sid,name:sn.sn||sn.sid,teams:[]};seen.set(sn.sid,grp);out.push(grp);}
+    seen.get(sn.sid).teams.push({tid,sid:sn.sid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sn.sid,
+      gp:st.gp||gamesForGroup(p,regs),pts:st.pts||0,fg:st.fg||0,ft:st.ft||0,tp:st.threePt||0,f:st.fouls||0,
+      w:wld.wins||0,l:wld.losses||0,d:wld.draws||0});
+  }
+  out.reverse();                       // groupRegs is newest-first; chronological here
+  const st=CAR[p.uuid];
+  if(st&&st.rows)for(const g of out){   // real date span once the game lines are in
+    const ds=st.rows.filter(r=>r.sid===g.sid).map(r=>r.date).sort();
+    if(ds.length){g.from=ds[0];g.to=ds[ds.length-1];}
   }
   return out;
 }
 
-async function pmvBuild(uuid,btn){
-  const host=el('pmv-body-'+uuid); if(!host)return;
-  if(btn)btn.disabled=true;
-  const idx=S.idx?.seasons||{};
-  const me=await loadPlayerFile(uuid);
-  if(!me){ host.innerHTML='<div class="pmv-prog" style="color:var(--loss)">This player’s file could not be loaded.</div>'; if(btn)btn.disabled=false; return; }
-  const myTeams=pmvTeamByPeriod(me,idx);
-  const sids=[...new Set([...myTeams.values()].map(t=>t.sid))];
-
-  host.innerHTML=`<div class="pmv-prog">Reading ${sids.length} season${sids.length===1?'':'s'}…</div>`;
-  const mateIds=new Set(), missingSeasons=[];
-  for(const t of myTeams.values()){
-    if(!S.teamStats[t.sid]){ const d=await sgj('team-stats/bv',t.sid); if(d)S.teamStats[t.sid]=d; }
-    const ts=S.teamStats[t.sid];
-    if(!ts){ missingSeasons.push(idx[t.sid]?.name||t.sid); continue; }
-    const roster=ts[t.tid]?.roster||{};
-    Object.keys(roster).forEach(id=>{ if(id!==t13(uuid))mateIds.add(id); });
+/* Everything else is a slice of the dated game lines. */
+function carAgg(rows){
+  const m=new Map();
+  for(const r of rows){
+    const k=r.tid||('?'+r.season);
+    if(!m.has(k))m.set(k,{tid:r.tid,sid:r.sid,tn:r.tn,season:r.season,gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0});
+    const t=m.get(k);t.gp++;CAR_K.forEach(x=>t[x]+=r[x]||0);
+    if(r.res==='W')t.w++;else if(r.res==='L')t.l++;else if(r.res==='D')t.d++;
   }
-  const ids=[...mateIds];
-  const people=new Map(); people.set(uuid,{name:displayName(me,uuid),teams:myTeams,me:true});
-  let unreadable=0;
-  for(let i=0;i<ids.length;i++){
-    if(i%5===0)host.innerHTML=`<div class="pmv-prog">Reading team-mates… ${i} of ${ids.length}</div>`;
-    const pl=await loadPlayerFile(ids[i]);
-    if(!pl){ unreadable++; continue; }
-    const key=pl.uuid||ids[i];
-    if(!people.has(key))people.set(key,{name:displayName(pl,key),teams:pmvTeamByPeriod(pl,idx),me:false});
-  }
+  return[...m.values()].sort((a,b)=>b.pts-a.pts);
+}
+function carYearGroups(rows){
+  const m=new Map();
+  for(const r of rows){const y=r.date.slice(0,4);if(!m.has(y))m.set(y,[]);m.get(y).push(r);}
+  return[...m.entries()].sort((a,b)=>a[0].localeCompare(b[0]))
+    .map(([y,rs])=>({name:y,from:rs[0].date,to:rs[rs.length-1].date,teams:carAgg(rs)}));
+}
+function carRangeGroup(rows,a,b){
+  const rs=rows.filter(r=>r.date>=a&&r.date<=b);
+  if(!rs.length)return null;
+  return{name:carFmtD(a)+' – '+carFmtD(b),from:a,to:b,range:true,n:rs.length,teams:carAgg(rs)};
+}
 
-  // Columns: every period any tracked player appears in, oldest first.
-  const perMap=new Map();
-  for(const pr of people.values())for(const [label] of pr.teams){
-    if(!perMap.has(label))perMap.set(label,{name:label,start:''});
-  }
-  for(const sn of Object.values(idx)){ const r=perMap.get(sn.name); if(r&&sn.startDate&&(!r.start||sn.startDate<r.start))r.start=sn.startDate; }
-  const cols=[...perMap.values()].sort((a,b)=>String(a.start).localeCompare(String(b.start))||a.name.localeCompare(b.name));
-  const ci=new Map(cols.map((c,i)=>[c.name,i]));
-
-  // Nodes and links over the tracked set.
-  const nodes=new Map(), links=new Map(), mine=new Set(), myLinks=new Set();
-  const nkey=(c,t)=>c+'|'+t;
-  for(const [pid,pr] of people){
-    const seq=[...pr.teams.entries()].filter(([l])=>ci.has(l)).sort((a,b)=>ci.get(a[0])-ci.get(b[0]));
-    for(const [label,t] of seq){
-      const k=nkey(label,t.tid);
-      if(!nodes.has(k))nodes.set(k,{col:ci.get(label),tid:t.tid,tn:t.tn,gn:t.gn,sid:t.sid,n:0,ids:[]});
-      const nd=nodes.get(k); nd.n++; nd.ids.push(pid);
-      if(pr.me)mine.add(k);
-    }
-    for(let i=0;i<seq.length-1;i++){
-      const A=nkey(seq[i][0],seq[i][1].tid), B=nkey(seq[i+1][0],seq[i+1][1].tid);
-      const lk=A+'>'+B; links.set(lk,(links.get(lk)||0)+1);
-      if(pr.me)myLinks.add(lk);
+/* One season game file per season played. Cached in S.games like every other
+   reader of these files, so a season already opened costs nothing. */
+async function carLoadRows(p){
+  const uuid=p.uuid,st=carSt(uuid);
+  if(st.rows||st.loading)return;
+  st.loading=true;
+  const info={};
+  for(const sn of p.seasons||[])for(const r of sn.regs||[])
+    if(r.tid)info[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid};
+  const sids=[...new Set((p.seasons||[]).map(s=>s.sid).filter(Boolean))];
+  const mine=Array.isArray(p.games)?p.games:[];
+  const rows=[],missing=[],seen=new Set();
+  for(const sid of sids){
+    if(!S.games[sid]){const d=await sgj('games/bv',sid);if(d)S.games[sid]=d;}
+    const gf=S.games[sid]&&S.games[sid].games;
+    if(!gf){missing.push((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid);continue;}
+    for(const gid of mine){
+      if(seen.has(gid))continue;
+      const g=gf[gid];if(!g||!g.d)continue;
+      const ps=storedStats(g,uuid);if(!ps)continue;   // `c` games carry no line
+      seen.add(gid);
+      const tid=(p.gameTids||{})[gid]||null;
+      const ctx=tid?gameCtx(g,tid):null;
+      rows.push({date:String(g.d).slice(0,10),gid,sid,tid,
+        tn:(info[tid]&&info[tid].tn)||'Unknown team',
+        season:(info[tid]&&info[tid].season)||((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid),
+        pts:ps.pts||0,fg:(ps.pt2||0)+(ps.pt3||0),ft:ps.pt1||0,tp:ps.pt3||0,f:ps.fouls||0,
+        res:ctx?resLetter(ctx.myS,ctx.oppS):null});
     }
   }
-  host.dataset.ready='1';
-  host.innerHTML=pmvMapSvg(cols,nodes,links,mine,myLinks,people)
-    +`<div class="pmv-prog">${people.size} players tracked · ${nodes.size} teams · ${links.size} moves`
-    +(missingSeasons.length?` · <span style="color:var(--loss)">${missingSeasons.length} season file(s) did not load: ${esc(missingSeasons.join(', '))}</span>`:'')
-    +(unreadable?` · <span style="color:var(--loss)">${unreadable} team-mate file(s) unreadable</span>`:'')
-    +`</div><div id="pmv-sel-${esc(uuid)}"></div>`;
-  const sc=host.querySelector('.pmove-scroll');
-  if(sc)sc.querySelectorAll('.pmv-box').forEach(g=>g.addEventListener('click',()=>pmvPick(uuid,g.dataset.k,nodes,people)));
-  window['_pmvN_'+uuid]=nodes; window['_pmvP_'+uuid]=people;
-  if(btn){btn.disabled=false;btn.textContent='Rebuild map';}
+  rows.sort((a,b)=>a.date.localeCompare(b.date));
+  st.rows=rows;st.missing=missing;st.unlined=mine.length-rows.length;st.loading=false;
+  if(el('car-'+uuid))carDraw(uuid);
 }
 
-function pmvMapSvg(cols,nodes,links,mine,myLinks,people){
-  const W=150,GAPX=78,UNIT=9,MINH=30,GAPY=10,TOP=22,PAD=8;
-  const byCol=cols.map(()=>[]);
-  for(const [k,nd] of nodes)byCol[nd.col].push([k,nd]);
-  byCol.forEach(a=>a.sort((x,y)=>y[1].n-x[1].n||String(x[1].tn).localeCompare(String(y[1].tn))));
-  const pos={}; let maxY=0;
-  byCol.forEach((arr,i)=>{
-    let y=TOP; const x=PAD+i*(W+GAPX);
-    for(const [k,nd] of arr){ const h=Math.max(MINH,nd.n*UNIT); pos[k]={x,y,h}; y+=h+GAPY; }
-    maxY=Math.max(maxY,y);
-  });
-  const width=PAD*2+cols.length*W+Math.max(0,cols.length-1)*GAPX;
-  const height=Math.max(80,maxY+6);
-  let hdr=cols.map((c,i)=>`<text class="pmv-col" x="${PAD+i*(W+GAPX)}" y="13">${esc(pmvCut(c.name,22))}</text>`).join('');
-  const outOff={},inOff={}; let path='',labs='';
-  [...links.entries()].sort((a,b)=>b[1]-a[1]).forEach(([lk,n])=>{
-    const [A,B]=lk.split('>'); const a=pos[A],b=pos[B]; if(!a||!b)return;
-    const w=Math.max(2,n*UNIT*0.8);
-    const ao=outOff[A]||0,bo=inOff[B]||0;
-    const y1=a.y+Math.min(ao+w/2,a.h),y2=b.y+Math.min(bo+w/2,b.h);
-    outOff[A]=ao+w; inOff[B]=bo+w;
-    const x1=a.x+W,x2=b.x,mx=(x1+x2)/2;
-    const isMine=myLinks.has(lk);
-    path+=`<path class="pmv-link${isMine?' mine':''}" data-k="${esc(lk)}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" stroke-width="${w}"><title>${n} player${n===1?'':'s'}</title></path>`;
-    if(n>1)labs+=`<text class="pmv-rl" x="${x2-4}" y="${y2+3.5}" text-anchor="end">${n}</text>`;
-  });
-  let boxes='';
-  for(const [k,nd] of nodes){
-    const p=pos[k]; if(!p)continue;
-    const isMine=mine.has(k);
-    boxes+=`<g class="pmv-box${isMine?' mine':''}" data-k="${esc(k)}">
-      <rect x="${p.x}" y="${p.y}" width="${W}" height="${p.h}"></rect>
-      <text class="pmv-name" x="${p.x+7}" y="${p.y+14}">${esc(pmvCut(nd.tn,20))}</text>
-      <text class="pmv-meta" x="${p.x+7}" y="${p.y+26}">${esc([pmvAge(nd.gn),nd.n+' player'+(nd.n===1?'':'s')].filter(Boolean).join(' · '))}</text>
-      <title>${esc(nd.tn)} — ${nd.n} of the tracked players</title></g>`;
+/* ── view ──────────────────────────────────────────────────────────────────── */
+function carToggleCfg(u){const c=el('carcfg-'+u);if(c)c.classList.toggle('open');}
+function carSet(u,k,v){const s=carSt(u);s[k]=v;carDraw(u);}
+function carFlag(u,k){const s=carSt(u);s[k]=!s[k];carDraw(u);}
+function carDate(u,which,v){const s=carSt(u);s[which]=v;carDraw(u);}
+function carHeroVal(g,hero){
+  const pts=carSum(g.teams,'pts'),gp=carSum(g.teams,'gp');
+  return hero==='pts'?pts:(gp?+(pts/gp).toFixed(1):0);
+}
+function carMini(g,hero){
+  const gp=carSum(g.teams,'gp'),pts=carSum(g.teams,'pts');
+  const ppg=gp?(pts/gp).toFixed(1):'—';
+  const alt=hero==='pts'?[ppg,'PPG']:[pts,'PTS'];
+  const cells=[[gp,'GP'],alt,[carSum(g.teams,'f'),'F'],
+               [carSum(g.teams,'ft'),'FT'],[carSum(g.teams,'fg'),'FG'],[carSum(g.teams,'tp'),'3PT']];
+  return cells.map(([v,l])=>`<div class="c"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+}
+function carCard(g,ctx){
+  const{chron,vals,avg,mx,hero,cur,first}=ctx;
+  const i=chron.indexOf(g);
+  const v=g.range?carHeroVal(g,hero):vals[i];
+  let dpc=(!g.range&&i>0&&vals[i-1])?Math.round((v-vals[i-1])/vals[i-1]*100):null;
+  if(dpc!==null&&dpc>200)dpc=null;              // early-career jumps say nothing
+  const dcl=dpc===null?'car-flat':dpc>2?'car-up':dpc<-2?'car-dn':'car-flat';
+  const w=carSum(g.teams,'w'),l=carSum(g.teams,'l'),d=carSum(g.teams,'d');
+  const bars=ctx.bars?`<div class="car-spark"><div class="car-avg" style="bottom:${Math.round(avg/mx*100)}%">${first?`<b>avg ${hero==='ppg'?avg.toFixed(1):Math.round(avg)}</b>`:''}</div>${
+    chron.map((c,j)=>`<i class="${g.range?((c.from&&c.to&&c.from<=g.to&&c.to>=g.from)?'me':''):(j===i?'me':'')}" style="height:${Math.max(8,Math.round(vals[j]/mx*100))}%"></i>`).join('')}</div>`:'';
+  return`<div class="car-card${g.range?' rng':''}${(!g.range&&cur===g)?' cur':''}">
+    <div class="car-ch"><div class="car-nm">${esc(g.name)}</div>
+      <div class="car-mt">${g.range?`${g.n} game${g.n===1?'':'s'} · `:''}${g.teams.length} team${g.teams.length===1?'':'s'}</div></div>
+    <div class="car-hero"><div class="car-big">${hero==='ppg'?(+v).toFixed(1):v}</div><div class="car-unit">${hero==='ppg'?'ppg':'pts'}</div>
+      ${dpc===null?'':`<div class="car-delta ${dcl}">${dpc>0?'+':''}${dpc}%</div>`}</div>
+    ${bars}
+    <div class="car-mini">${carMini(g,hero)}</div>
+    <div class="car-wl"><b style="color:var(--win)">${w}W</b> <b style="color:var(--loss)">${l}L</b>${d?` <b style="color:var(--draw)">${d}D</b>`:''}${(w||l)?` · ${Math.round(w/(w+l)*100)}%`:''}</div>
+    <div class="car-teams">${g.teams.map(t=>`<div class="car-t"${t.tid&&t.sid?` onclick="loadTeam('${esc(t.tid)}','${esc(t.sid)}')"`:''}>
+      <span class="car-tn"><em>${esc(t.tn)}</em>${ctx.showSeason?`<i>${esc(t.season)}</i>`:''}</span>
+      <span class="car-tp">${t.pts}</span></div>`).join('')}</div>
+  </div>`;
+}
+function carDraw(uuid){
+  const host=el('car-'+uuid);if(!host)return;
+  const st=carSt(uuid);
+  const p=st.p;
+  const on=(c)=>c?' on':'';
+  const cfg=`<div class="car-cfg" id="carcfg-${esc(uuid)}">
+    <button class="car-gear" title="Display options" onclick="carToggleCfg('${esc(uuid)}')">⚙</button>
+    <div class="car-cbody">
+      <span class="lbl">Hero</span><div class="grp">
+        <button class="${on(st.hero==='pts').trim()}" onclick="carSet('${esc(uuid)}','hero','pts')">PTS</button>
+        <button class="${on(st.hero==='ppg').trim()}" onclick="carSet('${esc(uuid)}','hero','ppg')">PPG</button></div>
+      <span class="lbl">Group by</span><div class="grp">
+        <button class="${on(st.mode==='S').trim()}" onclick="carSet('${esc(uuid)}','mode','S')">Season</button>
+        <button class="${on(st.mode==='Y').trim()}" onclick="carSet('${esc(uuid)}','mode','Y')">Calendar year</button></div>
+      <span class="lbl">Order</span><div class="grp">
+        <button class="${on(st.order==='N').trim()}" onclick="carSet('${esc(uuid)}','order','N')">Newest first</button>
+        <button class="${on(st.order==='O').trim()}" onclick="carSet('${esc(uuid)}','order','O')">Oldest first</button></div>
+      <span class="lbl">Show</span><div class="grp">
+        <button class="${on(st.bars).trim()}" onclick="carFlag('${esc(uuid)}','bars')">Career bars</button>
+        <button class="${on(st.range).trim()}" onclick="carFlag('${esc(uuid)}','range')">Custom range</button></div>
+      <div class="car-rg${on(st.range)}">
+        <label>From<input type="date" value="${esc(st.a)}" onchange="carDate('${esc(uuid)}','a',this.value)"></label>
+        <label>To<input type="date" value="${esc(st.b)}" onchange="carDate('${esc(uuid)}','b',this.value)"></label>
+        <div class="car-hint" id="carhint-${esc(uuid)}"></div>
+      </div>
+    </div></div>`;
+
+  const needRows=st.mode==='Y'||st.range;
+  if(needRows&&!st.rows){
+    host.innerHTML=`<div class="car-row">${cfg}<div class="car-msg">${st.loading?'Reading season game files…':'Season game files not loaded.'}</div></div>`;
+    if(!st.loading&&p)carLoadRows(p);
+    return;
   }
-  return `<div class="pmove-scroll"><svg class="pmove-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${path}${boxes}${labs}${hdr}</svg></div>`;
-}
+  let base=st.mode==='Y'?carYearGroups(st.rows||[]):carSeasonGroups(p||{seasons:[]});
+  if(!base.length){host.innerHTML=`<div class="car-row">${cfg}<div class="car-msg">No seasons to show.</div></div>`;return;}
 
-function pmvPick(uuid,k,nodes,people){
-  const box=el('pmv-sel-'+uuid); if(!box)return;
-  const host=el('pmv-body-'+uuid);
-  const sel=host&&host.querySelector(`.pmv-box[data-k="${CSS.escape(k)}"]`);
-  if(sel&&sel.classList.contains('on')){ pmvClear(uuid); return; }
-  const nd=nodes.get(k); if(!nd)return;
-  const ids=new Set(nd.ids);
-  if(host){
-    host.querySelectorAll('.pmv-box').forEach(g=>{
-      g.classList.toggle('on',g.dataset.k===k);
-      const n2=nodes.get(g.dataset.k);
-      g.classList.toggle('dim',!(n2&&n2.ids.some(i=>ids.has(i))));
-    });
-    host.querySelectorAll('.pmv-link').forEach(l=>{
-      const [A,B]=l.dataset.k.split('>');
-      const a=nodes.get(A),b=nodes.get(B);
-      const on=a&&b&&a.ids.some(i=>ids.has(i))&&b.ids.some(i=>ids.has(i));
-      l.classList.toggle('dim',!on);
-    });
-    host.querySelectorAll('.pmv-rl').forEach(t=>t.classList.add('dim'));
+  const chron=base.slice();
+  const hero=st.hero;
+  const vals=chron.map(g=>carHeroVal(g,hero));
+  const mx=Math.max(...vals,1);
+  const avg=vals.reduce((a,b)=>a+b,0)/Math.max(1,vals.length);
+  const list=st.order==='N'?chron.slice().reverse():chron.slice();
+  const cur=st.order==='N'?list[0]:list[list.length-1];
+
+  let hint='';
+  if(st.range){
+    if(!st.rows)hint='Loading game lines…';
+    else if(!st.a||!st.b)hint='Pick a start and end date.';
+    else if(st.a>st.b)hint='Start date must be on or before the end date.';
+    else{const rg=carRangeGroup(st.rows,st.a,st.b);
+      if(rg)list.unshift(rg);else hint='No games in that window.';}
   }
-  const rows=[...ids].map(id=>({id,p:people.get(id)})).filter(x=>x.p)
-    .sort((a,b)=>(b.p.me?1:0)-(a.p.me?1:0)||String(a.p.name).localeCompare(String(b.p.name)));
-  box.innerHTML=`<div class="pmv-panel"><div class="pmv-phd"><b>${esc(nd.tn)}</b>
-    <span class="sn">${rows.length} of the tracked players</span>
-    <button class="pmv-x" onclick="pmvClear('${esc(uuid)}')">Close ✕</button></div>
-    ${rows.map(r=>`<div class="pmv-mate"><span class="nm" onclick="loadPlayer('${esc(r.id)}')">${esc(r.p.name)}${r.p.me?' ← this player':''}</span></div>`).join('')}</div>`;
-}
-function pmvClear(uuid){
-  const host=el('pmv-body-'+uuid), box=el('pmv-sel-'+uuid);
-  if(host){host.querySelectorAll('.pmv-box').forEach(g=>g.classList.remove('on','dim'));
-    host.querySelectorAll('.pmv-link').forEach(l=>l.classList.remove('dim'));
-    host.querySelectorAll('.pmv-rl').forEach(t=>t.classList.remove('dim'));}
-  if(box)box.innerHTML='';
+  const ctx={chron,vals,avg,mx,hero,cur,bars:st.bars,showSeason:st.mode!=='S'};
+  const lead=list.find(g=>!g.range);          // leftmost period card carries the avg label
+  const cards=list.map(g=>carCard(g,{...ctx,first:lead===g})).join('');
+
+  let note='';
+  if(st.rows&&(st.mode==='Y'||st.range)){
+    const bits=[];
+    if(st.unlined>0)bits.push(`${st.unlined} credited game${st.unlined===1?'':'s'} carry no stored stat line and are not counted here`);
+    if(st.missing.length)bits.push(`${st.missing.length} season file${st.missing.length===1?'':'s'} did not load: ${st.missing.join(', ')}`);
+    if(bits.length)note=`<div class="car-hint" style="padding:0 2px 6px">${esc(bits.join(' · '))}</div>`;
+  }
+  host.innerHTML=`<div class="car-row">${cfg}<div class="car-strip">${cards}</div></div>${note}`;
+  const hv=el('carhint-'+uuid);if(hv)hv.textContent=hint;
 }
 
-function hydrateMovement(p){
-  const uuid=p.uuid, host=el('pmove-'+uuid); if(!host)return;
-  if(!(p.seasons||[]).length){ host.innerHTML=''; return; }
-  host.innerHTML=`<div class="slist"><div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">Movement map
-      <button class="pmv-go" onclick="pmvBuild('${esc(uuid)}',this)">Build map ↗</button></div>
-    <div class="pmove-hint">Teams as boxes, a column per season, ribbons carrying the players who moved together — this player’s path in ${'green'}. Building it reads each season’s team sheet and every team-mate’s record, so it takes a few seconds and is not automatic.</div>
-    <div id="pmv-body-${esc(uuid)}"></div></div>`;
+function hydrateCareer(p){
+  const uuid=p.uuid,host=el('pmove-'+uuid);if(!host)return;
+  carSt(uuid).p=p;
+  if(!(p.seasons||[]).length){host.innerHTML='';return;}
+  host.innerHTML=`<div class="slist"><div class="sec-lbl">Career</div>
+    <div class="car-wrap" id="car-${esc(uuid)}"></div></div>`;
+  carDraw(uuid);
+  carLoadRows(p);        // start the game files now so year/range are ready
 }
 
 function renderPlayer(p){
@@ -2525,7 +2594,7 @@ function renderPlayer(p){
   ve._groups=groups;
   if(cs.finalsStats)hydrateFinals(uuid,cs.finalsStats);
   hydrateClubs(p,groups);
-  hydrateMovement(p);
+  hydrateCareer(p);
 }
 
 /* ── UNREGISTERED APPEARANCES ─────────────────────────────────────────────────
