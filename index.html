@@ -131,12 +131,17 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 /* A season PERIOD that carries several registrations (a domestic comp, a rep
    comp, a tournament — each its own sid) gets one header with the period total,
    and its cards sit indented beneath it instead of reading as unrelated seasons. */
-.sp-hdr{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--border);border-bottom:0;border-radius:8px 8px 0 0;margin-top:6px}
+.sp-hdr{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--border);
+  border-left:3px solid var(--accent);border-radius:8px;margin:6px -8px 0;padding-left:0}
 .sp-hdr .sp-info{flex:1;min-width:0;padding:7px 12px 6px}
 .sp-hdr .sp-n{font-weight:700;font-size:0.84rem}
 .sp-hdr .sp-s{color:var(--text3);font-size:0.66rem;margin-top:1px}
 .sp-cells{flex:7;min-width:0;display:flex}
-.sp-mem{border-top-left-radius:0;border-top-right-radius:0;margin-left:14px}
+/* Member cards sit flush with every other season card, so every per-team stat
+   column lines up down the whole list. Only the period header is offset — wider
+   by 8px each side with an accent edge — so the combined line reads as the
+   container rather than as another team. */
+.sp-mem{margin-left:0}
 .sp-mem+.sp-mem{margin-top:4px}
 .sc-hdr{border-left:3px solid transparent;padding:0;cursor:pointer;display:flex;align-items:center;gap:0;transition:background 0.1s;user-select:none;background:var(--elevated)}
 .sc-hdr:hover,.sc-hdr.open{background:#333}
@@ -159,6 +164,14 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
    than being truncated — a club is identified by its tail ("... Basketball
    Club") as often as its head. */
 .pclub-wrap{padding:6px 14px 2px}
+/* The finals strip starts shut. It is a second seven-column row directly under
+   the career strip, and open by default it reads as part of it. */
+.fin-lbl{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.fin-chev{display:inline-block;font-size:0.6rem;color:var(--text3);transition:transform .15s}
+.fin-lbl.open .fin-chev{transform:rotate(90deg);color:var(--accent)}
+.fin-strip,.fin-note{display:none}
+.fin-strip.open{display:flex}
+.fin-note.open{display:block}
 .pclub-row{display:flex;align-items:baseline;gap:8px;padding:5px 8px;margin-bottom:4px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer}
 .pclub-row.pclub-na{cursor:default;opacity:0.7}
 .pclub-row:not(.pclub-na):hover{background:rgba(0,245,212,0.06)}
@@ -633,8 +646,8 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .car-tn i{display:block;font-style:normal;color:var(--text3);font-size:0.62rem;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
 .car-tp{font-weight:600;color:var(--text3);font-variant-numeric:tabular-nums}
 .car-msg{grid-column:1/-1;padding:10px;color:var(--text2);font-size:0.78rem;line-height:1.5;max-width:70ch}
-.car-build{display:none;margin:0 0 8px;padding:8px 10px;border:1px solid var(--border);border-left:3px solid var(--draw);
-  border-radius:5px;background:var(--surface);color:var(--text2);font-size:0.76rem;line-height:1.45}
+.car-build{display:none;margin:0 0 8px;padding:6px 10px;border:1px solid var(--border);border-left:3px solid var(--draw);
+  border-radius:5px;background:var(--surface);color:var(--text2);font-size:0.74rem}
 .car-build.on{display:block}
 .car-build .r{display:flex;align-items:center;gap:10px;margin-top:7px}
 .car-go{border:1px solid var(--border);background:var(--elevated);color:var(--text);border-radius:5px;cursor:pointer;font-size:0.74rem;padding:5px 10px;font-family:inherit}
@@ -649,7 +662,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.37</span>
+      <span class="rail-ver">v1.41</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1949,9 +1962,9 @@ function renderFinalsPanel(cs,cols){
   const rec=(f.wins||f.losses||f.draws)?`${f.wins?`<span style="color:var(--win)">${f.wins}W</span>`:''}${f.losses?`<span style="color:var(--loss)">${f.losses}L</span>`:''}${f.draws?`<span style="color:var(--draw)">${f.draws}D</span>`:''}`:'\u2014';
   const recCell=`<div class="cstat"><div class="csv" style="font-size:0.75rem;display:flex;gap:4px;justify-content:center;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums">${rec}</div><div class="csl">${(f.wins+f.losses)>0?Math.round(100*f.wins/(f.wins+f.losses))+'%':''}</div></div>`;
   const partial=bg>0&&bg<f.gp?`scoring from ${bg} of ${f.gp} finals with box scores`:'';
-  return `<div class="sec-lbl" style="margin-top:2px">Finals</div><div class="cstats">
+  return `<div class="sec-lbl fin-lbl" style="margin-top:2px" onclick="toggleFinals(this)"><span class="chev fin-chev">\u25b6</span> Finals</div><div class="cstats fin-strip">
     ${cell(f.gp,'GP')}${cell(box(f.pts),'PTS','fsv-pts')}${cell(ppg,'PPG','fsv-ppg')}${cell(box(f.threePt||0),'3PT','fsv-3pt')}${cell(box(f.fouls||0),'F','fsv-f')}${cols.fo?blank:''}${cols.rec?recCell:''}${cols.fin?blank:''}${cols.gf?blank:''}${cols.gfw?blank:''}${cols.fssn?blank:''}
-  </div><div id="fs-note" style="padding:2px 2px 0;font-size:0.62rem;color:var(--text3)">${partial}</div>`;
+  </div><div id="fs-note" class="fin-note" style="padding:2px 2px 0;font-size:0.62rem;color:var(--text3)">${partial}</div>`;
 }
 
 // Finals SCORING is hydrated at runtime, not stored. Box lines live in the spectator
@@ -1960,6 +1973,12 @@ function renderFinalsPanel(cs,cols){
 // onto the player; this fetches exactly those games (5-ish per player, cached in
 // S.boxes and shared with the game sheet) and sums the player's own lines. Same
 // zero-data-cost pattern as the 0.65/0.66 opposition views.
+function toggleFinals(lbl){
+  const open=lbl.classList.toggle('open');
+  let n=lbl.nextElementSibling;
+  if(n&&n.classList.contains('fin-strip')){n.classList.toggle('open',open);n=n.nextElementSibling;}
+  if(n&&n.classList.contains('fin-note'))n.classList.toggle('open',open);
+}
 async function hydrateFinals(uuid,f){
   const gids=f&&f.gids;
   if(!gids||!gids.length)return;
@@ -2285,10 +2304,10 @@ function carSeasonGroups(p){
 
 /* Everything else is a slice of the dated game lines. */
 function carRow(g,gid,sid,ps,info,uuid){
-  const tid=info.tids[gid]||null;
+  const tid=carTid(gid,g,sid,info);
   const ctx=tid?gameCtx(g,tid):null;
   return{date:String(g.d).slice(0,10),gid,sid,tid,
-    tn:(info.map[tid]&&info.map[tid].tn)||'Unknown team',
+    tn:(info.map[tid]&&info.map[tid].tn)||teamNameFromGame(g,tid)||'Unknown team',
     season:(info.map[tid]&&info.map[tid].season)||((S.idx&&S.idx.seasons&&S.idx.seasons[sid]&&S.idx.seasons[sid].name)||sid),
     pts:ps.pts||0,fg:(ps.pt2||0)+(ps.pt3||0),ft:ps.pt1||0,tp:ps.pt3||0,f:ps.fouls||0,
     res:ctx?resLetter(ctx.myS,ctx.oppS):null};
@@ -2385,10 +2404,43 @@ function carRangeGroup(rows,a,b,label){
 /* One season game file per season played. Cached in S.games like every other
    reader of these files, so a season already opened costs nothing. */
 function carInfo(p){
-  const map={},tids=(p&&p.gameTids)||{};
-  for(const sn of p.seasons||[])for(const r of sn.regs||[])
-    if(r.tid)map[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid};
-  return{map,tids};
+  const map={},tids=(p&&p.gameTids)||{},bySid={},mine=new Set();
+  for(const sn of p.seasons||[])for(const r of sn.regs||[]){
+    if(!r.tid)continue;
+    map[r.tid]={tn:r.tn||r.tid,season:sn.sn||sn.sid,sid:sn.sid};
+    mine.add(r.tid);
+    (bySid[sn.sid]=bySid[sn.sid]||new Set()).add(r.tid);
+  }
+  return{map,tids,bySid,mine};
+}
+
+/* Which of this player's teams played this game.
+
+   gameTids is the first answer and the best one, but it does not cover every
+   gid — and an unresolved tid is not a cosmetic problem: it costs the team
+   name AND the result, because gameCtx needs the tid to know which score was
+   theirs. That is what produced a wall of "Unknown team" and 0W 0L.
+
+   So: gameTids, then whichever side of the fixture is a team this player is
+   registered to, then the season's own registration when it holds exactly one.
+   Only past all three is the team genuinely unknown. */
+function teamNameFromGame(g,tid){
+  if(!tid)return null;
+  if(g.h===tid)return g.hn||null;
+  if(g.a===tid)return g.an||null;
+  if(g.t1===tid)return g.t1n||null;
+  if(g.t2===tid)return g.t2n||null;
+  return null;
+}
+function carTid(gid,g,sid,info){
+  const t=info.tids[gid];
+  if(t&&info.map[t])return t;
+  const h=hTid(g),a=aTid(g);
+  if(h&&info.mine.has(h))return h;
+  if(a&&info.mine.has(a))return a;
+  const only=info.bySid[sid];
+  if(only&&only.size===1)return[...only][0];
+  return t||null;
 }
 async function carLoadRows(p){
   const uuid=p.uuid,st=carSt(uuid);
@@ -2491,7 +2543,7 @@ function carWhyEmpty(st,p){
   if(n.filesRead===0)
     return{msg:'None of the '+n.seasons+' season game files loaded'+(st.missing.length?' ('+st.missing.join(', ')+')':'')+'.'};
   const pend=(st.pend||[]).length;
-  if(pend)return{msg:'The season files hold no stat line for '+pend+' of this player\u2019s '+n.credited+' games, so these totals need each game\u2019s box score \u2014 '+pend+' request'+(pend===1?'':'s')+', a few seconds. They are cached, so the season game rows below load instantly afterwards.',build:pend};
+  if(pend)return{msg:'',build:pend};
   const bits=[n.credited+' credited games'];
   if(n.notInAnyFile)bits.push(n.notInAnyFile+' not present in any season file held');
   if(n.noDate)bits.push(n.noDate+' with no date');
@@ -2527,9 +2579,8 @@ function carDraw(uuid){
     const bEl0=el('carbuild-'+uuid);
     if(bEl0){
       bEl0.classList.toggle('on',!!why.build);
-      bEl0.innerHTML=why.build?`<div class="r"><button class="car-go" onclick="carBuild('${esc(uuid)}')"${st.building?' disabled':''}>${st.building?'Reading\u2026':'Read '+why.build+' box score'+(why.build===1?'':'s')}</button>
-        ${st.building?`<button class="car-go" onclick="carCancel('${esc(uuid)}')">Stop</button>`:''}
-        <span class="car-hint" id="carprog-${esc(uuid)}"></span></div>`:'';
+      bEl0.innerHTML=why.build?`<span id="carprog-${esc(uuid)}">Reading ${why.build} box score${why.build===1?'':'s'}\u2026</span>`:'';
+      if(why.build&&!st.building)carBuild(uuid);
     }
     if(hintEl)hintEl.textContent='';if(noteEl)noteEl.textContent='';
     return;}
@@ -2554,14 +2605,15 @@ function carDraw(uuid){
   // Year totals built from an incomplete set are a silent wrong answer, so the
   // offer to finish them sits above the cards whenever games are still missing —
   // not only when nothing rendered at all.
+  // Calendar year reads the box scores it needs as soon as it is selected. The
+  // first build asked first, with a count and a button; the count is not a
+  // decision anyone wants to make twice, so now it just says what it is doing.
   const bEl=el('carbuild-'+uuid), pend=(st.pend||[]).length;
   if(bEl){
-    const show=needRows&&pend>0;
-    bEl.classList.toggle('on',show);
-    bEl.innerHTML=show?`These totals are missing ${pend} of this player’s ${(st.scan&&st.scan.credited)||pend} games. The season files hold no stat line for them, so each needs its box score — the same request the game rows below make when you expand a season, and cached the same way.
-      <div class="r"><button class="car-go" onclick="carBuild('${esc(uuid)}')"${st.building?' disabled':''}>${st.building?'Reading…':'Read '+pend+' box score'+(pend===1?'':'s')}</button>
-      ${st.building?`<button class="car-go" onclick="carCancel('${esc(uuid)}')">Stop</button>`:''}
-      <span class="car-hint" id="carprog-${esc(uuid)}"></span></div>`:'';
+    const busy=needRows&&(pend>0||st.building);
+    bEl.classList.toggle('on',busy);
+    bEl.innerHTML=busy?`<span id="carprog-${esc(uuid)}">Reading ${pend} box score${pend===1?'':'s'}\u2026</span>`:'';
+    if(needRows&&pend>0&&!st.building)carBuild(uuid);
   }
   const ctx={chron,vals,avg,mx,hero,cur,bars:st.bars,showSeason:st.mode!=='S'};
   const lead=list.find(g=>!g.range);          // leftmost period card carries the avg label
@@ -2707,8 +2759,8 @@ function renderPlayer(p){
     }
     h+='</div>';
   }
-  h+=`<div class="pclub-wrap" id="pclub-${esc(uuid)}"></div>`;
   h+=`<div class="pmove-wrap" id="pmove-${esc(uuid)}"></div>`;
+  h+=`<div class="pclub-wrap" id="pclub-${esc(uuid)}"></div>`;
   h+='<div class="slist"><div class="sec-lbl">Season history</div>';
   // ── PERIOD TOTALS (v1.31) ────────────────────────────────────────────────
   // groups is one entry per (sid,tid). One season period often holds several
@@ -2737,10 +2789,22 @@ function renderPlayer(p){
     const pk=periodOf({sn}),pt=periods.get(pk);
     if(pt&&pt.n>1&&pt.first===gi){
       const pppg=pt.gp?(pt.pts/pt.gp).toFixed(1):'\u2014';
+      const ppc=(pt.w+pt.l+pt.d)>0?Math.round(pt.w/(pt.w+pt.l+pt.d)*100)+'%':'';
+      // EIGHT cells, because the season rows beneath render eight. `.cstat` is
+      // flex:1, so alignment IS cell-count parity (same rule as the finals row
+      // against the career strip) \u2014 a seven-cell header drifts further out of
+      // line with every column.
+      const pwld=(pt.w||pt.l||pt.d)
+        ? `${pt.w?`<span style="color:var(--win)">${pt.w}W</span>`:''}${pt.l?`<span style="color:var(--loss)">${pt.l}L</span>`:''}${pt.d?`<span style="color:var(--draw)">${pt.d}D</span>`:''}`
+        : '<span style="color:var(--text3)">\u2014</span>';
       h+=`<div class="sp-hdr"><div class="sp-info"><div class="sp-n">${esc(pk)}</div>
-        <div class="sp-s">${pt.n} teams \u00b7 <span style="color:var(--win)">${pt.w}W</span> <span style="color:var(--loss)">${pt.l}L</span>${pt.d?` <span style="color:var(--draw)">${pt.d}D</span>`:''}</div></div>
+        <div class="sp-s">${pt.n} teams</div></div>
         <div class="sp-cells">${[[pt.gp,'GP'],[pppg,'PPG'],[pt.pts,'PTS'],[pt.fg,'FG'],[pt.ft,'FT'],[pt.tp,'3PT'],[pt.f,'F']]
-          .map(([v,l],i)=>statCell(v,l,i===6,null)).join('')}</div></div>`;
+          .map(([v,l])=>statCell(v,l,false,null)).join('')}
+          <div style="flex:1;text-align:center;padding:6px 4px;min-width:0;overflow:hidden">
+            <div style="font-size:0.75rem;font-weight:700;display:flex;gap:3px;justify-content:center;white-space:nowrap;font-variant-numeric:tabular-nums">${pwld}</div>
+            <div style="font-size:0.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-top:1px">${ppc}</div>
+          </div></div></div>`;
     }
     const inPeriod=pt&&pt.n>1;
     // Use last reg as team link target (most stable).
@@ -2822,6 +2886,7 @@ function renderPlayer(p){
   ve._groups=groups;
   if(cs.finalsStats)hydrateFinals(uuid,cs.finalsStats);
   hydrateClubs(p,groups);
+  hydrateDiff(p);
   hydrateCareer(p);
 }
 
@@ -2913,6 +2978,48 @@ function renderDiff(p){
   </div>`;
 }
 
+/* `cs.c` is a snapshot: the games PlayHQ credited that we held no record of AT
+   THE LAST STATS FETCH. The crawler keeps running after that, so a game listed
+   here is routinely captured days later and now sits in its season card as an
+   ordinary row — while this panel still announces that we have no record of it.
+   Every player showing exactly one is that: the most recent round, credited
+   before the crawl caught up.
+
+   So re-check the list against what we actually hold now. The season files are
+   already in S.games for any profile that has opened, so this usually costs
+   nothing. A gid we now hold is dropped; if every one resolves, the panel goes
+   entirely rather than standing there contradicting the card below it. */
+async function hydrateDiff(p){
+  const sec=el('diff-sec'); if(!sec||!p)return;
+  const sport=Object.keys(p.sports||{})[0]||'Basketball';
+  const c=((p.sports||{})[sport]||{}).c;
+  if(!Array.isArray(c)||!c.length)return;
+  const uuid=p.uuid, want=new Set(c), held=new Set();
+  for(const sn of p.seasons||[]){
+    if(!want.size)break;
+    const sid=sn.sid; if(!sid)continue;
+    if(!S.games[sid]){const d=await sgj('games/bv',sid);if(d)S.games[sid]=d;}
+    const gf=(S.games[sid]||{}).games||{};
+    for(const gid of [...want]){
+      const g=gf[gid]; if(!g)continue;
+      const inIt=(g.p||[]).some(x=>matchP(x.id,uuid))||!!storedStats(g,uuid);
+      if(inIt){held.add(gid);want.delete(gid);}
+    }
+  }
+  if(!held.size)return;
+  if(S.playerUuid!==uuid)return;
+  const left=c.filter(g=>!held.has(g));
+  if(!left.length){sec.remove();return;}
+  const pill=sec.querySelector('.unreg-pill'); if(pill)pill.textContent=left.length;
+  const hdr=sec.querySelector('.diff-hdr');
+  if(hdr){
+    const cnt=hdr.lastElementChild;
+    if(cnt)cnt.textContent=`${left.length} game${left.length===1?'':'s'}`;
+  }
+  sec._cLeft=left;
+  const body=el('df-c-g'); if(body){body.innerHTML='';delete body.dataset.loaded;}
+}
+
 async function toggleDiff(hdr){
   const open=hdr.classList.toggle('open');
   const cid=hdr.dataset.cid, kind=hdr.dataset.kind;
@@ -2923,7 +3030,9 @@ async function toggleDiff(hdr){
   const p=S.players[uuid]||{};
   const sport=Object.keys(p.sports||{})[0]||'Basketball';
   const cs=p.sports?.[sport]||{};
-  const ids=Array.isArray(cs[kind])?cs[kind]:[];
+  const sec=el('diff-sec');
+  const ids=(kind==='c'&&sec&&Array.isArray(sec._cLeft))?sec._cLeft
+           :(Array.isArray(cs[kind])?cs[kind]:[]);
   if(!ids.length){ge.innerHTML='<div class="load-row">Nothing to show.</div>';ge.dataset.loaded='1';return;}
   ge.innerHTML='<div class="load-row">Loading games\u2026</div>';
   // Resolve gid -> sid across the player's own seasons. Stops early once every id
