@@ -553,36 +553,37 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
   border-top:1px solid var(--border)}
 .h2h-none{padding:10px 12px;color:var(--text2);font-size:0.85rem}
 
-/* ── Movement panel (v1.28) ─────────────────────────────────────────────── */
+/* ── Movement map (v1.29) ───────────────────────────────────────────────── */
 .pmove-wrap{margin:10px 0 2px}
 .pmove-hint{font-size:0.74rem;color:var(--text3);margin:2px 0 6px}
-.pmove-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:6px;background:var(--bg);padding:4px}
+.pmove-scroll{overflow:auto;max-height:70vh;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:6px;background:var(--bg);padding:4px}
 .pmove-svg{display:block}
 .pmv-col{fill:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.pmv-name{fill:var(--text);font-size:11.5px;font-weight:600}
-.pmv-meta{fill:var(--text2);font-size:9.5px}
-.pmv-sub{fill:var(--text3);font-size:9.5px}
+.pmv-name{fill:var(--text);font-size:11px;font-weight:600}
+.pmv-meta{fill:var(--text3);font-size:9.5px}
 .pmv-box{cursor:pointer}
 .pmv-box rect{fill:var(--surface);stroke:var(--border);stroke-width:1}
-.pmv-box:hover rect{stroke:var(--text3)}
-.pmv-box.on rect{stroke:var(--accent);stroke-width:2;fill:var(--accent-dim)}
-.pmv-link{fill:none;stroke:var(--accent);opacity:.45}
+.pmv-box.mine rect{stroke:var(--accent);stroke-width:2}
+.pmv-box.dim{opacity:.25}
+.pmv-box.on rect{stroke:var(--text);stroke-width:2.4}
+.pmv-link{fill:none;stroke:var(--text3);opacity:.45}
+.pmv-link.mine{stroke:var(--accent);opacity:.95}
+.pmv-link.dim{opacity:.07}
+.pmv-rl{fill:var(--text);font-size:10px;font-weight:700;paint-order:stroke;stroke:var(--bg);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+.pmv-rl.dim{opacity:.1}
+.pmv-go{border:1px solid var(--border);background:var(--elevated);color:var(--text);border-radius:5px;cursor:pointer;font-size:0.74rem;padding:5px 10px}
+.pmv-go:hover{border-color:var(--accent);color:var(--accent)}
 .pmv-panel{margin-top:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface)}
 .pmv-phd{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border)}
-.pmv-phd b{color:var(--text)}
 .pmv-phd .sn{color:var(--text2);font-size:0.76rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pmv-x{border:1px solid var(--border);background:var(--elevated);color:var(--text2);border-radius:5px;cursor:pointer;font-size:0.8rem;line-height:1;padding:4px 8px}
+.pmv-x{border:1px solid var(--border);background:var(--elevated);color:var(--text2);border-radius:5px;cursor:pointer;font-size:0.76rem;padding:4px 8px}
 .pmv-x:hover{color:var(--text);border-color:var(--text3)}
 .pmv-mate{display:flex;align-items:center;gap:8px;padding:4px 10px;border-bottom:1px solid var(--border)}
 .pmv-mate:last-child{border-bottom:0}
 .pmv-mate .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);cursor:pointer}
 .pmv-mate .nm:hover{color:var(--accent)}
 .pmv-mate .gp{color:var(--text3);font-size:0.74rem;white-space:nowrap}
-.pmv-ft{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px}
-.pmv-ftbox{border:1px solid var(--border);border-radius:5px;background:var(--elevated);padding:5px 8px;min-width:120px}
-.pmv-ftbox .t{font-size:0.76rem;color:var(--text);font-weight:600}
-.pmv-ftbox .c{font-size:0.7rem;color:var(--text2)}
-.pmv-ftlbl{font-size:0.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:6px 10px 0}
+.pmv-prog{padding:8px 10px;color:var(--text2);font-size:0.8rem}
 </style>
 </head>
 <body>
@@ -592,7 +593,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.28</span>
+      <span class="rail-ver">v1.29</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2156,189 +2157,197 @@ async function hydrateClubs(p,groups){
 }
 
 
-/* ── MOVEMENT (v1.28) ─────────────────────────────────────────────────────────
-   One player's path. A column is a SEASON PERIOD, not a season id: a player can
-   be registered in several competitions at once — a domestic season, a tournament,
-   another association — and those share a period, so they stack in one column
-   rather than marching sideways as separate columns (v1.27 did the latter and read
-   as a false career).
+/* ── MOVEMENT MAP (v1.29) ─────────────────────────────────────────────────────
+   The club movement diagram, scoped to one player: a column per season period,
+   a box per team, and ribbons carrying the GROUP of players between teams, with
+   this player's own path picked out in the accent colour. Ribbon thickness and
+   the number on it are how many of the tracked players made that move.
 
-   It draws with NO extra fetch: team, grade and season are already on the
-   registration in the player file this screen has loaded, and club comes from the
-   maps the Clubs panel has just fetched.
+   v1.28 drew a single-player timeline with a roster list under it. That is not
+   this: here every box is a team several of these players were on, so you can see
+   a group arriving together, splitting, or following each other up the grades.
 
-   Team-mates cost one request, and only when a team is opened:
-   team-stats/bv/{sid}.json through sgj, so a locked season reads from the archive.
-   Where those team-mates came from and went to is one small player file each and
-   is a separate, explicit click.
+   WHAT IT COSTS. The player file alone cannot show this — it knows nothing about
+   anyone else. Building the map fetches, for each season the player played:
+   team-stats/bv/{sid}.json (through sgj, so locked seasons read from the archive),
+   then one small player file per team-mate, deduplicated across seasons. A long
+   career is roughly 60-80 requests. That is why it sits behind a button and is
+   never built automatically.
 
-   Failure is named, never swallowed: a season file that will not load says so and
-   names it, rather than drawing an empty team sheet. */
+   Tracked set = this player plus everyone who shared a team with them in any
+   season. Their whole careers are then laid out, so a team-mate's earlier and
+   later teams appear as boxes in the flow rather than as a separate list. */
 
-function pmvSeasonRows(p){
-  const byPeriod=new Map();
-  for(const sn of (p.seasons||[])){
-    const si=S.idx?.seasons?.[sn.sid]||{};
-    const label=si.name||sn.sn||sn.sid;
-    const byTid=new Map();
-    for(const r of (sn.regs||[])){
-      const tid=r.tid||'_'; if(!byTid.has(tid))byTid.set(tid,[]);
-      byTid.get(tid).push(r);
-    }
-    for(const [tid,regs] of byTid){
-      const t={
-        sid:sn.sid, tid,
-        tn:regs[regs.length-1].tn||tid,
-        gn:regs[regs.length-1].gn||'',
-        comp:si.compName||'',
-        org:si.orgName||'',
-        // Sibling regs on one tid carry identical cumulative blocks — MAX, never sum (T20).
-        gp:regs.reduce((a,r)=>Math.max(a,(r.stats||{}).gp||0),0),
-      };
-      if(!byPeriod.has(label))byPeriod.set(label,{name:label,start:si.startDate||'',teams:[]});
-      const row=byPeriod.get(label);
-      if(si.startDate&&(!row.start||si.startDate<row.start))row.start=si.startDate;
-      row.teams.push(t);
-    }
-  }
-  const rows=[...byPeriod.values()];
-  rows.forEach(r=>r.teams.sort((a,b)=>b.gp-a.gp||String(a.tn).localeCompare(String(b.tn))));
-  rows.sort((a,b)=>String(a.start).localeCompare(String(b.start))||String(a.name).localeCompare(String(b.name)));
-  return rows;
-}
-
-function pmvGradeShort(gn){
-  const t=String(gn||'').replace(/^.*?\bU\s?\d{1,2}\b\s*/i,'').replace(/\b(boys?|girls?|mixed|men|women)\b/ig,'').trim();
-  const out=t||String(gn||'');
-  return out.length>14?out.slice(0,13)+'…':out;
-}
-function pmvAge(gn){ const m=String(gn||'').match(/\bU\s?(\d{1,2})\b/i); return m?('U'+m[1]):''; }
 function pmvCut(x,n){ const t=String(x||''); return t.length>n?t.slice(0,n-1)+'…':t; }
+function pmvAge(gn){ const m=String(gn||'').match(/\bU\s?(\d{1,2})\b/i); return m?('U'+m[1]):''; }
 
-async function hydrateMovement(p){
-  const uuid=p.uuid, host=el('pmove-'+uuid); if(!host)return;
-  const rows=pmvSeasonRows(p);
-  if(!rows.length){ host.innerHTML=''; return; }
-  host.innerHTML=`<div class="slist"><div class="sec-lbl">Movement</div>
-    <div class="pmove-hint">A column per season, a box per team — several boxes when more than one competition was played that season. Tap a team to see who they played with.</div>
-    <div class="pmove-scroll" id="pmv-sc-${esc(uuid)}"></div>
-    <div id="pmv-mates-${esc(uuid)}"></div></div>`;
-  let clubOf=()=>'';
-  try{
-    const maps=await clubMapsFor(rows.flatMap(r=>r.teams.map(t=>t.sid)));
-    const names=await clubNameMap();
-    clubOf=(sid,tid)=>{ const m=maps[sid]; if(!m)return ''; const id=m[tid]; return id?(names[id]||id):''; };
-  }catch(e){ /* club labels are decoration here; the panel stands without them */ }
-  const sc=el('pmv-sc-'+uuid); if(!sc)return;
-  sc.innerHTML=pmvSvg(rows,clubOf);
-  sc.querySelectorAll('.pmv-box').forEach(g=>{
-    g.addEventListener('click',()=>pmvToggle(uuid,g.dataset.sid,g.dataset.tid,g.dataset.tn,g.dataset.sn));
-  });
-}
-
-function pmvSvg(rows,clubOf){
-  const W=176,GAPX=30,H=58,GAPY=10,TOP=22,PAD=6;
-  const colX=i=>PAD+i*(W+GAPX);
-  const maxT=Math.max(1,...rows.map(r=>r.teams.length));
-  const height=TOP+maxT*(H+GAPY)+6;
-  const width=PAD*2+rows.length*W+Math.max(0,rows.length-1)*GAPX;
-  const pos={};
-  let boxes='',labels='',links='';
-  rows.forEach((r,i)=>{
-    labels+=`<text class="pmv-col" x="${colX(i)}" y="13">${esc(pmvCut(r.name,26))}</text>`;
-    r.teams.forEach((t,j)=>{
-      const x=colX(i), y=TOP+j*(H+GAPY);
-      if(j===0)pos[i]={x,y};
-      const cl=clubOf(t.sid,t.tid), meta=[pmvAge(t.gn),pmvGradeShort(t.gn)].filter(Boolean).join(' · ');
-      const sub=cl||t.comp||'';
-      boxes+=`<g class="pmv-box" data-sid="${esc(t.sid)}" data-tid="${esc(t.tid)}" data-tn="${esc(t.tn)}" data-sn="${esc(r.name)}">
-        <rect x="${x}" y="${y}" width="${W}" height="${H}"></rect>
-        <text class="pmv-name" x="${x+8}" y="${y+18}">${esc(pmvCut(t.tn,24))}</text>
-        <text class="pmv-meta" x="${x+8}" y="${y+33}">${esc(meta)}</text>
-        <text class="pmv-sub"  x="${x+8}" y="${y+48}">${esc(pmvCut(sub,28))}</text>
-        <text class="pmv-meta" x="${x+W-8}" y="${y+18}" text-anchor="end">${t.gp} GP</text>
-      </g>`;
-    });
-  });
-  for(let i=0;i<rows.length-1;i++){
-    const a=pos[i], b=pos[i+1]; if(!a||!b)continue;
-    const x1=a.x+W,y1=a.y+H/2,x2=b.x,y2=b.y+H/2,mx=(x1+x2)/2;
-    links+=`<path class="pmv-link" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" stroke-width="3"></path>`;
+/* One team per person per period: the one they played most games for. Several
+   grades in a period is normal (playing up, a tournament) and the others are not
+   a second position — that is what keeps the ribbon counts reconcilable. */
+function pmvTeamByPeriod(pl,idx){
+  const out=new Map();
+  for(const sn of pl?.seasons||[]){
+    const si=idx?.[sn.sid]||{}; const label=si.name||sn.sn||sn.sid;
+    const byTid=new Map();
+    for(const r of sn.regs||[]){ const tid=r.tid||'_'; if(!byTid.has(tid))byTid.set(tid,[]); byTid.get(tid).push(r); }
+    for(const [tid,regs] of byTid){
+      const gp=regs.reduce((a,r)=>Math.max(a,(r.stats||{}).gp||0),0);
+      const cur=out.get(label);
+      if(!cur||gp>cur.gp)out.set(label,{sid:sn.sid,tid,tn:regs[regs.length-1].tn||tid,gn:regs[regs.length-1].gn||'',gp});
+    }
   }
-  return `<svg class="pmove-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${links}${boxes}${labels}</svg>`;
+  return out;
 }
 
-/* Clicking the open team closes it again — the only way out of v1.27's panel was
-   to leave the screen. */
-function pmvToggle(uuid,sid,tid,tn,sn){
-  const sc=el('pmv-sc-'+uuid), box=el('pmv-mates-'+uuid); if(!sc||!box)return;
-  const sel=sc.querySelector(`.pmv-box[data-sid="${CSS.escape(sid)}"][data-tid="${CSS.escape(tid)}"]`);
-  if(sel&&sel.classList.contains('on')){ pmvClose(uuid); return; }
-  pmvOpen(uuid,sid,tid,tn,sn);
+async function pmvBuild(uuid,btn){
+  const host=el('pmv-body-'+uuid); if(!host)return;
+  if(btn)btn.disabled=true;
+  const idx=S.idx?.seasons||{};
+  const me=await loadPlayerFile(uuid);
+  if(!me){ host.innerHTML='<div class="pmv-prog" style="color:var(--loss)">This player’s file could not be loaded.</div>'; if(btn)btn.disabled=false; return; }
+  const myTeams=pmvTeamByPeriod(me,idx);
+  const sids=[...new Set([...myTeams.values()].map(t=>t.sid))];
+
+  host.innerHTML=`<div class="pmv-prog">Reading ${sids.length} season${sids.length===1?'':'s'}…</div>`;
+  const mateIds=new Set(), missingSeasons=[];
+  for(const t of myTeams.values()){
+    if(!S.teamStats[t.sid]){ const d=await sgj('team-stats/bv',t.sid); if(d)S.teamStats[t.sid]=d; }
+    const ts=S.teamStats[t.sid];
+    if(!ts){ missingSeasons.push(idx[t.sid]?.name||t.sid); continue; }
+    const roster=ts[t.tid]?.roster||{};
+    Object.keys(roster).forEach(id=>{ if(id!==t13(uuid))mateIds.add(id); });
+  }
+  const ids=[...mateIds];
+  const people=new Map(); people.set(uuid,{name:displayName(me,uuid),teams:myTeams,me:true});
+  let unreadable=0;
+  for(let i=0;i<ids.length;i++){
+    if(i%5===0)host.innerHTML=`<div class="pmv-prog">Reading team-mates… ${i} of ${ids.length}</div>`;
+    const pl=await loadPlayerFile(ids[i]);
+    if(!pl){ unreadable++; continue; }
+    const key=pl.uuid||ids[i];
+    if(!people.has(key))people.set(key,{name:displayName(pl,key),teams:pmvTeamByPeriod(pl,idx),me:false});
+  }
+
+  // Columns: every period any tracked player appears in, oldest first.
+  const perMap=new Map();
+  for(const pr of people.values())for(const [label] of pr.teams){
+    if(!perMap.has(label))perMap.set(label,{name:label,start:''});
+  }
+  for(const sn of Object.values(idx)){ const r=perMap.get(sn.name); if(r&&sn.startDate&&(!r.start||sn.startDate<r.start))r.start=sn.startDate; }
+  const cols=[...perMap.values()].sort((a,b)=>String(a.start).localeCompare(String(b.start))||a.name.localeCompare(b.name));
+  const ci=new Map(cols.map((c,i)=>[c.name,i]));
+
+  // Nodes and links over the tracked set.
+  const nodes=new Map(), links=new Map(), mine=new Set(), myLinks=new Set();
+  const nkey=(c,t)=>c+'|'+t;
+  for(const [pid,pr] of people){
+    const seq=[...pr.teams.entries()].filter(([l])=>ci.has(l)).sort((a,b)=>ci.get(a[0])-ci.get(b[0]));
+    for(const [label,t] of seq){
+      const k=nkey(label,t.tid);
+      if(!nodes.has(k))nodes.set(k,{col:ci.get(label),tid:t.tid,tn:t.tn,gn:t.gn,sid:t.sid,n:0,ids:[]});
+      const nd=nodes.get(k); nd.n++; nd.ids.push(pid);
+      if(pr.me)mine.add(k);
+    }
+    for(let i=0;i<seq.length-1;i++){
+      const A=nkey(seq[i][0],seq[i][1].tid), B=nkey(seq[i+1][0],seq[i+1][1].tid);
+      const lk=A+'>'+B; links.set(lk,(links.get(lk)||0)+1);
+      if(pr.me)myLinks.add(lk);
+    }
+  }
+  host.dataset.ready='1';
+  host.innerHTML=pmvMapSvg(cols,nodes,links,mine,myLinks,people)
+    +`<div class="pmv-prog">${people.size} players tracked · ${nodes.size} teams · ${links.size} moves`
+    +(missingSeasons.length?` · <span style="color:var(--loss)">${missingSeasons.length} season file(s) did not load: ${esc(missingSeasons.join(', '))}</span>`:'')
+    +(unreadable?` · <span style="color:var(--loss)">${unreadable} team-mate file(s) unreadable</span>`:'')
+    +`</div><div id="pmv-sel-${esc(uuid)}"></div>`;
+  const sc=host.querySelector('.pmove-scroll');
+  if(sc)sc.querySelectorAll('.pmv-box').forEach(g=>g.addEventListener('click',()=>pmvPick(uuid,g.dataset.k,nodes,people)));
+  window['_pmvN_'+uuid]=nodes; window['_pmvP_'+uuid]=people;
+  if(btn){btn.disabled=false;btn.textContent='Rebuild map';}
 }
-function pmvClose(uuid){
-  const sc=el('pmv-sc-'+uuid), box=el('pmv-mates-'+uuid);
-  if(sc)sc.querySelectorAll('.pmv-box').forEach(g=>g.classList.remove('on'));
+
+function pmvMapSvg(cols,nodes,links,mine,myLinks,people){
+  const W=150,GAPX=78,UNIT=9,MINH=30,GAPY=10,TOP=22,PAD=8;
+  const byCol=cols.map(()=>[]);
+  for(const [k,nd] of nodes)byCol[nd.col].push([k,nd]);
+  byCol.forEach(a=>a.sort((x,y)=>y[1].n-x[1].n||String(x[1].tn).localeCompare(String(y[1].tn))));
+  const pos={}; let maxY=0;
+  byCol.forEach((arr,i)=>{
+    let y=TOP; const x=PAD+i*(W+GAPX);
+    for(const [k,nd] of arr){ const h=Math.max(MINH,nd.n*UNIT); pos[k]={x,y,h}; y+=h+GAPY; }
+    maxY=Math.max(maxY,y);
+  });
+  const width=PAD*2+cols.length*W+Math.max(0,cols.length-1)*GAPX;
+  const height=Math.max(80,maxY+6);
+  let hdr=cols.map((c,i)=>`<text class="pmv-col" x="${PAD+i*(W+GAPX)}" y="13">${esc(pmvCut(c.name,22))}</text>`).join('');
+  const outOff={},inOff={}; let path='',labs='';
+  [...links.entries()].sort((a,b)=>b[1]-a[1]).forEach(([lk,n])=>{
+    const [A,B]=lk.split('>'); const a=pos[A],b=pos[B]; if(!a||!b)return;
+    const w=Math.max(2,n*UNIT*0.8);
+    const ao=outOff[A]||0,bo=inOff[B]||0;
+    const y1=a.y+Math.min(ao+w/2,a.h),y2=b.y+Math.min(bo+w/2,b.h);
+    outOff[A]=ao+w; inOff[B]=bo+w;
+    const x1=a.x+W,x2=b.x,mx=(x1+x2)/2;
+    const isMine=myLinks.has(lk);
+    path+=`<path class="pmv-link${isMine?' mine':''}" data-k="${esc(lk)}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" stroke-width="${w}"><title>${n} player${n===1?'':'s'}</title></path>`;
+    if(n>1)labs+=`<text class="pmv-rl" x="${x2-4}" y="${y2+3.5}" text-anchor="end">${n}</text>`;
+  });
+  let boxes='';
+  for(const [k,nd] of nodes){
+    const p=pos[k]; if(!p)continue;
+    const isMine=mine.has(k);
+    boxes+=`<g class="pmv-box${isMine?' mine':''}" data-k="${esc(k)}">
+      <rect x="${p.x}" y="${p.y}" width="${W}" height="${p.h}"></rect>
+      <text class="pmv-name" x="${p.x+7}" y="${p.y+14}">${esc(pmvCut(nd.tn,20))}</text>
+      <text class="pmv-meta" x="${p.x+7}" y="${p.y+26}">${esc([pmvAge(nd.gn),nd.n+' player'+(nd.n===1?'':'s')].filter(Boolean).join(' · '))}</text>
+      <title>${esc(nd.tn)} — ${nd.n} of the tracked players</title></g>`;
+  }
+  return `<div class="pmove-scroll"><svg class="pmove-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${path}${boxes}${labs}${hdr}</svg></div>`;
+}
+
+function pmvPick(uuid,k,nodes,people){
+  const box=el('pmv-sel-'+uuid); if(!box)return;
+  const host=el('pmv-body-'+uuid);
+  const sel=host&&host.querySelector(`.pmv-box[data-k="${CSS.escape(k)}"]`);
+  if(sel&&sel.classList.contains('on')){ pmvClear(uuid); return; }
+  const nd=nodes.get(k); if(!nd)return;
+  const ids=new Set(nd.ids);
+  if(host){
+    host.querySelectorAll('.pmv-box').forEach(g=>{
+      g.classList.toggle('on',g.dataset.k===k);
+      const n2=nodes.get(g.dataset.k);
+      g.classList.toggle('dim',!(n2&&n2.ids.some(i=>ids.has(i))));
+    });
+    host.querySelectorAll('.pmv-link').forEach(l=>{
+      const [A,B]=l.dataset.k.split('>');
+      const a=nodes.get(A),b=nodes.get(B);
+      const on=a&&b&&a.ids.some(i=>ids.has(i))&&b.ids.some(i=>ids.has(i));
+      l.classList.toggle('dim',!on);
+    });
+    host.querySelectorAll('.pmv-rl').forEach(t=>t.classList.add('dim'));
+  }
+  const rows=[...ids].map(id=>({id,p:people.get(id)})).filter(x=>x.p)
+    .sort((a,b)=>(b.p.me?1:0)-(a.p.me?1:0)||String(a.p.name).localeCompare(String(b.p.name)));
+  box.innerHTML=`<div class="pmv-panel"><div class="pmv-phd"><b>${esc(nd.tn)}</b>
+    <span class="sn">${rows.length} of the tracked players</span>
+    <button class="pmv-x" onclick="pmvClear('${esc(uuid)}')">Close ✕</button></div>
+    ${rows.map(r=>`<div class="pmv-mate"><span class="nm" onclick="loadPlayer('${esc(r.id)}')">${esc(r.p.name)}${r.p.me?' ← this player':''}</span></div>`).join('')}</div>`;
+}
+function pmvClear(uuid){
+  const host=el('pmv-body-'+uuid), box=el('pmv-sel-'+uuid);
+  if(host){host.querySelectorAll('.pmv-box').forEach(g=>g.classList.remove('on','dim'));
+    host.querySelectorAll('.pmv-link').forEach(l=>l.classList.remove('dim'));
+    host.querySelectorAll('.pmv-rl').forEach(t=>t.classList.remove('dim'));}
   if(box)box.innerHTML='';
 }
 
-async function pmvOpen(uuid,sid,tid,tn,sn){
-  const box=el('pmv-mates-'+uuid); if(!box)return;
-  const sc=el('pmv-sc-'+uuid);
-  if(sc)sc.querySelectorAll('.pmv-box').forEach(g=>g.classList.toggle('on',g.dataset.sid===sid&&g.dataset.tid===tid));
-  const hd=(extra)=>`<div class="pmv-phd"><b>${esc(tn)}</b><span class="sn">${esc(sn)}${extra?' · '+esc(extra):''}</span>
-    <button class="pmv-x" onclick="pmvClose('${esc(uuid)}')">Close ✕</button></div>`;
-  box.innerHTML=`<div class="pmv-panel">${hd('')}<div style="padding:8px 10px;color:var(--text2)">Loading team sheet…</div></div>`;
-  const ts=await sgj('team-stats/bv',sid);
-  if(!ts){
-    box.innerHTML=`<div class="pmv-panel">${hd('')}<div style="padding:8px 10px;color:var(--loss)">team-stats/bv/${esc(sid)}.json did not load, so this team sheet cannot be shown. That is a missing file, not an empty team.</div></div>`;
-    return;
-  }
-  const t=ts[tid];
-  if(!t||!t.roster||!Object.keys(t.roster).length){
-    box.innerHTML=`<div class="pmv-panel">${hd('')}<div style="padding:8px 10px;color:var(--text2)">No team sheet recorded for this team.</div></div>`;
-    return;
-  }
-  const me=t13(uuid);
-  const mates=Object.entries(t.roster).filter(([id])=>id!==me)
-    .map(([id,v])=>({id,name:(v&&v.name)||('Player #'+t13(id)),gp:(v&&v.gp)||0}))
-    .sort((a,b)=>b.gp-a.gp||String(a.name).localeCompare(String(b.name)));
-  box.innerHTML=`<div class="pmv-panel">${hd(mates.length+' team-mate'+(mates.length===1?'':'s'))}
-    <div class="pmv-ftlbl" style="display:flex;align-items:center;justify-content:space-between">Team-mates
-      <button class="pmv-x" onclick="pmvFromTo('${esc(uuid)}','${esc(sid)}',this)">Where they came from and went ↗</button></div>
-    <div id="pmv-roster-${esc(uuid)}">${mates.map(m=>`<div class="pmv-mate" data-id="${esc(m.id)}">
-      <span class="nm" onclick="loadPlayer('${esc(m.id)}')">${esc(m.name)}</span>
-      <span class="gp">${m.gp} GP</span></div>`).join('')}</div>
-    <div id="pmv-ft-${esc(uuid)}"></div></div>`;
-}
-
-/* One small player file per team-mate, so this is an explicit click rather than
-   something that happens on every team you open. The result is drawn as boxes —
-   one per previous team and one per next team, with how many went there. */
-async function pmvFromTo(uuid,sid,btn){
-  const host=el('pmv-ft-'+uuid), roster=el('pmv-roster-'+uuid); if(!host||!roster)return;
-  if(btn){btn.disabled=true;btn.textContent='Loading…';}
-  const startOf=s=>S.idx?.seasons?.[s]?.startDate||'';
-  const here=startOf(sid);
-  const from=new Map(), to=new Map(), add=(m,k,n)=>{ if(!m.has(k))m.set(k,[]); m.get(k).push(n); };
-  let unreadable=0;
-  for(const row of [...roster.querySelectorAll('.pmv-mate')]){
-    const id=row.dataset.id, nm=row.querySelector('.nm')?.textContent||t13(id);
-    const pl=await loadPlayerFile(id);
-    if(!pl){ unreadable++; continue; }
-    const seen=(pl.seasons||[]).map(sn=>({start:startOf(sn.sid),tn:(sn.regs||[])[0]?.tn||''}))
-      .filter(x=>x.start&&x.tn);
-    const b=seen.filter(x=>x.start<here).sort((a,b)=>b.start.localeCompare(a.start))[0];
-    const a2=seen.filter(x=>x.start>here).sort((a,b)=>a.start.localeCompare(b.start))[0];
-    add(from,b?b.tn:'Not here before',nm);
-    add(to,a2?a2.tn:'No later season',nm);
-  }
-  const boxes=m=>[...m.entries()].sort((a,b)=>b[1].length-a[1].length)
-    .map(([k,v])=>`<div class="pmv-ftbox" title="${esc(v.join(', '))}"><div class="t">${esc(pmvCut(k,22))}</div><div class="c">${v.length}</div></div>`).join('');
-  host.innerHTML=`<div class="pmv-ftlbl">Came from</div><div class="pmv-ft">${boxes(from)}</div>
-    <div class="pmv-ftlbl">Went to</div><div class="pmv-ft">${boxes(to)}</div>`
-    +(unreadable?`<div style="padding:4px 10px 8px;color:var(--loss);font-size:0.74rem">${unreadable} team-mate file(s) could not be read and are not counted above.</div>`:'');
-  if(btn){btn.disabled=false;btn.textContent='Where they came from and went ↗';}
+function hydrateMovement(p){
+  const uuid=p.uuid, host=el('pmove-'+uuid); if(!host)return;
+  if(!(p.seasons||[]).length){ host.innerHTML=''; return; }
+  host.innerHTML=`<div class="slist"><div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">Movement map
+      <button class="pmv-go" onclick="pmvBuild('${esc(uuid)}',this)">Build map ↗</button></div>
+    <div class="pmove-hint">Teams as boxes, a column per season, ribbons carrying the players who moved together — this player’s path in ${'green'}. Building it reads each season’s team sheet and every team-mate’s record, so it takes a few seconds and is not automatic.</div>
+    <div id="pmv-body-${esc(uuid)}"></div></div>`;
 }
 
 function renderPlayer(p){
