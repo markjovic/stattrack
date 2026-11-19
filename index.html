@@ -172,7 +172,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .fin-strip,.fin-note{display:none}
 .fin-strip.open{display:flex}
 .fin-note.open{display:block}
-.pclub-row{display:flex;align-items:baseline;gap:8px;padding:5px 8px;margin-bottom:4px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer}
+.pclub-row{display:flex;align-items:stretch;gap:0;padding:0;margin-bottom:4px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer}
 .pclub-row.pclub-na{cursor:default;opacity:0.7}
 .pclub-link{cursor:pointer}
 .pclub-link:hover{color:var(--accent)}
@@ -181,16 +181,21 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .pclub-exp.open{display:block}
 .pclub-tot,.pclub-treg{display:flex;align-items:stretch;border-top:1px solid var(--border)}
 .pclub-tot{border-top:0;background:var(--accent-dim)}
+.pclub-row>.pclub-tl{flex:1;min-width:0;padding:9px 12px}
+.pclub-row .pclub-n{display:block;font-size:0.84rem}
+.pclub-row .pclub-cells{flex:7;min-width:0;display:flex}
+.pclub-exp{margin-top:-4px}
 .pclub-tl{flex:1;min-width:0;padding:7px 12px;font-size:0.78rem}
 .pclub-ts{color:var(--text3);font-size:0.65rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pclub-cells{flex:7;min-width:0;display:flex}
 .pclub-fold{font-size:0.6rem;color:var(--draw);border:1px solid var(--border);border-radius:3px;padding:0 4px;white-space:nowrap}
 .pclub-row:not(.pclub-na):hover{background:rgba(0,245,212,0.06)}
-.pclub-n{flex:1 1 0;min-width:0;font-size:0.82rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pclub-n{min-width:0;font-size:0.82rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pclub-row.pclub-na .pclub-n{font-weight:500;color:var(--text2)}
 .pclub-gp{font-size:0.88rem;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
 .pclub-row.pclub-na .pclub-gp{color:var(--text2)}
 .pclub-x{font-size:0.62rem;color:var(--text3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pclub-ts .pclub-tag{margin:0}
 .pclub-tag{margin-left:6px;padding:1px 5px;border:1px solid var(--border);border-radius:3px;font-size:0.56rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text3);vertical-align:middle}
 .pclub-sub{margin:-2px 0 5px 10px;padding-left:8px;border-left:1px solid var(--border);font-size:0.64rem;color:var(--text2);line-height:1.5}
 .pclub-sub-src{color:var(--text3)}
@@ -774,7 +779,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.62</span>
+      <span class="rail-ver">v1.64</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2287,6 +2292,21 @@ function buildClubTotals(groups,maps,names,p,types,keys){
 /* A private profile publishes no statistics, so every GP cell is an em dash
    rather than 0 — the same rule OFF() applies to the career strip. The club,
    season and team counts are still real and still shown. */
+/* The eight columns a club row carries, in the same order and the same cell
+   count as the season rows below, so every number on the page lines up. */
+function clubHdrCells(o,gpFallback){
+  if(!o)return '';
+  const ppg=o.gp?(o.pts/o.gp).toFixed(1):'\u2014';
+  const pc=(o.w+o.l+o.d)>0?Math.round(o.w/(o.w+o.l+o.d)*100)+'%':'';
+  const wld=(o.w||o.l||o.d)
+    ? `${o.w?`<span style="color:var(--win)">${o.w}W</span>`:''}${o.l?` <span style="color:var(--loss)">${o.l}L</span>`:''}${o.d?` <span style="color:var(--draw)">${o.d}D</span>`:''}`
+    : '<span style="color:var(--text3)">\u2014</span>';
+  return [[o.gp||gpFallback||0,'GP'],[ppg,'PPG'],[o.pts,'PTS'],[o.fg,'FG'],[o.ft,'FT'],[o.tp,'3PT'],[o.f,'F']]
+    .map(([v,l])=>statCell(v,l,false,null)).join('')
+   + `<div style="flex:1;text-align:center;padding:6px 4px;min-width:0;overflow:hidden">
+        <div style="font-size:0.75rem;font-weight:700;display:flex;gap:3px;justify-content:center;white-space:nowrap;font-variant-numeric:tabular-nums">${wld}</div>
+        <div style="font-size:0.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-top:1px">${pc}</div></div>`;
+}
 function renderClubTotals(t,priv){
   if(!t.rows.length) return '';
   let h='<div class="sec-lbl">Clubs</div>';
@@ -2302,9 +2322,12 @@ function renderClubTotals(t,priv){
     // footnote, and stays outside the GP figure.
     const extra=(!priv&&r.ours)?`<span class="pclub-x" title="Held here, credited to no club by PlayHQ">+${esc(r.ours)} here</span>`:'';
     const tag=r.assoc?'<span class="pclub-tag">association</span>':'';
-    h+=`<span class="pclub-n">${esc(r.n)}${tag}</span>`
-     + `<span class="pclub-gp">${esc(gp)} GP</span>${extra}`
-     + `<span class="pclub-s">${esc(sub)}</span></div>`;
+    const st=(t.stats&&t.stats[r.id])||null;
+    const cells=priv?'':clubHdrCells(st,r.gp);
+    h+=`<div class="pclub-tl"><span class="pclub-n">${esc(r.n)}</span>`
+     + `<div class="pclub-ts">${tag}${tag?' \u00b7 ':''}${esc(sub)}${extra?' ':''}${extra}</div></div>`
+     + (cells?`<div class="pclub-cells">${cells}</div>`:`<span class="pclub-gp">${esc(gp)} GP</span><span class="pclub-s">${esc(sub)}</span>`)
+     + `</div>`;
     // Sub-row: the total above INCLUDES these, and this says where they came from
     // and on what basis. Folded games are never invisible inside a club total.
     if(!priv&&r.folded&&r.folded.length){
@@ -2371,9 +2394,7 @@ function clubExpandHtml(o){
      + `<div style="flex:1;text-align:center;padding:6px 4px;min-width:0;overflow:hidden">
           <div style="font-size:0.75rem;font-weight:700;display:flex;gap:3px;justify-content:center;white-space:nowrap;font-variant-numeric:tabular-nums">${wl(t)}</div>
           <div style="font-size:0.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-top:1px">${pc}</div></div>`;};
-  return `<div class="pclub-tot"><div class="pclub-tl">All teams at this club<div class="pclub-ts">${o.teams.length} registration${o.teams.length===1?'':'s'}</div></div>
-      <div class="pclub-cells">${cells(o)}</div></div>`
-   + o.teams.map(t=>`<div class="pclub-treg" title="${esc([t.tn,t.grade,t.compFull,t.season].filter(Boolean).join(' \u00b7 '))}">
+  return o.teams.map(t=>`<div class="pclub-treg" title="${esc([t.tn,t.grade,t.compFull,t.season].filter(Boolean).join(' \u00b7 '))}">
       <div class="pclub-tl">${esc(t.tn)}${t.grade?` <b class="car-gr">${esc(t.grade)}</b>`:''}${
         t.foldedFrom?` <span class="pclub-fold" title="PlayHQ attributed this team to ${esc(t.foldedFrom)}; matched to this club by team name">via ${esc(carTidy(t.foldedFrom))}</span>`:''}
       <div class="pclub-ts">${esc([t.season,t.comp].filter(Boolean).join(' \u00b7 '))}</div></div>
@@ -2390,14 +2411,16 @@ async function hydrateClubs(p,groups){
   if(S.playerUuid!==uuid) return;
   const host=document.getElementById('pclub-'+uuid);
   if(!host) return;
-  host.innerHTML=renderClubTotals(buildClubTotals(groups,maps,names,p,S.clubTypes,S.clubKeys),isPrivate(p));
+  const perClub=clubRegStats(groups,maps,p,S.clubTypes,S.clubKeys,names);
+  const totals=buildClubTotals(groups,maps,names,p,S.clubTypes,S.clubKeys);
+  totals.stats=perClub;
+  host.innerHTML=renderClubTotals(totals,isPrivate(p));
   // Listener, not an inline onclick: esc() does not escape an apostrophe, and
   // "St Mary's" inside onclick="loadClub('...')" would end the JS string.
   // Clicking a club used to leave the profile for that club's fixture view,
   // which answers a different question than the one the row asks. It now opens
   // the player's own record at that club in place: a totals strip and a line per
   // registration. The arrow still goes to the club.
-  const perClub=clubRegStats(groups,maps,p,S.clubTypes,S.clubKeys,names);
   host.querySelectorAll('.pclub-row[data-cid]').forEach(r=>{
     const cid=r.dataset.cid, st=perClub[cid];
     if(!st||!st.teams.length)return;
@@ -2918,7 +2941,7 @@ function carGameChart(uuid,g,hero){
   const vals=games.map(r=>r[stat]||0);
   const mx=Math.max(...vals,1);
   const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
-  const unit=hero==='ppg'?'PTS':((TC_STATS.find(s=>s[0]===(hero==='tp'?'threePt':hero))||[])[1]||hero.toUpperCase());
+  const unit=(TC_STATS.find(s=>s[0]===(hero==='tp'?'threePt':hero))||[])[1]||hero.toUpperCase();
   return `<div class="car-gwrap">${head}
     <div class="car-gcards">${games.map(r=>{
       const cells=[[r.pts,'PTS'],[r.fg,'FG'],[r.ft,'FT'],[r.tp,'3PT'],[r.f,'F'],[r.sc||'\u2014','SCORE']];
