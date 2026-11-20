@@ -24,7 +24,32 @@ select{background:var(--elevated);color:var(--text);border:1px solid var(--line)
 .leg{display:flex;gap:14px;flex-wrap:wrap;font-size:.76rem;color:var(--text2);margin:4px 0 14px}
 .leg span{display:inline-flex;align-items:center;gap:5px}
 .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
-.svgwrap{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px;overflow:auto;max-height:82vh}
+/* The diagram is ~1,950 x 18,000px inside an 82vh window, so the horizontal
+   scrollbar sits thousands of pixels below the viewport and cannot be reached.
+   Buttons, drag-pan and shift+wheel give it three ways to move that do not
+   depend on finding a scrollbar. The season strip and the age-group gutter live
+   OUTSIDE the scroller and are translated to match it, so they stay put without
+   covering any of the diagram. */
+.svgouter{position:relative}
+.navbar{display:flex;align-items:center;gap:6px;padding:0 0 6px}
+.nvb{width:30px;height:26px;border:1px solid var(--line);background:var(--card);color:var(--text2);
+  border-radius:7px;cursor:pointer;font-size:14px;line-height:1;font-family:inherit}
+.nvb.wide{width:auto;padding:0 10px;font-size:11.5px}
+.nvb:hover{color:var(--text);border-color:var(--text3)}
+.nvb:disabled{opacity:.35;cursor:default}
+.navhint{font-size:11px;color:var(--text3);margin-left:4px}
+.colbar{height:24px;overflow:hidden;position:relative;margin-left:84px}
+.bandbar{flex:0 0 84px;width:84px;overflow:hidden;position:relative}
+.svgrow{display:flex;align-items:stretch;max-height:82vh}
+.barin{position:absolute;left:0;top:0;will-change:transform}
+.colbar .cb{position:absolute;transform:translateX(-50%);white-space:nowrap;font-size:12px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;color:var(--text2)}
+.colbar .cb.empty{color:#ef5350}
+.bandbar .bb{position:absolute;left:0;width:84px;font-size:12px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.07em;color:var(--accent);padding-right:8px;text-align:right}
+.svgwrap{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px;overflow:auto;max-height:82vh}
+.svgwrap.drag{cursor:grabbing}
+.svgwrap{cursor:grab}
 svg{display:block}
 .colhdr{fill:var(--text2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
 .tname{fill:var(--text);font-size:12.5px;font-weight:600}
@@ -98,7 +123,22 @@ svg{display:block}
   </div>
   <div class="leg" id="dleg"></div>
 
-  <div class="svgwrap"><svg id="sk"></svg></div>
+  <div class="svgouter">
+    <div class="navbar">
+      <button class="nvb" id="nvL" title="Previous season (←)">‹</button>
+      <button class="nvb" id="nvR" title="Next season (→)">›</button>
+      <button class="nvb" id="nvU" title="Previous age group (↑)">∧</button>
+      <button class="nvb" id="nvD" title="Next age group (↓)">∨</button>
+      <button class="nvb wide" id="nvHome" title="Back to the top left (Home)">Reset</button>
+      <button class="nvb wide" id="nvSel" title="Scroll to the selection">Find selection</button>
+      <span class="navhint">drag the diagram to pan · shift+wheel scrolls sideways</span>
+    </div>
+    <div class="colbar"><div class="barin" id="colbarin"></div></div>
+    <div class="svgrow">
+      <div class="bandbar"><div class="barin" id="bandbarin"></div></div>
+      <div class="svgwrap"><svg id="sk"></svg></div>
+    </div>
+  </div>
   <div class="plist" id="plist"></div>
   <div class="foot" id="foot"></div>
 </div>
@@ -127,7 +167,107 @@ const colOfBox=k=>+k.slice(1,k.indexOf('.'));
 const bandOfBox=k=>k.slice(k.indexOf('.')+1,k.indexOf('|'));
 
 let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7,rev:true,wt:'sqrt',focus:true};
-let GEOM={},LAID={};
+let GEOM={},LAID={},AXES=null;
+
+/* ---------- sticky axes and panning ----------------------------------------
+   The SVG is sized in px and sits in a scrolling box, so one SVG unit is one
+   scrolled pixel; the bars only have to be translated by the same amount. The
+   6px padding on .svgwrap is the offset between the two. */
+const PAD=6;
+function drawAxes(){
+  if(!AXES)return;
+  const cb=document.getElementById('colbarin'),bb=document.getElementById('bandbarin');
+  if(!cb||!bb)return;
+  cb.style.width=AXES.W+'px';
+  cb.innerHTML=SEAS.map((nm,s)=>`<span class="cb${EMPTY.has(nm)?' empty':''}" style="left:${AXES.colX[s]+PAD}px;top:4px">${esc(nm)}</span>`).join('');
+  bb.style.height=AXES.H+'px';
+  bb.innerHTML=AXES.bands.map(b=>`<span class="bb" style="top:${b.y+PAD+4}px">${esc(b.label)}</span>`).join('');
+  syncAxes();
+}
+function syncAxes(){
+  const w=document.querySelector('.svgwrap');if(!w||!AXES)return;
+  const cb=document.getElementById('colbarin'),bb=document.getElementById('bandbarin');
+  if(cb)cb.style.transform=`translateX(${-w.scrollLeft}px)`;
+  if(bb)bb.style.transform=`translateY(${-w.scrollTop}px)`;
+}
+/* Buttons move by one column or one age group rather than a fixed pixel count,
+   because the point of them is to land on the next thing, not to nudge. */
+function panTo(x,y){
+  const w=document.querySelector('.svgwrap');if(!w)return;
+  w.scrollTo({left:Math.max(0,x),top:Math.max(0,y),behavior:'smooth'});
+}
+function stepCol(dir){
+  const w=document.querySelector('.svgwrap');if(!w||!AXES)return;
+  const xs=AXES.colX.slice().sort((a,b)=>a-b);
+  const cur=w.scrollLeft+w.clientWidth/2;
+  const next=dir>0?xs.find(x=>x>cur+4):[...xs].reverse().find(x=>x<cur-4);
+  if(next==null)return;
+  panTo(next+PAD-w.clientWidth/2,w.scrollTop);
+}
+function stepBand(dir){
+  const w=document.querySelector('.svgwrap');if(!w||!AXES)return;
+  const ys=AXES.bands.map(b=>b.y);
+  const cur=w.scrollTop;
+  const next=dir>0?ys.find(y=>y>cur+8):[...ys].reverse().find(y=>y<cur-8);
+  if(next==null)return;
+  panTo(w.scrollLeft,next+PAD-12);
+}
+/* With a selection on screen, the one thing worth scrolling to is the thing
+   that is selected — on an 18,000px panel it can be anywhere. */
+function panToSelection(){
+  const w=document.querySelector('.svgwrap');if(!w)return;
+  const keys=Object.keys(LAID).filter(k=>{
+    const e=document.querySelector(`#sk [data-k="${CSS.escape(k)}"]`);
+    return e&&(e.classList.contains('on')||!e.classList.contains('dim'));});
+  if(!keys.length)return;
+  const ps=keys.map(k=>LAID[k]);
+  const x=Math.min(...ps.map(p=>p.x)), y=Math.min(...ps.map(p=>p.y));
+  panTo(x+PAD-40,y+PAD-40);
+}
+function initPan(){
+  const w=document.querySelector('.svgwrap');if(!w||w._pan)return;
+  w._pan=1;
+  w.addEventListener('scroll',syncAxes,{passive:true});
+  // Shift+wheel is the usual sideways gesture and the box does not do it by
+  // default when the content is taller than it is wide.
+  w.addEventListener('wheel',e=>{
+    if(!e.shiftKey)return;
+    e.preventDefault(); w.scrollLeft+=(e.deltaY||e.deltaX);
+  },{passive:false});
+  let down=false,sx=0,sy=0,l0=0,t0=0,moved=0;
+  w.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;
+    down=true;moved=0;sx=e.clientX;sy=e.clientY;l0=w.scrollLeft;t0=w.scrollTop;
+  });
+  w.addEventListener('pointermove',e=>{
+    if(!down)return;
+    const dx=e.clientX-sx,dy=e.clientY-sy;
+    if(!moved&&Math.hypot(dx,dy)<4)return;
+    moved=1;w.classList.add('drag');w.setPointerCapture&&w.setPointerCapture(e.pointerId);
+    w.scrollLeft=l0-dx;w.scrollTop=t0-dy;
+  });
+  const up=e=>{
+    if(!down)return;
+    down=false;w.classList.remove('drag');
+    // A drag must not also count as a click on whatever was under the cursor.
+    if(moved){const stop=ev=>{ev.stopPropagation();ev.preventDefault();};
+      w.addEventListener('click',stop,{capture:true,once:true});
+      setTimeout(()=>w.removeEventListener('click',stop,{capture:true}),0);}
+  };
+  w.addEventListener('pointerup',up);w.addEventListener('pointercancel',up);
+  const B=(id,fn)=>{const b=document.getElementById(id);if(b)b.onclick=fn;};
+  B('nvL',()=>stepCol(-1));B('nvR',()=>stepCol(1));
+  B('nvU',()=>stepBand(-1));B('nvD',()=>stepBand(1));
+  B('nvHome',()=>panTo(0,0));B('nvSel',panToSelection);
+  window.addEventListener('keydown',e=>{
+    if(/^(INPUT|SELECT|TEXTAREA)$/.test((e.target||{}).tagName||''))return;
+    if(e.key==='ArrowLeft'){stepCol(-1);e.preventDefault();}
+    else if(e.key==='ArrowRight'){stepCol(1);e.preventDefault();}
+    else if(e.key==='ArrowUp'){stepBand(-1);e.preventDefault();}
+    else if(e.key==='ArrowDown'){stepBand(1);e.preventDefault();}
+    else if(e.key==='Home'){panTo(0,0);e.preventDefault();}
+  });
+}
 
 const bandsIn=sid=>[...new Set(DATA.nodes.filter(n=>n.sid===sid).map(n=>n.band))].sort((a,b)=>num(a)-num(b));
 function syncCohortBands(){
@@ -493,6 +633,7 @@ function draw(vis,links,dest,src,BV){
   }
   const H=Math.max(300,y0);
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.setAttribute('width',W);svg.setAttribute('height',H);
+  AXES={colX:colX.slice(),bands:bands.map(b=>({y:b.y,h:b.h,label:b.label})),W,H,step};
 
   const rib=[];
   const edgeNames=k=>{const t=nameList(NMAP.edge.get(k));return t?`\n${t}`:'';};
@@ -518,9 +659,9 @@ function draw(vis,links,dest,src,BV){
   const labs=rl.map(r=>`<text class="rlab" data-la="${esc(r.la)}" data-lb="${esc(r.lb)}" x="${r.x}" y="${r.y+3.5}" text-anchor="${r.anc}">${r.n}</text>`).join('');
 
   let bg=bands.map(b=>`<rect x="4" y="${b.y}" width="${W-8}" height="${b.h}" rx="10" fill="rgba(0,245,212,.025)" stroke="rgba(255,255,255,.06)"></rect>`+
-    `<text class="bandlab" x="16" y="${b.y+17}">${esc(b.label)}</text>`).join('');
-  let hdr=SEAS.map((nm,s)=>`<text class="colhdr" x="${colX[s]}" y="24" text-anchor="middle"${EMPTY.has(nm)?' style="fill:#ef5350"':''}>${esc(nm)}</text>`+
-    (EMPTY.has(nm)?`<text class="colsub" x="${colX[s]}" y="38" text-anchor="middle" style="fill:#ef5350;font-size:10.5px">no registrations recorded</text>`:'')).join('');
+    '').join('');
+  let hdr=SEAS.map((nm,s)=>EMPTY.has(nm)
+    ?`<text class="colsub" x="${colX[s]}" y="38" text-anchor="middle" style="fill:#ef5350;font-size:10.5px">no registrations recorded</text>`:'').join('');
   seps.forEach(p=>{hdr+=`<line class="dsep" x1="${p.x-10}" x2="${p.x+nodeW+10}" y1="${p.y}" y2="${p.y}"></line>`+
     `<text class="dseplab" x="${p.x}" y="${p.y+15}">${esc(p.t)}</text>`;});
 
@@ -561,6 +702,7 @@ function draw(vis,links,dest,src,BV){
   GEOM={};rl.forEach(r=>GEOM[r.la+'>'+r.lb]=r);
   svg.querySelectorAll('.tnode,.dnode').forEach(g=>{g.onclick=()=>select({type:'node',k:g.dataset.k});});
   svg.querySelectorAll('.link,.dlink').forEach(l=>{l.onclick=()=>select({type:'link',k:l.dataset.la+'>'+l.dataset.lb});});
+  drawAxes();
   applySelection();
 }
 
@@ -667,7 +809,7 @@ async function loadCollection(file){
   say('Loading '+file+' …');
   try{ adopt(await gj(MDIR+'/'+file)); }
   catch(e){ say('Could not load '+file+' — '+e.message+'. The collection may not have been built yet.',true); return; }
-  initControls(); render();
+  initControls(); render(); initPan();
 }
 async function boot(){
   try{ INDEX=await gj(MDIR+'/index.json'); }
