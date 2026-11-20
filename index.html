@@ -875,7 +875,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.75</span>
+      <span class="rail-ver">v1.76</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2969,10 +2969,15 @@ function carHeroVal(g,hero,meas){
    many games the period holds. */
 /* Like the team cards, the extras are decided once for the whole strip and
    passed in, so every card carries the same cells and the row stays in line. */
+/* 0PT is always offered alongside FO, even before the game lines exist. FO
+   comes from the registration totals and is there the moment a profile opens;
+   0PT has to be counted from box scores, which only the Games tab pays for. A
+   column that appears later looks like a different card — so the cell is there
+   from the start holding an em dash, and fills in when the lines are read. */
 function carExtras(groups){
   const out=[];
   if(groups.some(g=>g.teams.some(t=>'fo' in t)))out.push('fo');
-  if(groups.some(g=>g.zeroN!=null||g.teams.some(t=>t.zero!=null)))out.push('zero');
+  if(groups.length)out.push('zero');
   return out;
 }
 function carZero(g){
@@ -2992,10 +2997,12 @@ function carMini(g,hero,meas,extras){
       cells.push([has?v('fo'):dash, meas==='G'?'FO/PG':'FO']);
     } else {
       const z=carZero(g);
-      cells.push([z==null?dash:(meas==='G'?(gp?(z/gp).toFixed(1):dash):z), meas==='G'?'0PT/PG':'0PT']);
+      cells.push([z==null?dash:(meas==='G'?(gp?(z/gp).toFixed(1):dash):z), meas==='G'?'0PT/PG':'0PT',
+                  z==null?'Counted from the game lines \u2014 open the Games tab to read them':
+                          (g.linesN&&g.linesN!==gp?('of '+g.linesN+' game lines read'):'')]);
     }
   }
-  return cells.map(([x,l])=>`<div class="c"><div class="v">${x}</div><div class="l">${labelHTML(l)}</div></div>`).join('');
+  return cells.map(([x,l,t])=>`<div class="c"${t?` title="${esc(t)}"`:''}><div class="v">${x}</div><div class="l">${labelHTML(l)}</div></div>`).join('');
 }
 function carCard(g,ctx){
   const{chron,vals,avg,mx,hero,meas,cur,first}=ctx;
