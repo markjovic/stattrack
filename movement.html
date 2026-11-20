@@ -77,6 +77,7 @@ svg{display:block}
       <option value="fwd">Oldest left · youngest age top</option>
     </select></label>
     <label>Rows<select id="dens"><option value="7">Normal</option><option value="5">Compact</option><option value="10">Tall</option></select></label>
+    <label title="Hide everything the selection does not touch and close the rest up"><input type="checkbox" id="focus" checked> Focus selection</label>
   </div>
 
   <div class="statrow" id="stats"></div>
@@ -125,7 +126,7 @@ const boxShort=k=>{const l=boxLabel(k);return l.length>15?l.slice(0,14)+'…':l;
 const colOfBox=k=>+k.slice(1,k.indexOf('.'));
 const bandOfBox=k=>k.slice(k.indexOf('.')+1,k.indexOf('|'));
 
-let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7,rev:true,wt:'sqrt'};
+let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7,rev:true,wt:'sqrt',focus:true};
 let GEOM={},LAID={};
 
 const bandsIn=sid=>[...new Set(DATA.nodes.filter(n=>n.sid===sid).map(n=>n.band))].sort((a,b)=>num(a)-num(b));
@@ -150,6 +151,7 @@ function initControls(){
   mode.onchange=()=>{state.mode=mode.value;state.sel=null;applyMode();render();};
   applyMode();
   document.getElementById('dens').onchange=e=>{state.unit=+e.target.value;render();};
+  document.getElementById('focus').onchange=e=>{state.focus=e.target.checked;render();};
   const lay=document.getElementById('lay');
   lay.value=state.rev?'rev':'fwd';
   lay.onchange=()=>{state.rev=lay.value==='rev';render();};
@@ -385,16 +387,41 @@ function setSub(){
     `ribbons carry players between this club's teams and are numbered where they arrive · `+
     (DATA.withNames?`player names as PlayHQ publishes them`:`pseudonymous player codes only (no names, no ids)`);
 }
+/* Every node key the selected group of players passes through, teams and boxes
+   alike — the same walk applySelection does to decide what to dim. */
+function touchedKeys(sel){
+  if(!sel)return null;
+  const t=new Set();
+  playersFor(sel).forEach(p=>p.h.forEach(h=>{t.add(h[0]);t.add(h[1]);}));
+  if(sel.type==='node')t.add(sel.k);
+  else if(sel.type==='link')sel.k.split('>').forEach(k=>t.add(k));
+  return t.size?t:null;
+}
+
 function render(){
   setSub();
-  const vis=visibleNodes();
+  let vis=visibleNodes();
+  /* FOCUS. Drop everything the selection does not touch and lay the rest out
+     again, so the survivors close up instead of sitting in a field of gaps.
+     They keep their column — colX is built from ALL seasons, never from the
+     ones that survived — and they keep their band; a band with nothing left
+     simply has no row. The layout loop already stacks per band per column from
+     the band's top, so handing it a shorter list is the whole trick: there is
+     no second layout path to keep in step with the first. */
+  const FOCUS=(state.focus&&state.sel)?touchedKeys(state.sel):null;
+  if(FOCUS)vis=vis.filter(n=>FOCUS.has(n.key));
   const keys=new Set(vis.map(n=>n.key));
   const BV=[...new Set(vis.map(n=>n.band))].sort((a,b)=>num(a)-num(b));
   NMAP=buildNames(COHORT?COHORT.players:PL);
   TOGC=new Map();
-  const links=COHORT?COHORT.links:DATA.links.filter(l=>keys.has(l.a)&&keys.has(l.b));
-  const dest=COHORT?COHORT.dest:DATA.dest.filter(d=>keys.has(d.a));
-  const src=COHORT?COHORT.src:DATA.src.filter(d=>keys.has(d.b));
+  let links=COHORT?COHORT.links:DATA.links.filter(l=>keys.has(l.a)&&keys.has(l.b));
+  let dest=COHORT?COHORT.dest:DATA.dest.filter(d=>keys.has(d.a));
+  let src=COHORT?COHORT.src:DATA.src.filter(d=>keys.has(d.b));
+  if(FOCUS){
+    links=links.filter(l=>keys.has(l.a)&&keys.has(l.b)&&FOCUS.has(l.a)&&FOCUS.has(l.b));
+    dest=dest.filter(d=>keys.has(d.a)&&FOCUS.has(d.b));
+    src=src.filter(d=>keys.has(d.b)&&FOCUS.has(d.a));
+  }
   const sum=(a,f)=>a.filter(f).reduce((x,y)=>x+y.n,0);
   const last=vis.filter(n=>n.sid===TENI);
   const firstYr=last.reduce((a,n)=>a+((n.tenure||{}).first||0),0);
@@ -419,7 +446,8 @@ function render(){
       `and every team they came through: ${vis.length} teams across ${BV.length} age groups. Every count on this view is those players only, `+
       `so a team shows how many of ITS players ended up here, not its whole roster.`
     : `<b>${esc(DATA.club)}</b> — ${vis.length} teams across ${BV.length} age groups and ${NS} seasons.`;
-  document.getElementById('blurb').innerHTML=head+
+  const focusNote=FOCUS?` <b style="color:var(--new)">Focused</b> — only the ${vis.length} team${vis.length===1?'':'s'} these players pass through, closed up in their own seasons and age groups. Click the selection again, or untick Focus selection, to bring the rest back.`:'';
+  document.getElementById('blurb').innerHTML=head+focusNote+
     ` The panel scrolls both ways; click any team, ribbon or box to trace that group of players across every season and list them below.`+
     (EMPTY.size?` <b style="color:#ef5350">No registrations are recorded for ${[...EMPTY].join(', ')}</b> — that column is empty and players are NOT shown as having left, they simply have no record there yet.`:'');
   draw(vis,links,dest,src,BV);
@@ -549,7 +577,12 @@ function playersFor(sel){
   const n=NODE[k];if(!n)return [];
   return POOL.filter(p=>p.s[n.sid]&&p.s[n.sid].t===n.team);
 }
-function select(sel){const same=state.sel&&sel&&state.sel.type===sel.type&&state.sel.k===sel.k;state.sel=same?null:sel;applySelection();}
+function select(sel){
+  const same=state.sel&&sel&&state.sel.type===sel.type&&state.sel.k===sel.k;
+  state.sel=same?null:sel;
+  // Focus changes WHAT is drawn, not only how it looks, so it needs a render.
+  if(state.focus)render(); else applySelection();
+}
 function cellHtml(c){
   if(!c)return '<span style="color:var(--text3)">–</span>';
   if(c.t)return `<b>${esc(c.t)}</b> <span class="tmeta">${esc(c.b)}</span>`+(c.also?` <span class="tmeta">also ${esc(c.also)}</span>`:'');
