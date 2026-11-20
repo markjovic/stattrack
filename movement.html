@@ -86,7 +86,7 @@ svg{display:block}
 </head>
 <body>
 <div class="wrap">
-  <h1 id="h1">Player movement</h1><span class="pver">v1.05</span>
+  <h1 id="h1">Player movement</h1><span class="pver">v1.07</span>
   <div class="sub" id="sub"></div>
 
   <div class="controls">
@@ -176,15 +176,40 @@ let GEOM={},LAID={},AXES=null;
    scrolled pixel; the bars only have to be translated by the same amount. The
    6px padding on .svgwrap is the offset between the two. */
 const PAD=6;
+/* Season labels shorten and shrink with the zoom. They are HTML, not SVG, so
+   nothing scales them automatically — at 24% the columns are 60px apart while
+   "SUMMER 2025/26" still wanted 150px, and the strip ran together into one
+   unreadable line. Three forms, picked by what fits the column:
+   full → "W 2026" / "S 25/26" → "26" / "25/26". */
+function seasonShort(nm,lvl){
+  if(lvl===0)return nm;
+  const m=String(nm).match(/^(winter|summer|autumn|spring|term\s*\d*)\s*,?\s*(.+)$/i);
+  const yr=m?m[2].trim():String(nm);
+  if(lvl===2)return yr.replace(/^20/,'').replace(/\/20/,'/');
+  const ini=m?m[1].trim()[0].toUpperCase():'';
+  return (ini?ini+' ':'')+yr;
+}
 function drawAxes(){
   if(!AXES)return;
   const cb=document.getElementById('colbarin'),bb=document.getElementById('bandbarin');
   if(!cb||!bb)return;
   const z=AXES.z||1;
+  const avail=Math.max(10,(AXES.step||200)*z-8);
+  // Size follows the SPACE, not the zoom: full names stay 12px for as long as
+  // they fit, then shrink, then give way to the shorter form. 0.62em a
+  // character is close enough for this bold, letter-spaced face — the point
+  // is to choose between three forms, not to typeset.
+  let lvl=0,fs=12;
+  for(lvl=0;lvl<3;lvl++){
+    const widest=Math.max(...SEAS.map(nm=>seasonShort(nm,lvl).length));
+    fs=Math.min(12,avail/(widest*0.62));
+    if(fs>=9||lvl===2)break;
+  }
+  fs=Math.max(7,fs);
   cb.style.width=(AXES.W*z)+'px';
-  cb.innerHTML=SEAS.map((nm,s)=>`<span class="cb${EMPTY.has(nm)?' empty':''}" style="left:${AXES.colX[s]*z+PAD}px;top:4px">${esc(nm)}</span>`).join('');
+  cb.innerHTML=SEAS.map((nm,s)=>`<span class="cb${EMPTY.has(nm)?' empty':''}" title="${esc(nm)}" style="left:${AXES.colX[s]*z+PAD}px;top:4px;font-size:${fs.toFixed(1)}px">${esc(seasonShort(nm,lvl))}</span>`).join('');
   bb.style.height=(AXES.H*z)+'px';
-  bb.innerHTML=AXES.bands.map(b=>`<span class="bb" style="top:${b.y*z+PAD+4}px">${esc(b.label)}</span>`).join('');
+  bb.innerHTML=AXES.bands.map(b=>`<span class="bb" title="${esc(b.label)}" style="top:${b.y*z+PAD+4}px;font-size:${fs.toFixed(1)}px">${esc(b.label)}</span>`).join('');
   syncAxes();
 }
 function syncAxes(){
