@@ -276,7 +276,16 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .sp-r.b .t i{background:var(--accent);opacity:1}
 .sp-r .g{width:34px;text-align:right;font-size:0.62rem;color:var(--text3);font-variant-numeric:tabular-nums}
 .sp-r .v{width:46px;text-align:right;font-size:0.74rem;color:var(--text2);font-variant-numeric:tabular-nums}
-.sp-none,.av-msg{font-size:0.78rem;color:var(--text3);padding:6px 0}
+.sp-none,.av-msg,.sp-wait{font-size:0.78rem;color:var(--text3);padding:6px 0}
+.sp-r.sp-h{padding:0 0 3px}
+.sp-r.sp-h .t,.sp-r.sp-t .t{background:none}
+.sp-r.sp-h .g,.sp-r.sp-h .v{font-size:0.54rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)}
+.sp-r.sp-t{border-top:1px solid var(--border);margin-top:4px;padding-top:6px}
+.sp-r.sp-t .n{color:var(--text3);font-size:0.64rem}
+.sp-r.sp-t .g,.sp-r.sp-t .v{color:var(--text);font-weight:600}
+.mt-key{display:flex;align-items:center;gap:8px;padding:0 0 8px}
+.mt-ke{font-size:0.58rem;color:var(--text3);white-space:nowrap}
+.mt-kt{flex:1;font-size:0.58rem;color:var(--text3);text-align:center}
 .sp-foot{font-size:0.68rem;color:var(--text3);padding:6px 0 0}
 .mt-hd{font-size:0.68rem;color:var(--text3);padding:2px 0 6px}
 .mt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px}
@@ -287,7 +296,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .mt-tl{display:flex;gap:2px}
 .mt-tl i{flex:1;height:7px;background:var(--elevated);border:1px solid var(--border);border-radius:1px}
 .mt-tl i.on{background:var(--accent);border-color:var(--accent);opacity:.85}
-.mt-g{font-size:0.62rem;color:var(--text2);margin-top:4px;font-variant-numeric:tabular-nums}
+.mt-g{font-size:0.6rem;color:var(--text3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt-s{font-variant-numeric:tabular-nums}
+.mt-tl i{cursor:help}
 .tr-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:8px 14px}
 .tr-rounds{display:flex;align-items:flex-end;gap:4px;padding:26px 12px 8px;height:160px;position:relative}
 .tr-avg{position:absolute;left:12px;right:12px;border-top:1px dashed var(--text2);opacity:.8}
@@ -845,7 +856,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.68</span>
+      <span class="rail-ver">v1.69</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -3211,9 +3222,8 @@ function hydrateHighs(uuid){
   const host=el('phigh-'+uuid); if(!host)return;
   const st=carSt(uuid), rows=st.rows||[], pend=(st.pend||[]).length;
   if(!rows.length&&!pend){
-    host.innerHTML=`<div class="slist"><div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">Career highs
-      <button class="rbtn" style="border:0.5px solid var(--border-strong);padding:3px 10px;border-radius:var(--radius);color:var(--text-primary);font-size:0.72rem" onclick="buildHighs('${esc(uuid)}',this)">Compute ↗</button></div>
-      <div style="font-size:0.8rem;color:var(--text3);padding:8px 0">The best single game for each stat. Needs the game lines; Calendar year and any season drill-down build the same ones.</div></div>`;
+    host.innerHTML=`<div class="slist"><div class="sec-lbl">Career highs</div>
+      <div class="sp-wait">Reading game lines…</div></div>`;
     return;
   }
   const body=rows.length?`<div class="hi-grid">${highsHtml(rows)}</div>`
@@ -3241,14 +3251,18 @@ function splitBand(t){
   if(h<16)return['midday',h];
   return['evening',h];
 }
+const SPLIT_HEAD=`<div class="sp-r sp-h"><span class="n"></span><span class="t"></span><span class="g">GP</span><span class="v">PPG</span></div>`;
 function splitRows(groups,unit){
   const list=[...groups.values()].filter(g=>g.gp).sort((a,b)=>(b.pts/b.gp)-(a.pts/a.gp));
   if(!list.length)return '<div class="sp-none">No lines carry this field.</div>';
   const mx=Math.max(...list.map(g=>g.pts/g.gp),0.1);
-  return list.map(g=>{const v=g.pts/g.gp;
+  const tot=list.reduce((a,g)=>({gp:a.gp+g.gp,pts:a.pts+g.pts}),{gp:0,pts:0});
+  return SPLIT_HEAD+list.map(g=>{const v=g.pts/g.gp;
     return `<div class="sp-r${v===mx?' b':''}"><span class="n">${esc(g.label)} <i>${esc(g.sub)}</i></span>
       <span class="t"><i style="width:${Math.max(2,Math.round(v/mx*100))}%"></i></span>
-      <span class="g">${g.gp}</span><span class="v">${v.toFixed(1)}</span></div>`;}).join('');
+      <span class="g">${g.gp}</span><span class="v">${v.toFixed(1)}</span></div>`;}).join('')
+    +`<div class="sp-r sp-t"><span class="n">${list.length} ${list.length===1?'entry':'entries'}</span><span class="t"></span>
+      <span class="g">${tot.gp}</span><span class="v">${tot.gp?(tot.pts/tot.gp).toFixed(1):'\u2014'}</span></div>`;
 }
 async function buildSplits(uuid,btn){
   const host=el('splits-'+uuid); if(!host)return;
@@ -3316,9 +3330,11 @@ async function buildMates(uuid,btn){
     panelBusy(host,`Reading team sheets\u2026 ${done} of ${sids.length}`);
   }
   // Periods, not seasons: two registrations inside one season period are one
-  // column on the strip, exactly as the career cards group them.
+  // column on the strip, exactly as the career cards group them. Ordered oldest
+  // to newest — p.seasons is in no order at all, which drew the strip as a
+  // shuffled row of cells with no reading direction.
   const periods=[], pOf={};
-  for(const s of (p.seasons||[])){
+  for(const s of sortSeasonsDesc(p.seasons||[]).slice().reverse()){
     const k=s.sn||s.sid;
     if(periods.indexOf(k)<0)periods.push(k);
     if(s.sid)pOf[s.sid]=periods.indexOf(k);
@@ -3368,12 +3384,18 @@ async function buildMates(uuid,btn){
     panelBusy(host,`Read ${rosters} team sheet${rosters===1?'':'s'}, but none of their players appear in this player\u2019s games.`);
     return;
   }
+  const span=o=>{const k=[...o.per].sort((a,b)=>a-b);
+    if(!k.length)return '';
+    return k.length===1?periods[k[0]]:periods[k[0]]+' \u2013 '+periods[k[k.length-1]];};
   host.innerHTML=`<div class="mt-hd">${list.length} team-mate${list.length===1?'':'s'} \u00b7 ${rosters} team sheet${rosters===1?'':'s'} \u00b7 ${periods.length} season${periods.length===1?'':'s'}</div>
+    <div class="mt-key"><span class="mt-ke">${esc(periods[0]||'')}</span>
+      <span class="mt-kt">one cell per season of this player\u2019s career, oldest to newest \u00b7 filled where they shared a team</span>
+      <span class="mt-ke">${esc(periods[periods.length-1]||'')}</span></div>
     <div class="mt-grid">${list.map(o=>`<div class="mt-c" onclick="loadPlayer('${esc(o.id)}')" title="Open this player">
       <div class="mt-n">${esc(displayName({name:o.name},o.id))}</div>
-      <div class="mt-s">${o.per.size} season${o.per.size===1?'':'s'} together</div>
-      <div class="mt-tl" title="${esc(periods.join(' \u00b7 '))}">${periods.map((_,i)=>`<i class="${o.per.has(i)?'on':''}"></i>`).join('')}</div>
-      <div class="mt-g">${o.g} game${o.g===1?'':'s'} alongside</div></div>`).join('')}</div>`;
+      <div class="mt-s">${o.g} game${o.g===1?'':'s'} alongside</div>
+      <div class="mt-tl">${periods.map((nm,i)=>`<i class="${o.per.has(i)?'on':''}" title="${esc(nm)}${o.per.has(i)?' \u00b7 same team':''}"></i>`).join('')}</div>
+      <div class="mt-g">${esc(span(o))}</div></div>`).join('')}</div>`;
 }
 
 function renderPlayer(p){
@@ -3473,11 +3495,10 @@ function renderPlayer(p){
      since v1.0, so the two views read as one app. The header, the career stat
      row and the recorded-appearances line stay ABOVE the bar: they identify the
      player, and a tab that could hide who you are looking at is not a tab. */
-  const pt=(id,label,on)=>`<button class="vtab${on?' on':''}" onclick="switchPTab(this,'pp${id}-${esc(uuid)}')">${label}</button>`;
-  h+=`<div class="vtabs">${pt('S','Season',1)}${pt('L','Splits')}${pt('O','Opponents')}${pt('R','Registrations')}</div>`;
+  const pt=(id,label,on)=>`<button class="vtab${on?' on':''}" onclick="switchPTab(this,'pp${id}-${esc(uuid)}','${esc(uuid)}','${id}')">${label}</button>`;
+  h+=`<div class="vtabs">${pt('S','Season',1)}${pt('L','Games')}${pt('O','Opponents')}${pt('R','Clubs')}</div>`;
   h+=`<div class="tpane on" id="ppS-${esc(uuid)}">`;
   h+=`<div class="pmove-wrap" id="pmove-${esc(uuid)}"></div>`;
-  h+=`<div class="phigh-wrap" id="phigh-${esc(uuid)}"></div>`;
   h+='<div class="slist"><div class="sec-lbl">Season history</div>';
   // ── PERIOD TOTALS (v1.31) ────────────────────────────────────────────────
   // groups is one entry per (sid,tid). One season period often holds several
@@ -3596,23 +3617,22 @@ function renderPlayer(p){
   h+='</div>';
   h+='</div>';                                   // ── end Season pane
 
-  const rb=(fn,label)=>`<button class="rbtn" style="border:0.5px solid var(--border-strong);padding:3px 10px;border-radius:var(--radius);color:var(--text-primary);font-size:0.72rem" onclick="${fn}">${label}</button>`;
-
   // ── Splits ───────────────────────────────────────────────────────────────
   h+=`<div class="tpane" id="ppL-${esc(uuid)}">
-    <div class="slist"><div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">Venue and day
-      ${rb(`buildSplits('${esc(uuid)}',this)`,'Compute ↗')}</div>
-      <div id="splits-${esc(uuid)}"><div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Every game carries its venue, court and time. Click Compute to break this career down by where and when it was played.</div></div>
+    <div class="phigh-wrap" id="phigh-${esc(uuid)}"></div>
+    <div class="slist"><div class="sec-lbl">Venue and day</div>
+      <div id="splits-${esc(uuid)}"><div class="sp-wait">Reading game lines…</div></div>
     </div></div>`;
 
   // ── Opponents ────────────────────────────────────────────────────────────
+  // Team-mates first: it reads one file per season and is on screen in a second,
+  // where the head-to-head walk takes twenty or more. The fast panel leading means
+  // the tab is never blank while the slow one works.
   h+=`<div class="tpane" id="ppO-${esc(uuid)}">
-    <div class="slist"><div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">Opponent stats
-      ${rb(`buildOppStats('${esc(uuid)}',this)`,'Compute ↗')}</div>
-      <div id="opp-stats-${esc(uuid)}"><div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Click Compute to analyse head-to-head records.</div></div></div>
-    <div class="slist"><div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">Team-mates
-      ${rb(`buildMates('${esc(uuid)}',this)`,'Compute ↗')}</div>
-      <div id="mates-${esc(uuid)}"><div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Who this player has taken the court with most, across clubs and seasons. Reads one roster per season played.</div></div></div>
+    <div class="slist"><div class="sec-lbl">Team-mates</div>
+      <div id="mates-${esc(uuid)}"><div class="sp-wait">Reading team sheets…</div></div></div>
+    <div class="slist"><div class="sec-lbl">Opponent stats</div>
+      <div id="opp-stats-${esc(uuid)}"><div class="sp-wait">Waiting for the team sheets…</div></div></div>
     </div>`;
 
   // ── Registrations ────────────────────────────────────────────────────────
@@ -4419,9 +4439,8 @@ function renderTeam(td,tid,sid){
     for(const[uuid,pr]of roster){ h+=rosterRows(uuid,pr); }
     h+=`</tbody></table>`;
   }
-  h+=`<div class="slist" id="tc-avail-${tesc}"><div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">Who played which round
-    <button class="rbtn" style="border:0.5px solid var(--border-strong);padding:3px 10px;border-radius:var(--radius);color:var(--text-primary);font-size:0.72rem" onclick="tcAvail('${tesc}','${esc(tid)}','${esc(sid)}',this)">Compute \u2197</button></div>
-    <div class="av-body"><div class="av-msg">A filled cell is a name on that game\u2019s sheet. Reads one season game file.</div></div></div>`;
+  h+=`<div class="slist" id="tc-avail-${tesc}"><div class="sec-lbl">Who played which round</div>
+    <div class="av-body"><div class="av-msg">Reading the season game file…</div></div></div>`;
   h+=`</div></div><div id="f${tesc}" class="tpane">`;
   h+=`<div id="tc-rounds-${tesc}"></div>`;
   if(!fixtures.length){h+='<div class="empty">No fixture data</div>';}
@@ -4457,6 +4476,7 @@ function renderTeam(td,tid,sid){
     tcDraw(key);
     tcHydrate(key,stc.roster.map(r=>r.uuid));
     tcRounds(key,stc.fixtures);
+    tcAvail(key,tid,sid,null);
   }
   ve.querySelectorAll('.frow').forEach(r=>r.addEventListener('click',()=>{
     const sid2=r.dataset.sid;
@@ -4561,12 +4581,33 @@ async function tcAvail(key,tid,sid,btn){
 /* The player view's panes, unlike the team view's two, are addressed by id and
    the bar is built from one list, so one handler turns the others off rather
    than naming the pane to hide. */
-function switchPTab(btn,showId){
+function switchPTab(btn,showId,uuid,which){
   const bar=btn.parentElement;
   bar.querySelectorAll('.vtab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   const host=bar.parentElement;
   host.querySelectorAll(':scope > .tpane').forEach(p=>p.classList.toggle('on',p.id===showId));
+  pTabLoad(uuid,which);
+}
+/* A pane fills itself the first time it is opened. Nothing here runs when the
+   profile loads: these panels read one file per season, and the highs and the
+   splits read one BOX SCORE PER GAME, which is not a cost to pay for a player
+   somebody only wanted the season cards of. Opening the tab is the consent.
+   Once loaded it stays loaded, so coming back is instant. */
+const PTAB_DONE={};
+function pTabLoad(uuid,which){
+  if(!uuid||!which)return;
+  const k=uuid+'|'+which;
+  if(PTAB_DONE[k])return;
+  PTAB_DONE[k]=1;
+  if(which==='L'){
+    (async()=>{ hydrateHighs(uuid); await buildSplits(uuid,null); hydrateHighs(uuid); })();
+  } else if(which==='O'){
+    // Sequential, not parallel: the team sheets the mates panel loads are the
+    // same files buildOppStats then walks, so running them in order costs
+    // nothing extra and puts something on screen while the slow one works.
+    (async()=>{ await buildMates(uuid,null); await buildOppStats(uuid,null); })();
+  }
 }
 function switchTTab(btn,showId,hideId){
   btn.closest('.vtabs').querySelectorAll('.vtab').forEach(b=>b.classList.toggle('on',b===btn));
@@ -6282,12 +6323,11 @@ function buildGameRow(gid, sid, g, myUuid2, oppUuid2) {
 async function buildOppStats(uuid, btn) {
   const container = document.getElementById('opp-stats-' + uuid);
   if (!container) return;
-  btn.disabled = true;
-  btn.textContent = 'Computing…';
+  if(btn){btn.disabled = true; btn.textContent = 'Computing…';}
   container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Loading game data…</div>';
 
   const player = S.players[uuid];
-  if (!player) { container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Player data not available.</div>'; btn.disabled=false; return; }
+  if (!player) { container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Player data not available.</div>'; if(btn)btn.disabled=false; return; }
 
   // Load all season game files and team-stats (needed to classify g.p[] players by side)
   const sids = [...new Set((player.seasons || []).map(s => s.sid).filter(Boolean))];
@@ -6373,7 +6413,7 @@ async function buildOppStats(uuid, btn) {
 
   if (!entries.length) {
     container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Not enough scored games vs same opponent (need ≥2).</div>';
-    btn.textContent = 'Compute ↗'; btn.disabled = false;
+    if(btn){btn.textContent = 'Compute ↗'; btn.disabled = false;}
     return;
   }
 
@@ -6425,7 +6465,7 @@ async function buildOppStats(uuid, btn) {
   </div>`;
 
   container.innerHTML = h;
-  btn.textContent = 'Refresh \u2197'; btn.disabled = false;
+  if(btn){btn.textContent = 'Refresh \u2197'; btn.disabled = false;}
 
   // Wire search dropdown
   document.getElementById(searchId)?.addEventListener('change', function() {
