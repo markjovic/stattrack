@@ -856,7 +856,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.69</span>
+      <span class="rail-ver">v1.70</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -1171,7 +1171,17 @@ async function loadAliasPrefixMap(shard, len){
   }
   _aliasMaps[k]=map; return map;
 }
+/* Memoised. The opponent walk calls this once per opposing player per game —
+   for a long career that is thousands of calls, each one an await that yields
+   even when every shard map is already cached. Same answer, one lookup. */
+const UUID_MEMO=new Map();
 async function resolveToFullUuid(id){
+  if(id!=null&&UUID_MEMO.has(id))return UUID_MEMO.get(id);
+  const _r=await resolveToFullUuidRaw(id);
+  if(id!=null)UUID_MEMO.set(id,_r);
+  return _r;
+}
+async function resolveToFullUuidRaw(id){
   if(isFullUuid(id)){
     const shard=id.slice(0,2).toLowerCase();
     const idx=await loadShardPrefixMap(shard,TRUNC_LEN);
@@ -3203,6 +3213,19 @@ function panelBusy(host,msg){
    so this never fetches on its own: it fills in the moment the lines exist for
    any other reason, and offers the fetch when they do not. */
 const HIGH_K=[['pts','Points'],['fg','Field goals'],['ft','Free throws'],['tp','Three-pointers'],['f','Fouls']];
+/* PlayHQ publishes foul-outs as a SEASON AND CAREER total only: a box-score line
+   carries number, name, PTS, 2PT, 3PT, FT and fouls, and nothing that says the
+   player fouled out of THAT game. So this tile is the career figure, marked as
+   such, and sits apart from the single-game highs beside it. Deriving it from
+   "fouls >= 5" would be this app inventing a rule PlayHQ did not apply. */
+function foTile(p){
+  const bk=p&&p.sports&&p.sports[Object.keys(p.sports||{})[0]||'Basketball'];
+  const fo=bk&&bk.foulOuts||0;
+  if(!fo)return '';
+  const ps=bk&&bk.foulOutsPG;
+  return `<div class="hi-t hi-q"><div class="hi-k">Foul-outs</div><div class="hi-v">${fo}</div>
+    <div class="hi-w">career \u00b7 PlayHQ</div><div class="hi-d">${ps?(+ps).toFixed(2)+' a game':'not per game'}</div></div>`;
+}
 function highsHtml(rows){
   const tiles=HIGH_K.map(([k,label])=>{
     let best=null;
@@ -3226,7 +3249,7 @@ function hydrateHighs(uuid){
       <div class="sp-wait">Reading game lines…</div></div>`;
     return;
   }
-  const body=rows.length?`<div class="hi-grid">${highsHtml(rows)}</div>`
+  const body=rows.length?`<div class="hi-grid">${highsHtml(rows)+foTile(st.p)}</div>`
     :`<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Reading game lines…</div>`;
   const part=pend?`<div class="hi-note">${pend} game${pend===1?'':'s'} still to read — these are the highs of the ${rows.length} held so far.</div>`:'';
   host.innerHTML=`<div class="slist"><div class="sec-lbl">Career highs</div>${body}${part}</div>`;
@@ -3339,6 +3362,8 @@ async function buildMates(uuid,btn){
     if(periods.indexOf(k)<0)periods.push(k);
     if(s.sid)pOf[s.sid]=periods.indexOf(k);
   }
+  const tnOf={};
+  for(const s of (p.seasons||[]))for(const r of (s.regs||[]))if(r.tid&&r.tn)tnOf[r.tid]=r.tn;
   const mineGames=new Set(Array.isArray(p.games)?p.games:[]);
   const tally=new Map();
   let rosters=0;
@@ -3349,18 +3374,22 @@ async function buildMates(uuid,btn){
     for(const tid of myTids){
       const r=ts[tid]&&ts[tid].roster; if(!r)continue;
       rosters++;
+      // The team name as THIS player's own registration spells it, falling back
+      // to the team-stats meta. "3 seasons together" says nothing about which
+      // side of which club, which is the first thing anyone asks of it.
+      const tn=(tnOf[tid]||((ts[tid]&&ts[tid].meta&&ts[tid].meta.name)||''));
       for(const[k,v]of Object.entries(r)){
         if(gameIdMatchesPlayer(k,p))continue;
-        mates.set(t13(k),{id:k,name:(v&&v.name)||''});
+        mates.set(t13(k),{id:k,name:(v&&v.name)||'',tn});
       }
     }
     if(!mates.size)continue;
     const per=pOf[sid];
     for(const[k,m]of mates){
-      if(!tally.has(k))tally.set(k,{id:m.id,name:m.name,g:0,per:new Set()});
+      if(!tally.has(k))tally.set(k,{id:m.id,name:m.name,g:0,per:new Set(),tn:{}});
       const o=tally.get(k);
       if(!o.name&&m.name)o.name=m.name;
-      if(per!=null)o.per.add(per);
+      if(per!=null){o.per.add(per); if(m.tn)o.tn[per]=m.tn;}
     }
     const gf=(S.games[sid]&&S.games[sid].games)||{};
     for(const gid of mineGames){
@@ -3394,7 +3423,8 @@ async function buildMates(uuid,btn){
     <div class="mt-grid">${list.map(o=>`<div class="mt-c" onclick="loadPlayer('${esc(o.id)}')" title="Open this player">
       <div class="mt-n">${esc(displayName({name:o.name},o.id))}</div>
       <div class="mt-s">${o.g} game${o.g===1?'':'s'} alongside</div>
-      <div class="mt-tl">${periods.map((nm,i)=>`<i class="${o.per.has(i)?'on':''}" title="${esc(nm)}${o.per.has(i)?' \u00b7 same team':''}"></i>`).join('')}</div>
+      <div class="mt-tl">${periods.map((nm,i)=>`<i class="${o.per.has(i)?'on':''}" title="${
+        esc(o.per.has(i)?(nm+(o.tn[i]?' \u00b7 '+o.tn[i]:'')):(nm+' \u00b7 not together'))}"></i>`).join('')}</div>
       <div class="mt-g">${esc(span(o))}</div></div>`).join('')}</div>`;
 }
 
@@ -4223,7 +4253,12 @@ const CAREER_PENDING = '<span style="color:var(--text3)">…</span>';
 function careerOf(pf){
   const bk = pf && pf.sports && pf.sports.Basketball;
   if(!bk) return null;
-  return { gp:bk.gp||0, pts:bk.pts||0, fg:bk.fg||0, ft:bk.ft||0, threePt:bk.threePt||0, fouls:bk.fouls||0 };
+  // foulOuts rides along: the team view already holds this file for the career
+  // rows, so the figure costs nothing. Absent is not zero — a competition that
+  // does not record them must not read as nobody ever fouling out.
+  const o={ gp:bk.gp||0, pts:bk.pts||0, fg:bk.fg||0, ft:bk.ft||0, threePt:bk.threePt||0, fouls:bk.fouls||0 };
+  if('foulOuts' in bk)o.foulOuts=bk.foulOuts||0;
+  return o;
 }
 async function playerFile(key){
   if(S.players[key]) return S.players[key];
@@ -4267,18 +4302,32 @@ function hydrateCareers(keys){
 /* ── TEAM CARDS (v1.51) ───────────────────────────────────────────────────── */
 const TC={};
 function tcSt(key){
-  if(!TC[key])TC[key]={hero:'pts',per:'S',meas:'T',order:'H',chart:true,sel:null,roster:[]};
+  if(!TC[key])TC[key]={hero:'pts',per:'S',meas:'T',order:'H',chart:true,sel:null,roster:[],fixtures:[],zeroDone:0};
   return TC[key];
 }
 const TC_STATS=[['gp','GP','games'],['pts','PTS','points'],['fg','FG','field goals'],
                 ['ft','FT','free throws'],['threePt','3PT','three-pointers'],['fouls','F','fouls']];
 /* Per game is a measure over whatever the hero is, so PPG left the hero list:
    it is PTS with the measure on. GP has no per-game form and ignores it. */
-const TC_PG={pts:'PPG',fg:'FG/PG',ft:'FT/PG',threePt:'3PT/PG',fouls:'F/PG',gp:'GP'};
-function tcFmt(v,meas){return meas==='G'?(+v).toFixed(1):v;}
+const TC_PG={pts:'PPG',fg:'FG/PG',ft:'FT/PG',threePt:'3PT/PG',fouls:'F/PG',gp:'GP',foulOuts:'FO/PG',zero:'SCORELESS'};
+const TC_EXTRA={foulOuts:['foulOuts','FO','foul-outs'],zero:['zero','SCORELESS','scoreless games']};
+/* A stat is offered only where the rows in the CURRENT scope actually carry it:
+   PlayHQ does not publish foul-outs for every competition, and a column of
+   zeros is a claim that nobody ever fouled out. */
+function tcHas(rows,per,k){
+  return rows.some(r=>{const q=per==='C'?r.car:r.sea;return q&&(k in q);});
+}
+function tcStats(rows,per){
+  const out=TC_STATS.slice();
+  for(const k of Object.keys(TC_EXTRA))if(tcHas(rows,per,k))out.push(TC_EXTRA[k]);
+  return out;
+}
+/* GP ignores the measure — games per game is not a thing — so it must not pick
+   up the decimal the measure gives everything else. */
+function tcFmt(v,meas,k){return (meas==='G'&&k!=='gp')?(+v).toFixed(1):v;}
 function tcLbl(k,meas){
   if(meas==='G')return TC_PG[k]||String(k).toUpperCase();
-  return (TC_STATS.find(s=>s[0]===k)||[])[1]||String(k).toUpperCase();
+  return (TC_STATS.concat(Object.values(TC_EXTRA)).find(s=>s[0]===k)||[])[1]||String(k).toUpperCase();
 }
 /* A roster line and a career block carry the same stat names, so one accessor
    serves both modes. The per-game value is derived, never stored. */
@@ -4295,10 +4344,12 @@ function tcPick(key,uuid){const s=tcSt(key);s.sel=(s.sel===uuid?null:uuid);tcDra
 
 function tcCells(q,meas){
   const v=k=>meas==='G'?(q.gp?((q[k]||0)/q.gp).toFixed(1):'—'):(q[k]||0);
-  const keys=meas==='G'?['pts','fouls','ft','fg','threePt']:['pts','pts','fouls','ft','fg','threePt'];
   const cells=meas==='G'
-    ? keys.map(k=>[v(k),tcLbl(k,'G')])
+    ? ['pts','fouls','ft','fg','threePt'].map(k=>[v(k),tcLbl(k,'G')])
     : [[q.pts||0,'PTS'],[q.gp?((q.pts||0)/q.gp).toFixed(1):'—','PPG'],[q.fouls||0,'F'],[q.ft||0,'FT'],[q.fg||0,'FG'],[q.threePt||0,'3PT']];
+  // Extras are appended, never substituted: the six above are the grid every
+  // card has had, and six cells is what keeps two cards in a row in line.
+  for(const k of Object.keys(TC_EXTRA))if(k in q)cells.push([v(k),tcLbl(k,meas)]);
   return cells.map(([x,l])=>`<div class="c"><div class="v">${x}</div><div class="l">${l}</div></div>`).join('');
 }
 
@@ -4310,7 +4361,7 @@ function tcDraw(key){
   const on=c=>c?' on':'';
   const b=(k,v,t)=>`<button class="${(v===undefined?st[k]:st[k]===v)?'on':''}" onclick="${v===undefined?`tcFlag('${key}','${k}')`:`tcSet('${key}','${k}','${v}')`}">${t}</button>`;
   const bar=`<div class="tc-bar">
-    <span class="lbl">Hero stat</span>${TC_STATS.map(([k,l])=>b('hero',k,l)).join('')}
+    <span class="lbl">Hero stat</span>${tcStats(st.roster||[],per).map(([k])=>b('hero',k,tcLbl(k,meas))).join('')}
     <span class="lbl">Scope</span>${b('per','S','This season')}${b('per','C','Career')}
     <span class="lbl">Measure</span>${b('meas','T','Totals')}${b('meas','G','Per game')}
     <span class="lbl">Order</span>${b('order','H','By '+lbl)}${b('order','N','By name')}
@@ -4342,16 +4393,16 @@ function tcDraw(key){
 
   const chart=st.chart?`<div class="tc-chart">
     <div class="tc-chd"><b>Squad · ${esc(lbl)}</b><span>${rows.length} player${rows.length===1?'':'s'}</span></div>
-    <div class="tc-chb"><div class="tc-avg" style="left:calc(105px + (100% - 162px)*${(avgv/mx).toFixed(4)})"><b>avg ${meas==='G'?avgv.toFixed(1):Math.round(avgv)}</b></div>
+    <div class="tc-chb"><div class="tc-avg" style="left:calc(105px + (100% - 162px)*${(avgv/mx).toFixed(4)})"><b>avg ${(meas==='G'&&hero!=='gp')?avgv.toFixed(1):Math.round(avgv)}</b></div>
       ${list.map(r=>{const v=tcVal(r,hero,per,meas);return `<div class="tc-cr${st.sel===r.uuid?' on':''}" onclick="tcPick('${esc(key)}','${esc(r.uuid)}')">
         <span class="n">${esc(r.name)}</span><span class="t"><i style="width:${Math.max(2,Math.round(v/mx*100))}%"></i></span>
-        <span class="v">${tcFmt(v,meas)}</span></div>`;}).join('')}
+        <span class="v">${tcFmt(v,meas,hero)}</span></div>`;}).join('')}
     </div></div>`:'';
 
   const tot=rows.map(r=>per==='C'?r.car:r.sea).reduce((a,q)=>({gp:per==='S'?Math.max(a.gp,q.gp||0):a.gp+(q.gp||0),pts:a.pts+(q.pts||0),
     fg:a.fg+(q.fg||0),ft:a.ft+(q.ft||0),threePt:a.threePt+(q.threePt||0),fouls:a.fouls+(q.fouls||0)}),
     {gp:0,pts:0,fg:0,ft:0,threePt:0,fouls:0});
-  const totHero=(meas==='G'&&hero!=='gp')?(tot.gp?((tot[hero]||0)/tot.gp).toFixed(1):'—'):(tot[hero]||0);
+  const totHero=(meas==='G'&&hero!=='gp')?(tot.gp?((tot[hero]||0)/tot.gp).toFixed(1):'\u2014'):(tot[hero]||0);
   const summary=`<div class="tc-card sum">
     <div class="tc-h"><div class="tc-nm">Squad total</div></div>
     <div class="tc-mt">${rows.length} players · ${tot.gp} ${per==='S'?'games':'appearances'}${per==='C'?' · career':''}</div>
@@ -4365,7 +4416,7 @@ function tcDraw(key){
       <div class="tc-h"><div class="tc-nm" title="Open ${esc(r.name)}" onclick="event.stopPropagation();loadPlayer('${esc(r.uuid)}')">${esc(r.name)}</div>
         <div class="tc-rk">#${i+1}/${ranked.length}</div></div>
       <div class="tc-mt">${(hero==='gp'&&teamGames)?`of ${teamGames} team game${teamGames===1?'':'s'}`:`${q.gp||0} game${(q.gp||0)===1?'':'s'}`}${per==='C'?' · career':''}</div>
-      <div class="tc-hero"><div class="tc-big">${tcFmt(v,meas)}</div><div class="tc-unit">${esc(lbl)}</div>
+      <div class="tc-hero"><div class="tc-big">${tcFmt(v,meas,hero)}</div><div class="tc-unit">${esc(lbl)}</div>
         ${share?`<div class="tc-shr" title="${share}% of the squad's ${esc(word)}">${share}%</div>`:''}</div>
       <div class="tc-mini">${tcCells(q,meas)}</div></div>`;}).join('')}</div>`;
 }
@@ -4468,15 +4519,18 @@ function renderTeam(td,tid,sid){
   {
     const key=tesc, stc=tcSt(key);
     stc.sel=null;
+    stc.zeroDone=0;
     stc.fixtures=(td.fixtures||[]).map(f=>Object.assign({},f,{sid}));
     stc.roster=Object.entries(td.roster||{}).map(([uuid,pr])=>({
       uuid, name:pr.name||('#'+String(uuid).slice(0,8)),
-      sea:{gp:pr.gp||0,pts:pr.pts||0,fg:pr.fg||0,ft:pr.ft||0,threePt:pr.threePt||0,fouls:pr.fouls||0},
+      sea:Object.assign({gp:pr.gp||0,pts:pr.pts||0,fg:pr.fg||0,ft:pr.ft||0,threePt:pr.threePt||0,fouls:pr.fouls||0},
+                        ('foulOuts' in pr)?{foulOuts:pr.foulOuts||0}:{}),
       car:careerOf(S.players[uuid])||null}));
     tcDraw(key);
     tcHydrate(key,stc.roster.map(r=>r.uuid));
     tcRounds(key,stc.fixtures);
     tcAvail(key,tid,sid,null);
+    tcGameLines(key,tid,sid);
   }
   ve.querySelectorAll('.frow').forEach(r=>r.addEventListener('click',()=>{
     const sid2=r.dataset.sid;
@@ -4576,6 +4630,51 @@ async function tcAvail(key,tid,sid,btn){
         r.cells.map((c,i)=>`<span class="c ${c?'on':'out'}" title="${esc(fx[i].oppName||'')} \u00b7 ${c?'played':'did not play'}"></span>`).join('')}
         <span class="tot">${r.n}/${fx.length}</span></div>`).join('')}
     </div>`;
+}
+
+/* ── SCORELESS GAMES (v1.70) ───────────────────────────────────────────────
+   PlayHQ publishes no scoreless count, so it is derived: a box-score line with
+   zero points, for a player named on that game's sheet. One request per PLAYED
+   GAME — not per player — because one box score carries both full teams. A
+   season is 14-20 games against a career's 100+, which is why this runs on
+   opening a team where the player view makes the equivalent wait for a tab.
+
+   A player's zero is only counted for games they were actually in: a name
+   missing from the sheet is an absence, and counting it as a scoreless game
+   would punish the injured.
+
+   Foul-outs are NOT derived here. A box line carries number, name, PTS, 2PT,
+   3PT, FT and fouls — nothing saying the player fouled out of that game. The FO
+   figures in this view come from PlayHQ's own season and career totals. */
+async function tcGameLines(key,tid,sid){
+  const st=TC[key]; if(!st||st.zeroDone)return;
+  st.zeroDone=1;
+  const fx=(st.fixtures||[]).filter(f=>f.result&&f.gameId);
+  if(!fx.length)return;
+  const byKey=new Map((st.roster||[]).map(r=>[t13(r.uuid),r]));
+  const zero=new Map(), seen=new Map();
+  const queue=fx.slice();
+  let read=0;
+  await Promise.all(Array.from({length:Math.min(6,queue.length)},async()=>{
+    while(queue.length){
+      const f=queue.shift();
+      const bs=await fetchBox(f.gameId);
+      if(!bs)continue;
+      read++;
+      for(const line of [...(bs.h||[]),...(bs.a||[])]){
+        const k=t13(line&&line.profileID);
+        if(!k||!byKey.has(k))continue;                 // other team, or not on this roster
+        seen.set(k,(seen.get(k)||0)+1);
+        if(!(line.pts||0))zero.set(k,(zero.get(k)||0)+1);
+      }
+    }
+  }));
+  if(!read||!seen.size)return;                          // nothing read: offer nothing
+  for(const[k,r]of byKey){
+    if(!seen.has(k))continue;                           // never appeared in a box score
+    r.sea.zero=zero.get(k)||0;
+  }
+  if(el('tc-'+key))tcDraw(key);
 }
 
 /* The player view's panes, unlike the team view's two, are addressed by id and
@@ -6330,11 +6429,23 @@ async function buildOppStats(uuid, btn) {
   if (!player) { container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Player data not available.</div>'; if(btn)btn.disabled=false; return; }
 
   // Load all season game files and team-stats (needed to classify g.p[] players by side)
+  //
+  // ⚠️ 2026-11-20 — WAS a sequential `for (const sid of sids) { await …; await …; }`,
+  // i.e. TWO round trips per season one after another. Eleven seasons is 22
+  // serial fetches before the first opponent is counted, which is the twenty-odd
+  // seconds of blank panel. Six at a time, both files together, same requests.
   const sids = [...new Set((player.seasons || []).map(s => s.sid).filter(Boolean))];
-  for (const sid of sids) {
-    if (!S.games[sid])     S.games[sid]     = await sgj('games/bv', sid)     || { games: {} };
-    if (!S.teamStats[sid]) S.teamStats[sid]  = await sgj('team-stats/bv', sid) || {};
+  await loadSeasonGames(sids,(d,t)=>{
+    if(t&&container)container.innerHTML='<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Reading season game files\u2026 '+d+' of '+t+'</div>';
+  });
+  const needTs=sids.filter(sid=>!S.teamStats[sid]);
+  for(let i=0;i<needTs.length;i+=6){
+    await Promise.all(needTs.slice(i,i+6).map(async sid=>{
+      S.teamStats[sid]=await sgj('team-stats/bv',sid)||{};
+    }));
+    if(container)container.innerHTML='<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Reading team sheets\u2026 '+Math.min(i+6,needTs.length)+' of '+needTs.length+'</div>';
   }
+  if(container)container.innerHTML='<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Matching opponents\u2026</div>';
 
   // For each game the player was in, tally opponents and results
   // g.p[] entries have {id} (UUID string); hp/ap entries have {profileID}
