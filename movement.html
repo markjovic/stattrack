@@ -30,6 +30,7 @@ select{background:var(--elevated);color:var(--text);border:1px solid var(--line)
    depend on finding a scrollbar. The season strip and the age-group gutter live
    OUTSIDE the scroller and are translated to match it, so they stay put without
    covering any of the diagram. */
+.pver{display:block;font-size:0.62rem;color:var(--text3);letter-spacing:.04em;margin:-6px 0 4px}
 .svgouter{position:relative}
 .navbar{display:flex;align-items:center;gap:6px;padding:0 0 6px}
 .nvb{width:30px;height:26px;border:1px solid var(--line);background:var(--card);color:var(--text2);
@@ -84,7 +85,7 @@ svg{display:block}
 </head>
 <body>
 <div class="wrap">
-  <h1 id="h1">Player movement</h1>
+  <h1 id="h1">Player movement</h1><span class="pver">v1.04</span>
   <div class="sub" id="sub"></div>
 
   <div class="controls">
@@ -101,6 +102,7 @@ svg{display:block}
       <option value="rev" selected>Newest left · oldest age top</option>
       <option value="fwd">Oldest left · youngest age top</option>
     </select></label>
+    <label>Zoom<select id="zoom"><option value="1">100%</option><option value="0.75">75%</option><option value="0.5">50%</option><option value="0.35">35%</option><option value="0.25">25%</option></select></label>
     <label>Rows<select id="dens"><option value="7">Normal</option><option value="5">Compact</option><option value="10">Tall</option></select></label>
     <label title="Hide everything the selection does not touch and close the rest up"><input type="checkbox" id="focus" checked> Focus selection</label>
   </div>
@@ -131,7 +133,7 @@ svg{display:block}
       <button class="nvb" id="nvD" title="Next age group (↓)">∨</button>
       <button class="nvb wide" id="nvHome" title="Back to the top left (Home)">Reset</button>
       <button class="nvb wide" id="nvSel" title="Scroll to the selection">Find selection</button>
-      <span class="navhint">drag the diagram to pan · shift+wheel scrolls sideways</span>
+      <span class="navhint">drag to pan · shift+wheel sideways · ctrl+wheel zooms</span>
     </div>
     <div class="colbar"><div class="barin" id="colbarin"></div></div>
     <div class="svgrow">
@@ -166,7 +168,7 @@ const boxShort=k=>{const l=boxLabel(k);return l.length>15?l.slice(0,14)+'…':l;
 const colOfBox=k=>+k.slice(1,k.indexOf('.'));
 const bandOfBox=k=>k.slice(k.indexOf('.')+1,k.indexOf('|'));
 
-let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7,rev:true,wt:'sqrt',focus:true};
+let state={mode:'cohort',csid:0,cband:null,lo:null,hi:null,sel:null,unit:7,rev:true,wt:'sqrt',focus:true,zoom:1};
 let GEOM={},LAID={},AXES=null;
 
 /* ---------- sticky axes and panning ----------------------------------------
@@ -178,10 +180,11 @@ function drawAxes(){
   if(!AXES)return;
   const cb=document.getElementById('colbarin'),bb=document.getElementById('bandbarin');
   if(!cb||!bb)return;
-  cb.style.width=AXES.W+'px';
-  cb.innerHTML=SEAS.map((nm,s)=>`<span class="cb${EMPTY.has(nm)?' empty':''}" style="left:${AXES.colX[s]+PAD}px;top:4px">${esc(nm)}</span>`).join('');
-  bb.style.height=AXES.H+'px';
-  bb.innerHTML=AXES.bands.map(b=>`<span class="bb" style="top:${b.y+PAD+4}px">${esc(b.label)}</span>`).join('');
+  const z=AXES.z||1;
+  cb.style.width=(AXES.W*z)+'px';
+  cb.innerHTML=SEAS.map((nm,s)=>`<span class="cb${EMPTY.has(nm)?' empty':''}" style="left:${AXES.colX[s]*z+PAD}px;top:4px">${esc(nm)}</span>`).join('');
+  bb.style.height=(AXES.H*z)+'px';
+  bb.innerHTML=AXES.bands.map(b=>`<span class="bb" style="top:${b.y*z+PAD+4}px">${esc(b.label)}</span>`).join('');
   syncAxes();
 }
 function syncAxes(){
@@ -198,7 +201,8 @@ function panTo(x,y){
 }
 function stepCol(dir){
   const w=document.querySelector('.svgwrap');if(!w||!AXES)return;
-  const xs=AXES.colX.slice().sort((a,b)=>a-b);
+  const z=AXES.z||1;
+  const xs=AXES.colX.map(x=>x*z).sort((a,b)=>a-b);
   const cur=w.scrollLeft+w.clientWidth/2;
   const next=dir>0?xs.find(x=>x>cur+4):[...xs].reverse().find(x=>x<cur-4);
   if(next==null)return;
@@ -206,7 +210,7 @@ function stepCol(dir){
 }
 function stepBand(dir){
   const w=document.querySelector('.svgwrap');if(!w||!AXES)return;
-  const ys=AXES.bands.map(b=>b.y);
+  const ys=AXES.bands.map(b=>b.y*(AXES.z||1));
   const cur=w.scrollTop;
   const next=dir>0?ys.find(y=>y>cur+8):[...ys].reverse().find(y=>y<cur-8);
   if(next==null)return;
@@ -220,8 +224,9 @@ function panToSelection(){
     const e=document.querySelector(`#sk [data-k="${CSS.escape(k)}"]`);
     return e&&(e.classList.contains('on')||!e.classList.contains('dim'));});
   if(!keys.length)return;
+  const z=(AXES&&AXES.z)||1;
   const ps=keys.map(k=>LAID[k]);
-  const x=Math.min(...ps.map(p=>p.x)), y=Math.min(...ps.map(p=>p.y));
+  const x=Math.min(...ps.map(p=>p.x))*z, y=Math.min(...ps.map(p=>p.y))*z;
   panTo(x+PAD-40,y+PAD-40);
 }
 function initPan(){
@@ -230,7 +235,17 @@ function initPan(){
   w.addEventListener('scroll',syncAxes,{passive:true});
   // Shift+wheel is the usual sideways gesture and the box does not do it by
   // default when the content is taller than it is wide.
+  const ZSTEPS=[0.25,0.35,0.5,0.75,1];
   w.addEventListener('wheel',e=>{
+    if(e.ctrlKey||e.metaKey){
+      e.preventDefault();
+      const i=ZSTEPS.indexOf(state.zoom);
+      const j=Math.max(0,Math.min(ZSTEPS.length-1,(i<0?ZSTEPS.length-1:i)+(e.deltaY<0?1:-1)));
+      if(ZSTEPS[j]===state.zoom)return;
+      state.zoom=ZSTEPS[j];
+      const zs=document.getElementById('zoom');if(zs)zs.value=String(state.zoom);
+      render();return;
+    }
     if(!e.shiftKey)return;
     e.preventDefault(); w.scrollLeft+=(e.deltaY||e.deltaX);
   },{passive:false});
@@ -292,6 +307,8 @@ function initControls(){
   applyMode();
   document.getElementById('dens').onchange=e=>{state.unit=+e.target.value;render();};
   document.getElementById('focus').onchange=e=>{state.focus=e.target.checked;render();};
+  const zm=document.getElementById('zoom');
+  if(zm){zm.value=String(state.zoom);zm.onchange=e=>{state.zoom=+e.target.value;render();};}
   const lay=document.getElementById('lay');
   lay.value=state.rev?'rev':'fwd';
   lay.onchange=()=>{state.rev=lay.value==='rev';render();};
@@ -632,8 +649,9 @@ function draw(vis,links,dest,src,BV){
     y0=bottom+BANDGAP;
   }
   const H=Math.max(300,y0);
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.setAttribute('width',W);svg.setAttribute('height',H);
-  AXES={colX:colX.slice(),bands:bands.map(b=>({y:b.y,h:b.h,label:b.label})),W,H,step};
+  const Z=state.zoom||1;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.setAttribute('width',W*Z);svg.setAttribute('height',H*Z);
+  AXES={colX:colX.slice(),bands:bands.map(b=>({y:b.y,h:b.h,label:b.label})),W,H,step,z:Z};
 
   const rib=[];
   const edgeNames=k=>{const t=nameList(NMAP.edge.get(k));return t?`\n${t}`:'';};
@@ -750,12 +768,30 @@ function applySelection(){
   svg.querySelectorAll('.link,.dlink,.rlab').forEach(e=>e.classList.add('dim'));
   svg.querySelectorAll('.tnode,.dnode').forEach(n=>n.classList.toggle('dim',!touched.has(n.dataset.k)));
   if(sel.type==='node'){const n=svg.querySelector(`[data-k="${CSS.escape(sel.k)}"]`);if(n)n.classList.add('on');}
+  /* HOME is what was actually picked: the team, both ends of a picked ribbon,
+     or — for a player — the last team they are recorded in, which is the "current
+     team" in their history. Ribbons with an end there are this selection's OWN
+     links and get the accent; everything else in the traced path keeps the white
+     overlay (or its box colour). Without the split, a 10-season trace is one
+     undifferentiated web and the thing you clicked is lost in it. */
+  const HOME=new Set();
+  if(sel.type==='node')HOME.add(sel.k);
+  else if(sel.type==='link')sel.k.split('>').forEach(k=>HOME.add(k));
+  else if(sel.type==='player'){
+    const sidOf=k=>(k&&k[0]==='N')?(+k.slice(1,k.indexOf('.'))||0):-1;
+    let best=null,bs=-1;
+    list.forEach(p=>p.h.forEach(h=>h.forEach(k=>{const s=sidOf(k);if(s>bs){bs=s;best=k;}})));
+    if(best)HOME.add(best);
+  }
+  const HOMECOL='#00f5d4';
   const ns='http://www.w3.org/2000/svg';
   Object.entries(agg).forEach(([k,n])=>{const g=GEOM[k];if(!g)return;const ends=k.split('>');
+    const home=ends.some(e=>HOME.has(e));
     const bx=ends.find(e=>e[0]==='D'||e[0]==='S');
-    const col=bx?(DCOL[kindOf(bx)]||'#fff'):'#ffffff';
+    const col=home?HOMECOL:(bx?(DCOL[kindOf(bx)]||'#fff'):'#ffffff');
     const pth=document.createElementNS(ns,'path');pth.setAttribute('class','olink');pth.setAttribute('d',g.d);
-    pth.setAttribute('stroke',col);pth.setAttribute('stroke-width',Math.max(2.5,n/g.n*g.w));svg.appendChild(pth);
+    pth.setAttribute('stroke',col);pth.setAttribute('stroke-width',Math.max(home?3.2:2.5,n/g.n*g.w));
+    if(home)pth.setAttribute('opacity','1');svg.appendChild(pth);
     const t=document.createElementNS(ns,'text');t.setAttribute('class','olab');t.setAttribute('x',g.x);t.setAttribute('y',g.y+3.5);
     t.setAttribute('text-anchor',g.anc||'end');t.textContent=n;svg.appendChild(t);});
   const keyLab=k=>(k[0]==='D'||k[0]==='S')?boxLabel(k):(NODE[k]?`${NODE[k].team} (${SEAS[NODE[k].sid]})`:k);
@@ -763,7 +799,9 @@ function applySelection(){
   if(sel.type==='player')title=`Player <b>${esc(sel.k)}</b>`;
   else if(sel.type==='link'){const [a,b]=sel.k.split('>');title=`<b>${esc(keyLab(a))}</b> → <b>${esc(keyLab(b))}</b>`;}
   else title=`<b>${esc(keyLab(sel.k))}</b>`;
-  let h=`<div class="psum"><div class="ln">${title} — <b>${list.length}</b> player${list.length===1?'':'s'}</div>`;
+  const homeLab=sel.type==='player'?'this player\u2019s latest team':sel.type==='link'?'the ribbon you picked':'the team you picked';
+  let h=`<div class="psum"><div class="ln">${title} \u2014 <b>${list.length}</b> player${list.length===1?'':'s'}</div>`;
+  if(HOME.size)h+=`<div class="ln" style="font-size:11px;color:var(--text3)"><i class="sw" style="background:${HOMECOL};display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px"></i>links straight into or out of ${esc(homeLab)} \u00b7 <i class="sw" style="background:#fff;display:inline-block;width:10px;height:10px;border-radius:3px;margin:0 5px 0 8px"></i>where these players went before and after</div>`;
   if(DATA.withNames&&list.length){
     // One name per person. Two records for one child are two rows in the table below, where their
     // differing histories are visible; listing the name twice here just reads as a mistake.

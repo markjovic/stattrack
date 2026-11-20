@@ -879,7 +879,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.77</span>
+      <span class="rail-ver">v1.78</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -3295,6 +3295,64 @@ function hydrateCareer(p){
   setTimeout(()=>carNav(uuid),0);
 }
 
+
+/* ── DRAG TO PAN (v1.78) ──────────────────────────────────────────────────
+   The career strip, the game cards and the availability grid all scroll
+   sideways inside a page that scrolls down, which on a trackpad means fighting
+   the page to move them. One delegated handler gives every one of them a hand
+   grab; nothing has to be re-bound when a panel is redrawn, which happens on
+   every settings click.
+
+   A drag must not also count as a click — these panels are made of clickable
+   cards — so once the pointer has actually moved, the next click is swallowed
+   in the capture phase. */
+const PAN_SEL='.car-strip,.car-gcards,.av-grid,.ptwrap,.tc-grid,.hi-grid,.mt-grid';
+function panScrollable(el){
+  for(let n=el;n&&n!==document.body;n=n.parentElement){
+    if(n.matches&&n.matches(PAN_SEL)&&
+       (n.scrollWidth-n.clientWidth>4||n.scrollHeight-n.clientHeight>4))return n;
+  }
+  return null;
+}
+(function initDragPan(){
+  let el=null,sx=0,sy=0,l0=0,t0=0,moved=false;
+  document.addEventListener('pointerover',e=>{
+    const t=panScrollable(e.target);
+    if(t&&!t.style.cursor)t.style.cursor='grab';
+  });
+  document.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;
+    if(/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test((e.target||{}).tagName||''))return;
+    el=panScrollable(e.target);
+    if(!el)return;
+    moved=false;sx=e.clientX;sy=e.clientY;l0=el.scrollLeft;t0=el.scrollTop;
+  });
+  document.addEventListener('pointermove',e=>{
+    if(!el)return;
+    const dx=e.clientX-sx,dy=e.clientY-sy;
+    if(!moved&&Math.hypot(dx,dy)<5)return;
+    if(!moved){
+      moved=true;el.style.cursor='grabbing';
+      // scroll-behavior:smooth on the career strip fights a drag
+      el.dataset.panSb=el.style.scrollBehavior||'';el.style.scrollBehavior='auto';
+      el.setPointerCapture&&el.setPointerCapture(e.pointerId);
+    }
+    el.scrollLeft=l0-dx;el.scrollTop=t0-dy;
+    e.preventDefault();
+  },{passive:false});
+  const end=()=>{
+    if(!el)return;
+    const e2=el;el=null;
+    e2.style.cursor='grab';e2.style.scrollBehavior=e2.dataset.panSb||'';
+    if(moved){
+      const stop=ev=>{ev.stopPropagation();ev.preventDefault();};
+      document.addEventListener('click',stop,{capture:true,once:true});
+      setTimeout(()=>document.removeEventListener('click',stop,{capture:true}),0);
+    }
+  };
+  document.addEventListener('pointerup',end);
+  document.addEventListener('pointercancel',end);
+})();
 
 /* ── GAME-LINE PANELS (v1.68) ─────────────────────────────────────────────────
    Career highs, venue/day splits and team-mate continuity all read the SAME
