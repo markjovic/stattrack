@@ -36,6 +36,7 @@ select{background:var(--elevated);color:var(--text);border:1px solid var(--line)
 .nvb{width:30px;height:26px;border:1px solid var(--line);background:var(--card);color:var(--text2);
   border-radius:7px;cursor:pointer;font-size:14px;line-height:1;font-family:inherit}
 .nvb.wide{width:auto;padding:0 10px;font-size:11.5px}
+.zlab{font-size:11.5px;color:var(--text2);min-width:42px;text-align:center;font-variant-numeric:tabular-nums}
 .nvb:hover{color:var(--text);border-color:var(--text3)}
 .nvb:disabled{opacity:.35;cursor:default}
 .navhint{font-size:11px;color:var(--text3);margin-left:4px}
@@ -85,7 +86,7 @@ svg{display:block}
 </head>
 <body>
 <div class="wrap">
-  <h1 id="h1">Player movement</h1><span class="pver">v1.04</span>
+  <h1 id="h1">Player movement</h1><span class="pver">v1.05</span>
   <div class="sub" id="sub"></div>
 
   <div class="controls">
@@ -102,7 +103,6 @@ svg{display:block}
       <option value="rev" selected>Newest left · oldest age top</option>
       <option value="fwd">Oldest left · youngest age top</option>
     </select></label>
-    <label>Zoom<select id="zoom"><option value="1">100%</option><option value="0.75">75%</option><option value="0.5">50%</option><option value="0.35">35%</option><option value="0.25">25%</option></select></label>
     <label>Rows<select id="dens"><option value="7">Normal</option><option value="5">Compact</option><option value="10">Tall</option></select></label>
     <label title="Hide everything the selection does not touch and close the rest up"><input type="checkbox" id="focus" checked> Focus selection</label>
   </div>
@@ -127,11 +127,11 @@ svg{display:block}
 
   <div class="svgouter">
     <div class="navbar">
-      <button class="nvb" id="nvL" title="Previous season (←)">‹</button>
-      <button class="nvb" id="nvR" title="Next season (→)">›</button>
-      <button class="nvb" id="nvU" title="Previous age group (↑)">∧</button>
-      <button class="nvb" id="nvD" title="Next age group (↓)">∨</button>
-      <button class="nvb wide" id="nvHome" title="Back to the top left (Home)">Reset</button>
+      <button class="nvb" id="nvOut" title="Zoom out (ctrl+wheel down)">−</button>
+      <span class="zlab" id="zlab">100%</span>
+      <button class="nvb" id="nvIn" title="Zoom in (ctrl+wheel up)">+</button>
+      <button class="nvb wide" id="nvFit" title="Shrink until the whole diagram fits the window">Fit to view</button>
+      <button class="nvb wide" id="nvHome" title="Back to 100% at the top left (Home)">Reset</button>
       <button class="nvb wide" id="nvSel" title="Scroll to the selection">Find selection</button>
       <span class="navhint">drag to pan · shift+wheel sideways · ctrl+wheel zooms</span>
     </div>
@@ -199,22 +199,26 @@ function panTo(x,y){
   const w=document.querySelector('.svgwrap');if(!w)return;
   w.scrollTo({left:Math.max(0,x),top:Math.max(0,y),behavior:'smooth'});
 }
-function stepCol(dir){
-  const w=document.querySelector('.svgwrap');if(!w||!AXES)return;
-  const z=AXES.z||1;
-  const xs=AXES.colX.map(x=>x*z).sort((a,b)=>a-b);
-  const cur=w.scrollLeft+w.clientWidth/2;
-  const next=dir>0?xs.find(x=>x>cur+4):[...xs].reverse().find(x=>x<cur-4);
-  if(next==null)return;
-  panTo(next+PAD-w.clientWidth/2,w.scrollTop);
+const ZMIN=0.08,ZMAX=1.5;
+function setZoom(z,keepScroll){
+  const v=Math.max(ZMIN,Math.min(ZMAX,+z||1));
+  if(Math.abs(v-state.zoom)<0.001)return;
+  state.zoom=v;
+  render();
+  if(!keepScroll)syncAxes();
 }
-function stepBand(dir){
+function zoomLabel(){
+  const l=document.getElementById('zlab');
+  if(l)l.textContent=Math.round((state.zoom||1)*100)+'%';
+}
+/* Fit shrinks until the WHOLE diagram is inside the window — the one thing a
+   1,950 x 18,000px panel cannot do at any preset, and the only way to see the
+   shape of a career's worth of movement at once. */
+function fitToView(){
   const w=document.querySelector('.svgwrap');if(!w||!AXES)return;
-  const ys=AXES.bands.map(b=>b.y*(AXES.z||1));
-  const cur=w.scrollTop;
-  const next=dir>0?ys.find(y=>y>cur+8):[...ys].reverse().find(y=>y<cur-8);
-  if(next==null)return;
-  panTo(w.scrollLeft,next+PAD-12);
+  const z=Math.min((w.clientWidth-2*PAD-4)/AXES.W,(w.clientHeight-2*PAD-4)/AXES.H);
+  setZoom(z);
+  panTo(0,0);
 }
 /* With a selection on screen, the one thing worth scrolling to is the thing
    that is selected — on an 18,000px panel it can be anywhere. */
@@ -235,16 +239,11 @@ function initPan(){
   w.addEventListener('scroll',syncAxes,{passive:true});
   // Shift+wheel is the usual sideways gesture and the box does not do it by
   // default when the content is taller than it is wide.
-  const ZSTEPS=[0.25,0.35,0.5,0.75,1];
   w.addEventListener('wheel',e=>{
     if(e.ctrlKey||e.metaKey){
       e.preventDefault();
-      const i=ZSTEPS.indexOf(state.zoom);
-      const j=Math.max(0,Math.min(ZSTEPS.length-1,(i<0?ZSTEPS.length-1:i)+(e.deltaY<0?1:-1)));
-      if(ZSTEPS[j]===state.zoom)return;
-      state.zoom=ZSTEPS[j];
-      const zs=document.getElementById('zoom');if(zs)zs.value=String(state.zoom);
-      render();return;
+      setZoom(state.zoom*(e.deltaY<0?1.12:0.89));
+      return;
     }
     if(!e.shiftKey)return;
     e.preventDefault(); w.scrollLeft+=(e.deltaY||e.deltaX);
@@ -271,17 +270,19 @@ function initPan(){
   };
   w.addEventListener('pointerup',up);w.addEventListener('pointercancel',up);
   const B=(id,fn)=>{const b=document.getElementById(id);if(b)b.onclick=fn;};
-  B('nvL',()=>stepCol(-1));B('nvR',()=>stepCol(1));
-  B('nvU',()=>stepBand(-1));B('nvD',()=>stepBand(1));
-  B('nvHome',()=>panTo(0,0));B('nvSel',panToSelection);
+  B('nvOut',()=>setZoom(state.zoom*0.8));
+  B('nvIn',()=>setZoom(state.zoom*1.25));
+  B('nvFit',fitToView);
+  B('nvHome',()=>{setZoom(1);panTo(0,0);});
+  B('nvSel',panToSelection);
   window.addEventListener('keydown',e=>{
     if(/^(INPUT|SELECT|TEXTAREA)$/.test((e.target||{}).tagName||''))return;
-    if(e.key==='ArrowLeft'){stepCol(-1);e.preventDefault();}
-    else if(e.key==='ArrowRight'){stepCol(1);e.preventDefault();}
-    else if(e.key==='ArrowUp'){stepBand(-1);e.preventDefault();}
-    else if(e.key==='ArrowDown'){stepBand(1);e.preventDefault();}
-    else if(e.key==='Home'){panTo(0,0);e.preventDefault();}
+    if(e.key==='Home'){setZoom(1);panTo(0,0);e.preventDefault();}
+    else if(e.key==='-'||e.key==='_'){setZoom(state.zoom*0.8);e.preventDefault();}
+    else if(e.key==='='||e.key==='+'){setZoom(state.zoom*1.25);e.preventDefault();}
+    else if(e.key==='0'){fitToView();e.preventDefault();}
   });
+  zoomLabel();
 }
 
 const bandsIn=sid=>[...new Set(DATA.nodes.filter(n=>n.sid===sid).map(n=>n.band))].sort((a,b)=>num(a)-num(b));
@@ -307,8 +308,7 @@ function initControls(){
   applyMode();
   document.getElementById('dens').onchange=e=>{state.unit=+e.target.value;render();};
   document.getElementById('focus').onchange=e=>{state.focus=e.target.checked;render();};
-  const zm=document.getElementById('zoom');
-  if(zm){zm.value=String(state.zoom);zm.onchange=e=>{state.zoom=+e.target.value;render();};}
+
   const lay=document.getElementById('lay');
   lay.value=state.rev?'rev':'fwd';
   lay.onchange=()=>{state.rev=lay.value==='rev';render();};
@@ -721,6 +721,7 @@ function draw(vis,links,dest,src,BV){
   svg.querySelectorAll('.tnode,.dnode').forEach(g=>{g.onclick=()=>select({type:'node',k:g.dataset.k});});
   svg.querySelectorAll('.link,.dlink').forEach(l=>{l.onclick=()=>select({type:'link',k:l.dataset.la+'>'+l.dataset.lb});});
   drawAxes();
+  zoomLabel();
   applySelection();
 }
 
