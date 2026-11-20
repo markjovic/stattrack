@@ -288,7 +288,26 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .mt-kt{flex:1;font-size:0.58rem;color:var(--text3);text-align:center}
 .sp-foot{font-size:0.68rem;color:var(--text3);padding:6px 0 0}
 .mt-hd{font-size:0.68rem;color:var(--text3);padding:2px 0 6px}
-.mt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px}
+.mt-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:7px}
+@media(max-width:1100px){.mt-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.mt-grid{grid-template-columns:repeat(2,1fr)}}
+.mt-hide{display:none}
+.mt-btn{display:block;width:100%;border:1px solid var(--border);background:var(--elevated);color:var(--text2);
+  border-radius:6px;padding:5px;font-size:0.72rem;cursor:pointer;font-family:inherit;margin-bottom:8px}
+.mt-btn:hover{color:var(--text);border-color:var(--text3)}
+.mt-rk{float:right;font-size:0.58rem;color:var(--text3);font-variant-numeric:tabular-nums}
+.mt-lhd{font-size:0.6rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin:4px 0 4px}
+.mt-list{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 14px;margin-bottom:6px}
+@media(max-width:1100px){.mt-list{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.mt-list{grid-template-columns:1fr}}
+.mt-li{display:flex;align-items:baseline;gap:8px;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:0.74rem}
+.mt-li:hover{background:var(--elevated)}
+.mt-li .r{width:38px;flex:0 0 38px;color:var(--text3);font-size:0.6rem;font-variant-numeric:tabular-nums}
+.mt-li .n{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt-li .s{margin-left:auto}
+.mt-li .s{color:var(--text3);font-size:0.62rem;white-space:nowrap}
+.mt-li .g{width:34px;text-align:right;color:var(--text2);font-variant-numeric:tabular-nums;font-size:0.7rem}
+.z0{font-family:Consolas,"DejaVu Sans Mono","Liberation Mono",monospace;font-feature-settings:"zero" 1}
 .mt-c{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 9px;cursor:pointer;transition:border-color .12s}
 .mt-c:hover{border-color:var(--text3)}
 .mt-n{font-size:0.76rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -856,7 +875,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.72</span>
+      <span class="rail-ver">v1.73</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2619,10 +2638,15 @@ function carFmtD(d){const p=String(d||'').split('-');return p.length===3?`${p[2]
 function carSeasonGroups(p){
   const out=[],seen=new Map();
   for(const{sn,tid,regs}of groupRegs(p.seasons||[])){
-    const st=regs.reduce((a,r)=>{const s=r.stats||{};return{
+    const st=regs.reduce((a,r)=>{const s=r.stats||{};const o={
       gp:Math.max(a.gp||0,s.gp||0),pts:Math.max(a.pts||0,s.pts||0),
       fg:Math.max(a.fg||0,s.fg||0),ft:Math.max(a.ft||0,s.ft||0),
-      threePt:Math.max(a.threePt||0,s.threePt||0),fouls:Math.max(a.fouls||0,s.fouls||0)};},{});
+      threePt:Math.max(a.threePt||0,s.threePt||0),fouls:Math.max(a.fouls||0,s.fouls||0)};
+      // Absent is not zero. A competition that does not record foul-outs must
+      // not read as nobody fouling out, so the key only exists where a number did.
+      if(typeof s.foulOuts==='number'&&isFinite(s.foulOuts))o.fo=Math.max(a.fo||0,s.foulOuts);
+      else if('fo' in a)o.fo=a.fo;
+      return o;},{});
     const wld=regs[0]&&regs[0].stats||{};
     const key=sn.sn||sn.sid;
     if(!seen.has(key)){const grp={key,name:key,sids:[],teams:[]};seen.set(key,grp);out.push(grp);}
@@ -2631,7 +2655,7 @@ function carSeasonGroups(p){
     grp.teams.push({tid,sid:sn.sid,tn:(regs[regs.length-1]||{}).tn||tid,season:sn.sn||sn.sid,comp:carComp(sn.sid),
       compFull:carCompFull(sn.sid),gradeFull:abbreviateGrades([...new Set(regs.map(r=>r.gn).filter(Boolean))]),
       gp:st.gp||gamesForGroup(p,regs),pts:st.pts||0,fg:st.fg||0,ft:st.ft||0,tp:st.threePt||0,f:st.fouls||0,
-      w:wld.wins||0,l:wld.losses||0,d:wld.draws||0});
+      w:wld.wins||0,l:wld.losses||0,d:wld.draws||0,...(('fo' in st)?{fo:st.fo}:{})});
   }
   // "U13 Boys BRES" next to "U13 MMB08" is the age group said twice. Strip the
   // prefix every grade in the period shares, exactly as the season card does
@@ -2643,8 +2667,13 @@ function carSeasonGroups(p){
   out.reverse();                       // groupRegs is newest-first; chronological here
   const cst=CAR[p.uuid];
   if(cst&&cst.rows)for(const g of out){   // real date span once the game lines are in
-    const ds=cst.rows.filter(r=>g.sids.indexOf(r.sid)>=0).map(r=>r.date).sort();
+    const mine=cst.rows.filter(r=>g.sids.indexOf(r.sid)>=0);
+    const ds=mine.map(r=>r.date).sort();
     if(ds.length){g.from=ds[0];g.to=ds[ds.length-1];}
+    if(mine.length){
+      g.zeroN=mine.filter(r=>!(r.pts||0)).length;
+      g.linesN=mine.length;                 // the games the count is OF, which
+    }                                        // is not always the credited GP
   }
   return out;
 }
@@ -2735,8 +2764,9 @@ function carAgg(rows){
   const m=new Map();
   for(const r of rows){
     const k=r.tid||('?'+r.season);
-    if(!m.has(k))m.set(k,{tid:r.tid,sid:r.sid,tn:r.tn,season:r.season,comp:r.comp,compFull:r.compFull,grade:r.grade,gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0});
+    if(!m.has(k))m.set(k,{tid:r.tid,sid:r.sid,tn:r.tn,season:r.season,comp:r.comp,compFull:r.compFull,grade:r.grade,gp:0,pts:0,fg:0,ft:0,tp:0,f:0,w:0,l:0,d:0,zero:0});
     const t=m.get(k);t.gp++;CAR_K.forEach(x=>t[x]+=r[x]||0);
+    if(!(r.pts||0))t.zero++;
     if(r.res==='W')t.w++;else if(r.res==='L')t.l++;else if(r.res==='D')t.d++;
   }
   return[...m.values()].sort((a,b)=>b.pts-a.pts);
@@ -2912,12 +2942,35 @@ function carHeroVal(g,hero,meas){
 /* Totals carry GP because the other five are sums over it. Per game does not:
    every figure on the card is already divided by it, and the header says how
    many games the period holds. */
-function carMini(g,hero,meas){
+/* Like the team cards, the extras are decided once for the whole strip and
+   passed in, so every card carries the same cells and the row stays in line. */
+function carExtras(groups){
+  const out=[];
+  if(groups.some(g=>g.teams.some(t=>'fo' in t)))out.push('fo');
+  if(groups.some(g=>g.zeroN!=null||g.teams.some(t=>t.zero!=null)))out.push('zero');
+  return out;
+}
+function carZero(g){
+  if(g.zeroN!=null)return g.zeroN;
+  if(g.teams.some(t=>t.zero!=null))return g.teams.reduce((a,t)=>a+(t.zero||0),0);
+  return null;
+}
+function carMini(g,hero,meas,extras){
+  const dash='\u2014';
   const gp=carSum(g.teams,'gp');
-  const v=k=>meas==='G'?(gp?(carSum(g.teams,k)/gp).toFixed(1):'—'):carSum(g.teams,k);
+  const v=k=>meas==='G'?(gp?(carSum(g.teams,k)/gp).toFixed(1):dash):carSum(g.teams,k);
   const cells=(meas==='G'?[]:[[gp,'GP']])
     .concat(['pts','f','ft','fg','tp'].map(k=>[v(k),carLbl(k,meas)]));
-  return cells.map(([x,l])=>`<div class="c"><div class="v">${x}</div><div class="l">${l}</div></div>`).join('');
+  for(const k of (extras||[])){
+    if(k==='fo'){
+      const has=g.teams.some(t=>'fo' in t);
+      cells.push([has?v('fo'):dash, meas==='G'?'FO/PG':'FO']);
+    } else {
+      const z=carZero(g);
+      cells.push([z==null?dash:(meas==='G'?(gp?(z/gp).toFixed(1):dash):z), meas==='G'?'0PT/PG':'0PT']);
+    }
+  }
+  return cells.map(([x,l])=>`<div class="c"><div class="v">${x}</div><div class="l">${labelHTML(l)}</div></div>`).join('');
 }
 function carCard(g,ctx){
   const{chron,vals,avg,mx,hero,meas,cur,first}=ctx;
@@ -2956,7 +3009,7 @@ function carCard(g,ctx){
     <div class="car-hero"><div class="car-big">${carFmtV(v,meas)}</div><div class="car-unit">${esc(carLbl(hero,meas).toLowerCase())}</div>
       ${dpc===null?'':`<div class="car-delta ${dcl}">${dpc>0?'+':''}${dpc}%</div>`}</div>
     ${bars}
-    <div class="car-mini">${carMini(g,hero,meas)}</div>
+    <div class="car-mini">${carMini(g,hero,meas,ctx.extras)}</div>
     <div class="car-wl"><b style="color:var(--win)">${w}W</b> <b style="color:var(--loss)">${l}L</b>${d?` <b style="color:var(--draw)">${d}D</b>`:''}${(w||l)?` · ${Math.round(w/(w+l)*100)}%`:''}</div>
     <div class="car-teams${g.teams.length>CAR_TEAMS?' car-cut':''}" onclick="event.stopPropagation()">
       <div class="car-tlist">${g.teams.map(t=>{const sub=ctx.showSeason?t.season:(gradeBelow?t.grade:t.comp);return `<div class="car-t"${t.tid&&t.sid?` onclick="loadTeam('${esc(t.tid)}','${esc(t.sid)}')"`:''}>
@@ -3147,7 +3200,7 @@ function carDraw(uuid){
     bEl.innerHTML=busy?`<span id="carprog-${esc(uuid)}">Reading ${pend} box score${pend===1?'':'s'}\u2026</span>`:'';
     if(needRows&&pend>0&&!st.building)carBuild(uuid);
   }
-  const ctx={chron,vals,avg,mx,hero,meas,cur,uuid,drill:st.drill,bars:st.bars,rev:st.order==='N',showSeason:st.mode!=='S'};
+  const ctx={chron,vals,avg,mx,hero,meas,cur,uuid,extras:carExtras(chron),drill:st.drill,bars:st.bars,rev:st.order==='N',showSeason:st.mode!=='S'};
   st.groups=list.slice();
   const lead=list.find(g=>!g.range);          // leftmost period card carries the avg label
   strip.innerHTML=list.map(g=>carCard(g,{...ctx,first:lead===g})).join('');
@@ -3264,9 +3317,11 @@ function foTile(p){
   const fo=careerFouledOut(p);
   if(fo===null)return '';          // the competition does not record them at all
   const gp=(p&&p.games&&p.games.length)||0;
+  // Every other tile is one game, so this one has to say it is not. "career"
+  // alone does that; the source was noise nothing else carries.
   return `<div class="hi-t hi-q"><div class="hi-k">Foul-outs</div><div class="hi-v">${fo}</div>
-    <div class="hi-w">career \u00b7 PlayHQ</div><div class="hi-d">${
-      fo&&gp?('one every '+Math.round(gp/fo)+' games'):'not a single-game figure'}</div></div>`;
+    <div class="hi-w">career total</div><div class="hi-d">${
+      fo&&gp?('one every '+Math.round(gp/fo)+' games'):'\u2014'}</div></div>`;
 }
 function highsHtml(rows){
   const tiles=HIGH_K.map(([k,label])=>{
@@ -3280,8 +3335,26 @@ function highsHtml(rows){
       <div class="hi-d">${esc([best.rn,carFmtD(best.date)].filter(Boolean).join(' · '))}</div></div>`;
   }).filter(Boolean).join('');
   const zero=rows.filter(r=>!(r.pts||0)).length;
-  return tiles+(zero?`<div class="hi-t hi-q"><div class="hi-k">0PT games</div>
+  return tiles+(zero?`<div class="hi-t hi-q"><div class="hi-k">${labelHTML('0PT games')}</div>
     <div class="hi-v">${zero}</div><div class="hi-w">of ${rows.length}</div><div class="hi-d">—</div></div>`:'');
+}
+/* A high is only ever the best of the lines actually READ, and that is fewer
+   than the games PlayHQ credits. Leaving the two numbers to differ silently is
+   the failure this app exists to avoid, so the shortfall is named and broken
+   down rather than left for someone to notice in a screenshot. */
+function highsGap(st,rows){
+  const n=st.scan||{};
+  const credited=n.credited||0;
+  if(!credited||rows.length>=credited)return '';
+  const missing=credited-rows.length;
+  const bits=[];
+  if(n.notInAnyFile)bits.push(n.notInAnyFile+' in no season file held');
+  if(n.noDate)bits.push(n.noDate+' with no date');
+  const rest=missing-(n.notInAnyFile||0)-(n.noDate||0);
+  if(rest>0)bits.push(rest+' whose box score names no line for this player');
+  if((st.missing||[]).length)bits.push((st.missing||[]).length+' season file(s) that would not load');
+  return `<div class="hi-note">Read from ${rows.length} game lines of the ${credited} PlayHQ credits${
+    bits.length?' — '+bits.join(', '):''}.</div>`;
 }
 function hydrateHighs(uuid){
   const host=el('phigh-'+uuid); if(!host)return;
@@ -3292,8 +3365,9 @@ function hydrateHighs(uuid){
     return;
   }
   const body=rows.length?`<div class="hi-grid">${highsHtml(rows)+foTile(st.p)}</div>`
-    :`<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Reading game lines…</div>`;
-  const part=pend?`<div class="hi-note">${pend} game${pend===1?'':'s'} still to read — these are the highs of the ${rows.length} held so far.</div>`:'';
+    :`<div class="sp-wait">Reading game lines…</div>`;
+  const part=pend?`<div class="hi-note">${pend} game${pend===1?'':'s'} still to read — these are the highs of the ${rows.length} held so far.</div>`
+             :highsGap(st,rows);
   host.innerHTML=`<div class="slist"><div class="sec-lbl">Career highs</div>${body}${part}</div>`;
 }
 async function buildHighs(uuid,btn){
@@ -3463,17 +3537,40 @@ async function buildMates(uuid,btn){
   const span=o=>{const k=[...o.per].sort((a,b)=>a-b);
     if(!k.length)return '';
     return k.length===1?periods[k[0]]:periods[k[0]]+' \u2013 '+periods[k[k.length-1]];};
-  host.innerHTML=`<div class="mt-hd">${list.length} team-mate${list.length===1?'':'s'} \u00b7 ${rosters} team sheet${rosters===1?'':'s'} \u00b7 ${periods.length} season${periods.length===1?'':'s'}${
-    noShared?` \u00b7 ${noShared} more on a squad list with no game recorded alongside`:''}</div>
-    <div class="mt-key"><span class="mt-ke">${esc(periods[0]||'')}</span>
-      <span class="mt-kt">one cell per season of this player\u2019s career, oldest to newest \u00b7 filled where they shared a team</span>
-      <span class="mt-ke">${esc(periods[periods.length-1]||'')}</span></div>
-    <div class="mt-grid">${list.map(o=>`<div class="mt-c" onclick="loadPlayer('${esc(o.id)}')" title="Open this player">
+  // Cards are for the people this player actually keeps playing with — more
+  // than one season. One season together is a squad-mate, not a nucleus, and a
+  // hundred of those as cards buries the handful that matter; they go in a list
+  // underneath. The rank is on the card because the order is games alongside
+  // and nothing else on the card says so.
+  const core=list.filter(o=>o.per.size>1);
+  const rest=list.filter(o=>o.per.size<=1);
+  const card=(o,i)=>`<div class="mt-c" onclick="loadPlayer('${esc(o.id)}')" title="Open this player">
+      <div class="mt-rk">#${i+1}</div>
       <div class="mt-n">${esc(displayName({name:o.name},o.id))}</div>
       <div class="mt-s">${o.g} game${o.g===1?'':'s'} alongside</div>
-      <div class="mt-tl">${periods.map((nm,i)=>`<i class="${o.per.has(i)?'on':''}" title="${
-        esc(o.per.has(i)?(nm+(o.tn[i]?' \u00b7 '+o.tn[i]:'')):(nm+' \u00b7 not together'))}"></i>`).join('')}</div>
-      <div class="mt-g">${esc(span(o))}</div></div>`).join('')}</div>`;
+      <div class="mt-tl">${periods.map((nm,j)=>`<i class="${o.per.has(j)?'on':''}" title="${
+        esc(o.per.has(j)?(nm+(o.tn[j]?' \u00b7 '+o.tn[j]:'')):(nm+' \u00b7 not together'))}"></i>`).join('')}</div>
+      <div class="mt-g">${esc(span(o))}</div></div>`;
+  const PER_ROW=5, ROWS=3, SHOWN=PER_ROW*ROWS;
+  const first=core.slice(0,SHOWN), more=core.slice(SHOWN);
+  host.innerHTML=`<div class="mt-hd">${list.length} team-mate${list.length===1?'':'s'} \u00b7 ${rosters} team sheet${rosters===1?'':'s'} \u00b7 ${periods.length} season${periods.length===1?'':'s'}${
+    noShared?` \u00b7 ${noShared} more on a squad list with no game recorded alongside`:''}</div>
+    ${core.length?`<div class="mt-key"><span class="mt-ke">${esc(periods[0]||'')}</span>
+      <span class="mt-kt">${core.length} played more than one season with this player \u00b7 one cell per season, oldest to newest, filled where they shared a team</span>
+      <span class="mt-ke">${esc(periods[periods.length-1]||'')}</span></div>
+    <div class="mt-grid">${first.map((o,i)=>card(o,list.indexOf(o))).join('')}</div>
+    ${more.length?`<div class="mt-grid mt-hide" id="mtmore-${esc(uuid)}">${more.map(o=>card(o,list.indexOf(o))).join('')}</div>
+      <button class="mt-btn" data-n="${more.length}" onclick="matesMore(this,'mtmore-${esc(uuid)}')">Show ${more.length} more</button>`:''}`:''}
+    ${rest.length?(()=>{
+      const li=o=>`<div class="mt-li" onclick="loadPlayer('${esc(o.id)}')" title="Open this player">
+        <span class="r">#${list.indexOf(o)+1}</span><span class="n">${esc(displayName({name:o.name},o.id))}</span>
+        <span class="s">${esc(span(o))}</span><span class="g">${o.g}</span></div>`;
+      const LIST_SHOWN=12;
+      const a=rest.slice(0,LIST_SHOWN), z=rest.slice(LIST_SHOWN);
+      return `<div class="mt-lhd">One season together \u00b7 ${rest.length}</div>
+        <div class="mt-list">${a.map(li).join('')}</div>
+        ${z.length?`<div class="mt-list mt-hide" id="mtrest-${esc(uuid)}">${z.map(li).join('')}</div>
+          <button class="mt-btn" data-n="${z.length}" onclick="matesMore(this,'mtrest-${esc(uuid)}')">Show ${z.length} more</button>`:''}`;})():''}`;
 }
 
 function renderPlayer(p){
@@ -4374,8 +4471,13 @@ function tcHas(rows,per,k){
 }
 function tcStats(rows,per){
   const out=TC_STATS.slice();
-  for(const k of Object.keys(TC_EXTRA))if(tcHas(rows,per,k))out.push(TC_EXTRA[k]);
+  for(const k of tcExtras(rows,per))out.push(TC_EXTRA[k]);
   return out;
+}
+/* The keys at least one row in this scope carries. One list for the hero bar,
+   the cards and the squad total, so all three agree. */
+function tcExtras(rows,per){
+  return Object.keys(TC_EXTRA).filter(k=>tcHas(rows,per,k));
 }
 /* GP ignores the measure — games per game is not a thing — so it must not pick
    up the decimal the measure gives everything else. */
@@ -4397,15 +4499,31 @@ function tcSet(key,k,v){const s=tcSt(key);s[k]=v;tcDraw(key);}
 function tcFlag(key,k){const s=tcSt(key);s[k]=!s[k];tcDraw(key);}
 function tcPick(key,uuid){const s=tcSt(key);s.sel=(s.sel===uuid?null:uuid);tcDraw(key);}
 
-function tcCells(q,meas){
-  const v=k=>meas==='G'?(q.gp?((q[k]||0)/q.gp).toFixed(1):'—'):(q[k]||0);
+/* ⚠️ `extras` is decided ONCE for the whole squad and passed in — it must never
+   be derived from the card's own q. Doing that gave one player an FO cell and
+   the next none, because the season leaderboard carries the field for some
+   entries and not others, and a card with seven cells does not line up with the
+   six beside it. Every card now shows the same cells; a player the data has no
+   figure for shows an em dash, which is the honest answer and also the one that
+   keeps the grid straight. */
+function tcCells(q,meas,extras){
+  const dash='\u2014';
+  const v=k=>{
+    if(!(k in q))return dash;
+    return meas==='G'?(q.gp?((q[k]||0)/q.gp).toFixed(1):dash):(q[k]||0);
+  };
   const cells=meas==='G'
     ? ['pts','fouls','ft','fg','threePt'].map(k=>[v(k),tcLbl(k,'G')])
-    : [[q.pts||0,'PTS'],[q.gp?((q.pts||0)/q.gp).toFixed(1):'—','PPG'],[q.fouls||0,'F'],[q.ft||0,'FT'],[q.fg||0,'FG'],[q.threePt||0,'3PT']];
-  // Extras are appended, never substituted: the six above are the grid every
-  // card has had, and six cells is what keeps two cards in a row in line.
-  for(const k of Object.keys(TC_EXTRA))if(k in q)cells.push([v(k),tcLbl(k,meas)]);
-  return cells.map(([x,l])=>`<div class="c"><div class="v">${x}</div><div class="l">${l}</div></div>`).join('');
+    : [[q.pts||0,'PTS'],[q.gp?((q.pts||0)/q.gp).toFixed(1):dash,'PPG'],[q.fouls||0,'F'],[q.ft||0,'FT'],[q.fg||0,'FG'],[q.threePt||0,'3PT']];
+  for(const k of (extras||[]))cells.push([v(k),tcLbl(k,meas)]);
+  return cells.map(([x,l])=>`<div class="c"><div class="v">${x}</div><div class="l">${labelHTML(l)}</div></div>`).join('');
+}
+/* A slashed zero for 0PT only. The app's own face has no `zero` OpenType
+   feature to switch on, and changing the interface font to get one is a large
+   change for one glyph — so just that character borrows a mono face that slashes
+   it by default. Everything else keeps the font it had. */
+function labelHTML(l){
+  return String(l).replace(/^0/,'<span class="z0">0</span>');
 }
 
 function tcDraw(key){
@@ -4433,6 +4551,7 @@ function tcDraw(key){
       per==='C'?'Reading career totals…':'No roster data.'}</div>`;
     return;
   }
+  const extras=tcExtras(rows,per);
   const ranked=rows.slice().sort((a,c)=>tcVal(c,hero,per,meas)-tcVal(a,hero,per,meas));
   const vals=ranked.map(r=>tcVal(r,hero,per,meas));
   const mx=Math.max(...vals,1);
@@ -4454,15 +4573,18 @@ function tcDraw(key){
         <span class="v">${tcFmt(v,meas,hero)}</span></div>`;}).join('')}
     </div></div>`:'';
 
-  const tot=rows.map(r=>per==='C'?r.car:r.sea).reduce((a,q)=>({gp:per==='S'?Math.max(a.gp,q.gp||0):a.gp+(q.gp||0),pts:a.pts+(q.pts||0),
-    fg:a.fg+(q.fg||0),ft:a.ft+(q.ft||0),threePt:a.threePt+(q.threePt||0),fouls:a.fouls+(q.fouls||0)}),
+  const tot=rows.map(r=>per==='C'?r.car:r.sea).reduce((a,q)=>{
+    const o={gp:per==='S'?Math.max(a.gp,q.gp||0):a.gp+(q.gp||0),pts:a.pts+(q.pts||0),
+      fg:a.fg+(q.fg||0),ft:a.ft+(q.ft||0),threePt:a.threePt+(q.threePt||0),fouls:a.fouls+(q.fouls||0)};
+    for(const k of extras)if(k in q)o[k]=(a[k]||0)+(q[k]||0);else if(k in a)o[k]=a[k];
+    return o;},
     {gp:0,pts:0,fg:0,ft:0,threePt:0,fouls:0});
   const totHero=(meas==='G'&&hero!=='gp')?(tot.gp?((tot[hero]||0)/tot.gp).toFixed(1):'\u2014'):(tot[hero]||0);
   const summary=`<div class="tc-card sum">
     <div class="tc-h"><div class="tc-nm">Squad total</div></div>
     <div class="tc-mt">${rows.length} players · ${tot.gp} ${per==='S'?'games':'appearances'}${per==='C'?' · career':''}</div>
     <div class="tc-hero"><div class="tc-big">${totHero}</div><div class="tc-unit">${esc(meas==='G'?('team '+lbl.toLowerCase()):lbl)}</div></div>
-    <div class="tc-mini">${tcCells(tot,meas).replace('>PPG<','>TEAM PPG<')}</div></div>`;
+    <div class="tc-mini">${tcCells(tot,meas,extras).replace('>PPG<','>TEAM PPG<')}</div></div>`;
 
   host.innerHTML=bar+`<div class="tc-grid">${chart}${summary}${list.map(r=>{
     const i=ranked.indexOf(r), v=tcVal(r,hero,per,meas), q=per==='C'?r.car:r.sea;
@@ -4471,9 +4593,9 @@ function tcDraw(key){
       <div class="tc-h"><div class="tc-nm" title="Open ${esc(r.name)}" onclick="event.stopPropagation();loadPlayer('${esc(r.uuid)}')">${esc(r.name)}</div>
         <div class="tc-rk">#${i+1}/${ranked.length}</div></div>
       <div class="tc-mt">${(hero==='gp'&&teamGames)?`of ${teamGames} team game${teamGames===1?'':'s'}`:`${q.gp||0} game${(q.gp||0)===1?'':'s'}`}${per==='C'?' · career':''}</div>
-      <div class="tc-hero"><div class="tc-big">${tcFmt(v,meas,hero)}</div><div class="tc-unit">${esc(lbl)}</div>
+      <div class="tc-hero"><div class="tc-big">${tcFmt(v,meas,hero)}</div><div class="tc-unit">${labelHTML(esc(lbl))}</div>
         ${share?`<div class="tc-shr" title="${share}% of the squad's ${esc(word)}">${share}%</div>`:''}</div>
-      <div class="tc-mini">${tcCells(q,meas)}</div></div>`;}).join('')}</div>`;
+      <div class="tc-mini">${tcCells(q,meas,extras)}</div></div>`;}).join('')}</div>`;
 }
 
 /* Career blocks land asynchronously; repaint when they do, but only while this
@@ -4686,6 +4808,12 @@ async function tcAvail(key,tid,sid,btn){
         r.cells.map((c,i)=>`<span class="c ${c?'on':'out'}" title="${esc(fx[i].oppName||'')} \u00b7 ${c?'played':'did not play'}"></span>`).join('')}
         <span class="tot">${r.n}/${fx.length}</span></div>`).join('')}
     </div>`;
+}
+
+function matesMore(btn,id){
+  const box=el(id); if(!box)return;
+  const open=box.classList.toggle('mt-hide')===false;
+  btn.textContent=open?'Show fewer':('Show '+btn.dataset.n+' more');
 }
 
 /* ── SEASON FOUL-OUTS (v1.71) ──────────────────────────────────────────────
