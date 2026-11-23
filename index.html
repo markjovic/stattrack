@@ -947,7 +947,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.90</span>
+      <span class="rail-ver">v1.91</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2232,7 +2232,7 @@ async function grBuild(sid){
     const playedAll=apps.filter(grPlayed);
     const lastPlayedGid=playedAll.length?playedAll[playedAll.length-1].gid:null;
     let superseded=0;
-    const keep=[];
+    let keep=[];
     for(const list of byRound.values()){
       // Two PLAYED games in one round are both real — that case stands.
       const term=list.filter(grPlayed);
@@ -2243,6 +2243,28 @@ async function grBuild(sid){
       else { keep.push(list[0]); superseded+=list.length-1; }
     }
     keep.sort((x,y)=>{ const A=x.d+' '+x.t, B=y.d+' '+y.t; return A<B?-1:A>B?1:0; });
+
+    /* Rounds that exist ONLY in the grade the team has left survive the pass
+       above, because there is no paired fixture to prefer over them — Magic 1's
+       Rounds 11-16 sit under AR alone. When the remaining fixtures include BOTH
+       the team's current grade and a grade they have already left, the ones in
+       the old grade are residue. When every remaining fixture is in one OTHER
+       grade that is a genuine scheduled move and is kept; when none match the
+       current grade nothing is assumed.
+       ⚠️ This is inference from shape, and the pipeline deliberately refuses to
+       DELETE on that basis — see claude/fixture-refresh-and-withdrawals.md §3.
+       This only hides rows in this view; it removes nothing from games/bv. */
+    {
+      const kp=keep.filter(grPlayed), kf=keep.filter(a=>!grPlayed(a));
+      if(kp.length&&kf.length){
+        const cur=kp[kp.length-1].gid;
+        const futGids=new Set(kf.map(a=>a.gid));
+        if(futGids.size>1&&futGids.has(cur)){
+          superseded+=kf.filter(a=>a.gid!==cur).length;
+          keep=keep.filter(a=>grPlayed(a)||a.gid===cur);
+        }
+      }
+    }
     apps=keep;
 
     /* ⚠️ A PLAYED GAME IS A FACT; AN UNPLAYED FIXTURE IS A PLAN, AND PLANS
