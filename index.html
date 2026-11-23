@@ -654,6 +654,10 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .gr-res.w{color:#4ade80}.gr-res.l{color:#f87171}.gr-res.d{color:var(--text2)}.gr-res.p{color:var(--text3);font-weight:500;font-size:0.65rem}
 .gr-g{color:var(--text2);font-size:0.7rem}
 .gr-gmv{color:var(--text);border-bottom:1px dotted var(--text3);cursor:help}
+.gr-trow{cursor:pointer}
+.gr-trow:hover td{background:var(--elevated)}
+.gr-tlink{cursor:pointer}
+.gr-tlink:hover{color:var(--accent)}
 #gr-tip{position:fixed;z-index:60;max-width:330px;padding:8px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--border);box-shadow:0 6px 22px rgba(0,0,0,0.5);font-size:0.72rem;line-height:1.5;pointer-events:none;opacity:0;transition:opacity 0.1s}
 #gr-tip.on{opacity:1}
 .gr-tiph{font-weight:700;color:var(--accent);margin-bottom:4px}
@@ -943,7 +947,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.87</span>
+      <span class="rail-ver">v1.90</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2206,8 +2210,40 @@ async function grBuild(sid){
   }
 
   const teams=new Map();
-  for(const [tid,apps] of byTeam.entries()){
+  for(const [tid,apps0] of byTeam.entries()){
+    let apps=apps0;
     apps.sort((x,y)=>{ const A=x.d+' '+x.t, B=y.d+' '+y.t; return A<B?-1:A>B?1:0; });
+
+    /* ⚠️ DELETED FIXTURES ARE STILL IN games/bv, AND THEY LOOK LIKE REGRADES.
+       When a team is moved, PlayHQ's fixtures for its OLD grade are superseded
+       but our copy keeps them. Maroondah Magic 1 (43878738) holds TWO fixtures
+       for every round from 6 on: one in AR and one in A. The AR ones for 13 Nov
+       and 20 Nov are still UPCOMING with dates in the past, while the A games
+       for those same rounds were played — which is the tell (Mark, 2026-11-23).
+       A team plays ONE game per round per grade, so for each round: keep every
+       game that was actually played, and when a round has only unplayed
+       fixtures keep the one in the grade the team last played in. */
+    const byRound=new Map();
+    for(const a of apps){
+      const k=a.rn||('@'+a.d);
+      if(!byRound.has(k)) byRound.set(k,[]);
+      byRound.get(k).push(a);
+    }
+    const playedAll=apps.filter(grPlayed);
+    const lastPlayedGid=playedAll.length?playedAll[playedAll.length-1].gid:null;
+    let superseded=0;
+    const keep=[];
+    for(const list of byRound.values()){
+      // Two PLAYED games in one round are both real — that case stands.
+      const term=list.filter(grPlayed);
+      if(term.length){ keep.push(...term); superseded+=list.length-term.length; continue; }
+      if(list.length===1){ keep.push(list[0]); continue; }
+      const match=list.filter(a=>a.gid===lastPlayedGid);
+      if(match.length){ keep.push(match[0]); superseded+=list.length-match.length; }
+      else { keep.push(list[0]); superseded+=list.length-1; }
+    }
+    keep.sort((x,y)=>{ const A=x.d+' '+x.t, B=y.d+' '+y.t; return A<B?-1:A>B?1:0; });
+    apps=keep;
 
     /* ⚠️ A PLAYED GAME IS A FACT; AN UNPLAYED FIXTURE IS A PLAN, AND PLANS
        CONTRADICT EACH OTHER. PlayHQ carries future fixtures for a regraded
@@ -2252,7 +2288,7 @@ async function grBuild(sid){
     const hops=[];
     for(let i=1;i<segs.length;i++)
       hops.push({week:segs[i].fromWeek,date:segs[i].from,from:segs[i-1].gid,to:segs[i].gid,future:segs[i].future});
-    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops,conflict,
+    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops,conflict,superseded,
                    alt:[...(tAlt.get(tid)||new Map()).entries()],
                    gids:new Set(segs.map(s=>s.gid))});
   }
@@ -2419,8 +2455,7 @@ function grListGroups(sid,M){
   if(!M.teams.size){ box.innerHTML='<div class="ri-empty">No games held for this competition.</div>'; return; }
   let h='';
   if(M.gidCoverage<0.9){
-    h+=`<div class="gr-warn">Only ${(M.gidCoverage*100).toFixed(0)}% of this competition's games record a grade.
-        Moves during the ungraded rounds cannot be seen in this data.</div>`;
+    h+=`<div class="gr-warn">Grade recorded on ${(M.gidCoverage*100).toFixed(0)}% of games</div>`;
   }
   h+=M.groups.map(G=>`<div class="ri" onclick="grOpen('${esc(sid)}','${esc(G.key)}')">
       <div class="ri-name">${esc(G.label)}</div>
@@ -2587,7 +2622,7 @@ function grRender(){
         </select>
         ${GRSEL?`<button class="rbtn gr-selbtn" onclick="grPickGrade('${esc(GRSEL)}')">✕ ${esc(selName||'grade')} · ${selSet?selSet.size:0} team${(selSet?selSet.size:0)===1?'':'s'} marked</button>`:''}
       </div>
-      <div class="gr-note">Rows are in name order; nothing here ranks one grade above another. Dashed = scheduled, not yet played. Click a grade to mark every team that has ever been in it, and again to clear — box sizes and counts always show the whole grade.</div>
+      <div class="gr-note">Dashed = not yet played. Click a grade to mark its teams.</div>
     </div>
     <div class="gr-wrap">${gutter}<div class="gr-scroll">${svg}</div></div>
     <div id="gr-team"></div>`;
@@ -2650,7 +2685,8 @@ function grTeamCard(tid){
     else { res=esc(a.st||'TBP'); cls='p'; }
     const wk=grWeek(a.d), oppThen=atOf(a.opp,wk), oppNow=finalOf(a.opp);
     const moved=oppThen&&oppNow&&oppThen!==oppNow;
-    return `<tr><td class="gr-d">${esc(grDayLabel(a.d))}</td><td class="gr-r">${esc(a.rn)}</td>
+    const open=grPlayed(a)?` class="gr-trow" onclick="openSheet('${esc(a.key)}','${esc(GRCUR.sid)}')"`:'';
+    return `<tr${open}><td class="gr-d">${esc(grDayLabel(a.d))}</td><td class="gr-r">${esc(a.rn)}</td>
       <td>${esc(a.oppName||a.opp||'')}</td>
       <td class="gr-sc">${grPlayed(a)?`${my}–${th}`:'–'}</td>
       <td class="gr-res ${cls}">${res}</td><td class="gr-g">${esc(a.grade||'')}</td>
@@ -2659,20 +2695,14 @@ function grTeamCard(tid){
   }).join('');
   const path=t.segs.map(s=>`<span class="${s.future?'gr-pf':''}">${esc(s.grade)}</span> <span class="gr-pd">(${esc(grDayLabel(s.from))}${s.future?', scheduled':''})</span>`).join(' → ');
   const played=w+l+d;
-  const others=(t.alt||[]).filter(([n])=>n!==t.name);
-  const altLine=others.length
-    ? `<div class="gr-alt">also recorded as ${others.map(([n,src])=>`${esc(n)} <span class="gr-pd">(${esc(src)})</span>`).join(', ')} · id ${esc(t.tid)}</div>`
-    : `<div class="gr-alt">id ${esc(t.tid)}</div>`;
   box.innerHTML=`<div class="gr-tcard">
-    <div class="rec-title">${esc(t.name)}</div>
-    ${altLine}
+    <div class="rec-title gr-tlink" onclick="loadTeam('${esc(t.tid)}','${esc(GRCUR.sid)}')" title="Open this team">${esc(t.name)} ›</div>
     <div class="gr-path">${path}</div>
-    <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}</div>
-    ${t.conflict?`<div class="gr-warn">Unsettled: this team holds scheduled fixtures in ${t.conflict.map(esc).join(' and ')}. Those fixtures disagree, so the diagram carries their last played grade forward rather than inferring a move.</div>`:''}
+    <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}${t.superseded?` · ${t.superseded} superseded fixture${t.superseded===1?'':'s'} hidden`:''}</div>
     <div class="gr-tablewrap"><table class="gr-table">
       <thead><tr><th>Date</th><th>Round</th><th>Opponent</th><th>Score</th><th></th><th>Our grade</th><th>Their grade then</th><th>Their grade now</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-    <div class="gr-note">"Then" is the grade that opponent was in the week you played them; "now" is their last grade of the season. An underlined value means those two differ — that opponent moved afterwards. It is a marker, not a verdict.</div>
+    <div class="gr-note">Underlined = that opponent moved grade afterwards.</div>
   </div>`;
 }
 
