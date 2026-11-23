@@ -943,7 +943,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.86</span>
+      <span class="rail-ver">v1.87</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2208,19 +2208,51 @@ async function grBuild(sid){
   const teams=new Map();
   for(const [tid,apps] of byTeam.entries()){
     apps.sort((x,y)=>{ const A=x.d+' '+x.t, B=y.d+' '+y.t; return A<B?-1:A>B?1:0; });
-    const segs=[];
-    for(const a of apps){
-      const last=segs[segs.length-1];
-      if(last&&last.gid===a.gid){ last.apps.push(a); last.to=a.d; }
-      else segs.push({gid:a.gid,grade:a.grade,from:a.d,fromWeek:grWeek(a.d),to:a.d,apps:[a]});
+
+    /* ⚠️ A PLAYED GAME IS A FACT; AN UNPLAYED FIXTURE IS A PLAN, AND PLANS
+       CONTRADICT EACH OTHER. PlayHQ carries future fixtures for a regraded
+       team in BOTH its old and new grade — Maroondah Magic 1 (43878738) holds
+       two fixtures on 4 Dec, one in A and one in AR. Segmenting over every
+       fixture made the team flip grade week by week, and a stale AR fixture on
+       20 Nov dragged them out of A for the week of 16 Nov, where they had in
+       fact played in A (Mark, 2026-11-23).
+       So: segments come from PLAYED games. Unplayed fixtures add a scheduled
+       move only when they agree on one grade; when they disagree the grade is
+       unsettled, the last played grade carries forward, and the team card says
+       so rather than inventing a move. */
+    const playedApps=apps.filter(grPlayed), futureApps=apps.filter(a=>!grPlayed(a));
+    const runs=list=>{
+      const out=[];
+      for(const a of list){
+        const last=out[out.length-1];
+        if(last&&last.gid===a.gid){ last.apps.push(a); last.to=a.d; }
+        else out.push({gid:a.gid,grade:a.grade,from:a.d,fromWeek:grWeek(a.d),to:a.d,apps:[a],future:false});
+      }
+      return out;
+    };
+    let segs, conflict=null;
+    if(playedApps.length){
+      segs=runs(playedApps);
+      const lastGid=segs[segs.length-1].gid;
+      const futGids=[...new Set(futureApps.map(a=>a.gid))];
+      const other=futGids.filter(g=>g!==lastGid);
+      if(futGids.length===1&&other.length===1){
+        // every remaining fixture is in one NEW grade: an unambiguous plan
+        const first=futureApps.find(a=>a.gid===other[0]);
+        segs.push({gid:first.gid,grade:first.grade,from:first.d,fromWeek:grWeek(first.d),
+                   to:futureApps[futureApps.length-1].d,
+                   apps:futureApps.filter(a=>a.gid===first.gid),future:true});
+      }else if(other.length){
+        conflict=futGids.map(g=>(futureApps.find(a=>a.gid===g)||{}).grade).filter(Boolean);
+      }
+    }else{
+      // season not started for this team — every fixture is a plan
+      segs=runs(apps); for(const sg of segs) sg.future=true;
     }
-    // A segment is "future" while none of its games have been played — a
-    // regrade that is known but has not happened on the court yet.
-    for(const s of segs) s.future=!s.apps.some(grPlayed);
     const hops=[];
     for(let i=1;i<segs.length;i++)
       hops.push({week:segs[i].fromWeek,date:segs[i].from,from:segs[i-1].gid,to:segs[i].gid,future:segs[i].future});
-    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops,
+    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops,conflict,
                    alt:[...(tAlt.get(tid)||new Map()).entries()],
                    gids:new Set(segs.map(s=>s.gid))});
   }
@@ -2636,6 +2668,7 @@ function grTeamCard(tid){
     ${altLine}
     <div class="gr-path">${path}</div>
     <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}</div>
+    ${t.conflict?`<div class="gr-warn">Unsettled: this team holds scheduled fixtures in ${t.conflict.map(esc).join(' and ')}. Those fixtures disagree, so the diagram carries their last played grade forward rather than inferring a move.</div>`:''}
     <div class="gr-tablewrap"><table class="gr-table">
       <thead><tr><th>Date</th><th>Round</th><th>Opponent</th><th>Score</th><th></th><th>Our grade</th><th>Their grade then</th><th>Their grade now</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
