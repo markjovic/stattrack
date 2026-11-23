@@ -642,6 +642,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .gr-path{font-size:0.8rem;margin:4px 0 2px;line-height:1.6}
 .gr-pf{color:var(--text3);font-style:italic}
 .gr-pd{color:var(--text3);font-size:0.68rem}
+.gr-alt{font-size:0.68rem;color:var(--text3);margin:2px 0 4px;font-family:ui-monospace,monospace}
 .gr-rec{font-size:0.74rem;color:var(--text2);margin-bottom:8px}
 .gr-tablewrap{overflow:auto}
 .gr-table{width:100%;border-collapse:collapse;font-size:0.74rem}
@@ -942,7 +943,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.85</span>
+      <span class="rail-ver">v1.86</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2147,18 +2148,35 @@ const grPlayed = a => a.st==='FINAL' && Number.isFinite(Number(a.my)) && Number.
 
 async function grBuild(sid){
   if(GR[sid]) return GR[sid];
-  const [gf,ts]=await Promise.all([sgj('games/bv',sid),sgj('team-stats/bv',sid)]);
+  // team-index is AWAITED, not fired off: the model is cached after this, so a
+  // name resolved before the index arrives would be wrong for the whole session.
+  const [gf,ts]=await Promise.all([sgj('games/bv',sid),sgj('team-stats/bv',sid),loadTeamIdx()]);
   const games=(gf&&gf.games)||{};
 
   // The game carries `gn` right beside `gid`, so that is the first source.
   // sports-index grades[] goes stale; team-stats meta.grade is a third.
   const idxGrades=new Map();
   for(const gr of (S.idx?.seasons?.[sid]?.grades||[])) if(gr&&gr.id) idxGrades.set(gr.id,gr.name);
-  const tsGrade=new Map(), tName=new Map();
+  const tsGrade=new Map(), tName=new Map(), tAlt=new Map();
+  const noteName=(tid,nm,src)=>{
+    if(!tid||!nm) return;
+    if(!tAlt.has(tid)) tAlt.set(tid,new Map());
+    if(!tAlt.get(tid).has(nm)) tAlt.get(tid).set(nm,src);
+  };
   for(const [tid,rec] of Object.entries(ts||{})){
     const meta=rec&&rec.meta; if(!meta)continue;
-    if(meta.name) tName.set(tid,meta.name);
+    if(meta.name){ tName.set(tid,meta.name); noteName(tid,meta.name,'team-stats'); }
     if(meta.gid&&meta.grade&&!tsGrade.has(meta.gid)) tsGrade.set(meta.gid,meta.grade);
+  }
+  // data/team-index.json is the MAINTAINED team name — update-team-index.js
+  // corrects it, and a game record can carry a grade-prefixed PlayHQ form
+  // instead ("U13 Boys MRM1" for Maroondah Magic 1). Only used if the index is
+  // already loaded; this never forces a fetch of a 368k-team file.
+  const seasonName=S.idx?.seasons?.[sid]?.name;
+  for(const t of ((S.teamIdx||{})[seasonName]||[])){
+    if(!t||!t.id||!t.n||t.sid!==sid) continue;
+    noteName(t.id,t.n,'team-index');
+    tName.set(t.id,t.n);
   }
   const gradeOf=(gid,gn)=> grNorm(gn) || idxGrades.get(gid) || tsGrade.get(gid) || null;
 
@@ -2171,6 +2189,7 @@ async function grBuild(sid){
     if(!nm) unnamed.add(g.gid);
     const h=hTid(g), a=aTid(g);           // T44: h/a OR t1/t2, never both
     const [hn,an]=teamNames(g);
+    noteName(h,hn,'game'); noteName(a,an,'game');
     if(h&&hn&&!tName.has(h)) tName.set(h,hn);
     if(a&&an&&!tName.has(a)) tName.set(a,an);
     for(const side of [0,1]){
@@ -2201,7 +2220,9 @@ async function grBuild(sid){
     const hops=[];
     for(let i=1;i<segs.length;i++)
       hops.push({week:segs[i].fromWeek,date:segs[i].from,from:segs[i-1].gid,to:segs[i].gid,future:segs[i].future});
-    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops,gids:new Set(segs.map(s=>s.gid))});
+    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops,
+                   alt:[...(tAlt.get(tid)||new Map()).entries()],
+                   gids:new Set(segs.map(s=>s.gid))});
   }
 
   const groups=new Map();
@@ -2606,8 +2627,13 @@ function grTeamCard(tid){
   }).join('');
   const path=t.segs.map(s=>`<span class="${s.future?'gr-pf':''}">${esc(s.grade)}</span> <span class="gr-pd">(${esc(grDayLabel(s.from))}${s.future?', scheduled':''})</span>`).join(' → ');
   const played=w+l+d;
+  const others=(t.alt||[]).filter(([n])=>n!==t.name);
+  const altLine=others.length
+    ? `<div class="gr-alt">also recorded as ${others.map(([n,src])=>`${esc(n)} <span class="gr-pd">(${esc(src)})</span>`).join(', ')} · id ${esc(t.tid)}</div>`
+    : `<div class="gr-alt">id ${esc(t.tid)}</div>`;
   box.innerHTML=`<div class="gr-tcard">
     <div class="rec-title">${esc(t.name)}</div>
+    ${altLine}
     <div class="gr-path">${path}</div>
     <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}</div>
     <div class="gr-tablewrap"><table class="gr-table">
@@ -2635,7 +2661,7 @@ function switchTab(tab){
   document.querySelectorAll('.stab').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   ['players','teams','venues','clubs','leaders','grading'].forEach(t=>el('pnl-'+t).classList.toggle('hidden',t!==tab));
   if(tab==='clubs')  buildClubList();
-  if(tab==='grading')buildGradingPicker();
+  if(tab==='grading'){buildGradingPicker();loadTeamIdx();}
   if(tab==='leaders'){showV('view-leaders');loadLB();}
 }
 function switchFromTop(tab){
