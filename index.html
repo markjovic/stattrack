@@ -600,31 +600,40 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .lb-stat:hover:not(.on){background:var(--elevated);color:var(--text)}
 .lb-row{display:grid;grid-template-columns:2rem 1fr auto;gap:6px;padding:9px 14px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s}
 .lb-row:hover{background:var(--elevated)}
-/* ── Grading flow ── */
+/* -- Grading flow -- */
 .gr-warn{margin:8px;padding:8px 10px;border-radius:6px;background:rgba(255,180,0,0.10);color:#ffcc66;font-size:0.72rem;line-height:1.45}
 .gr-head{padding:14px 16px;border-bottom:1px solid var(--border)}
 .gr-title{font-size:1.15rem;font-weight:700;letter-spacing:-0.4px;margin-top:6px}
 .gr-sub{font-size:0.76rem;color:var(--text2);margin-top:3px}
 .gr-note{font-size:0.68rem;color:var(--text3);margin-top:6px;line-height:1.45}
-.gr-clear{margin-top:8px}
-.gr-scroll{overflow:auto;padding:4px 10px 14px;max-height:66vh}
+.gr-ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.gr-tsel{max-width:300px}
+.gr-selbtn{background:var(--accent-dim);color:var(--accent)}
+.gr-wrap{display:flex;align-items:flex-start;max-height:62vh;overflow-y:auto}
+.gr-gutter{flex:0 0 118px;position:sticky;left:0;z-index:2;background:var(--surface);border-right:1px solid var(--border)}
+.gr-grow{display:flex;align-items:center;justify-content:flex-end;padding:0 10px;font-size:0.72rem;color:var(--text2);cursor:pointer;text-align:right;line-height:1.2}
+.gr-grow span{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gr-grow:hover{color:var(--text)}
+.gr-grow.sel{color:var(--accent);font-weight:700}
+.gr-scroll{overflow-x:auto;padding:0 10px 10px}
 .gr-svg{display:block}
-.gr-colh{fill:var(--text);font-size:12px;font-weight:700}
-.gr-cols{fill:var(--text3);font-size:10px}
-.gr-box rect{fill:var(--elevated);stroke:var(--border);transition:stroke 0.12s}
-.gr-box:hover rect{stroke:var(--accent)}
+.gr-colh{fill:var(--text);font-size:11px;font-weight:700}
+.gr-cols{fill:var(--text3);font-size:9px}
 .gr-box{cursor:pointer}
-.gr-boxt{fill:var(--text);font-size:11px;font-weight:600}
-.gr-boxn{fill:var(--accent);font-size:11px;font-weight:700}
-.gr-flow{fill:none;stroke:var(--accent);stroke-opacity:0.32;cursor:pointer;transition:stroke-opacity 0.12s}
-.gr-flow:hover{stroke-opacity:0.85}
-.gr-teamlist{padding:12px 16px;border-top:1px solid var(--border)}
-.gr-chip{display:inline-block;margin:0 5px 5px 0;padding:4px 9px;border-radius:12px;background:var(--elevated);color:var(--text2);font-size:0.72rem}
-.gr-chip.moved{color:var(--text);box-shadow:inset 0 0 0 1px var(--accent-dim)}
-.gr-chip:hover{background:var(--accent-dim);color:var(--accent)}
-.gr-chipn{color:var(--accent);font-weight:700}
+.gr-box rect{fill:var(--elevated);stroke:var(--border);transition:fill 0.12s,stroke 0.12s}
+.gr-box:hover rect{stroke:var(--accent)}
+.gr-box.sel rect{fill:var(--accent-dim);stroke:var(--accent)}
+.gr-box.hot rect{fill:var(--accent);stroke:var(--accent)}
+.gr-box.fut rect{fill:none;stroke-dasharray:3 3;stroke:var(--text3)}
+.gr-boxn{fill:var(--text2);font-size:10px;font-weight:700;pointer-events:none}
+.gr-box.hot .gr-boxn{fill:#000}
+.gr-flow{fill:none;stroke:var(--accent);stroke-opacity:0.22;cursor:pointer;transition:stroke-opacity 0.12s}
+.gr-flow:hover{stroke-opacity:0.7}
+.gr-flow.fut{stroke-dasharray:5 4;stroke:var(--text3);stroke-opacity:0.5}
+.gr-flow.hot{stroke-opacity:0.95}
 .gr-tcard{padding:14px 16px;border-top:2px solid var(--border)}
 .gr-path{font-size:0.8rem;margin:4px 0 2px;line-height:1.6}
+.gr-pf{color:var(--text3);font-style:italic}
 .gr-pd{color:var(--text3);font-size:0.68rem}
 .gr-rec{font-size:0.74rem;color:var(--text2);margin-bottom:8px}
 .gr-tablewrap{overflow:auto}
@@ -634,12 +643,16 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .gr-d,.gr-r{color:var(--text2)}
 .gr-sc{font-variant-numeric:tabular-nums}
 .gr-res{font-weight:700;text-align:center}
-.gr-res.w{color:#4ade80}.gr-res.l{color:#f87171}.gr-res.d{color:var(--text2)}
+.gr-res.w{color:#4ade80}.gr-res.l{color:#f87171}.gr-res.d{color:var(--text2)}.gr-res.p{color:var(--text3);font-weight:500;font-size:0.65rem}
 .gr-g{color:var(--text2);font-size:0.7rem}
 .gr-gmv{color:var(--accent)}
-#gr-tip{position:fixed;z-index:60;max-width:260px;padding:8px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--border);box-shadow:0 6px 22px rgba(0,0,0,0.5);font-size:0.72rem;line-height:1.5;pointer-events:none;opacity:0;transition:opacity 0.1s}
+#gr-tip{position:fixed;z-index:60;max-width:330px;padding:8px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--border);box-shadow:0 6px 22px rgba(0,0,0,0.5);font-size:0.72rem;line-height:1.5;pointer-events:none;opacity:0;transition:opacity 0.1s}
 #gr-tip.on{opacity:1}
-.gr-tiph{font-weight:700;color:var(--accent);margin-bottom:3px}
+.gr-tiph{font-weight:700;color:var(--accent);margin-bottom:4px}
+.gr-tr{display:flex;justify-content:space-between;gap:12px}
+.gr-tr.hot{color:var(--accent)}
+.gr-tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gr-tv{color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .gr-tipm{color:var(--text3)}
 .rec-card{padding:14px 16px;border-bottom:2px solid var(--border);margin-bottom:8px}
 .rec-title{font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px}
@@ -920,7 +933,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.80</span>
+      <span class="rail-ver">v1.81</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -962,8 +975,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div id="pnl-leaders" class="panel hidden"></div>
     <div id="pnl-grading" class="panel hidden">
       <div class="swrap-hdr"><span>Grading flow</span><button class="rbtn" onclick="grReset()">✕ Clear</button></div>
+      <div class="swrap"><input id="q-gtm" class="sinput" placeholder="Search a team to find its competition…" autocomplete="off" spellcheck="false"></div>
       <div class="sseason sfilters">
-        <select id="q-gsn" class="sselect" onchange="grBuildComps()"><option value="">Select season…</option></select>
+        <select id="q-gsn" class="sselect" onchange="grBuildComps()"><option value="">… or pick a season</option></select>
         <select id="q-gcp" class="sselect" disabled onchange="grPickComp()"><option value="">Competition — select a season</option></select>
       </div>
       <div id="res-gr" class="sresults"></div>
@@ -2033,45 +2047,52 @@ async function h2hSearch(fromUuid,q){
 }
 
 /* ══ GRADING / REGRADE FLOW ══════════════════════════════════════════════════
-   Where teams moved between grades during a season, as a flow of teams between
-   grade boxes, one column per week in which something changed.
+   Where teams moved between grades during a season. Grades are ROWS with a
+   sticky name gutter; each column is a week in which something changed, and a
+   box is a plain block whose HEIGHT is how many teams were in that grade then.
 
    THE CHRONOLOGY COMES FROM GAMES AND NOTHING ELSE. A registration carries no
    date and reg array order says nothing (T57), so the only record of "which
    grade was this team in, when" is each game's own gid plus its date. A move is
    where two consecutive GAMES differ in grade, dated at the later one.
    ⚠️ A team that played two grades in one week really did play two grades that
-   week. That is data, not an anomaly to collapse to one grade per week
-   (Mark, 2026-11-23). 24 such team-weeks exist in Kilsyth Winter 2026.
+   week. That is data, not an anomaly to collapse (Mark, 2026-11-23).
+
+   UNPLAYED FIXTURES COUNT. A team whose next scheduled game is in a new grade
+   has been regraded, and that shows before the game is played. Those boxes and
+   ribbons are drawn dashed, and an unplayed game never enters a W/L tally.
 
    ⚠️ NO STRENGTH ORDER, ANYWHERE. Rows are sorted by grade NAME for stable
-   layout only. Nothing here says one grade is above another, nothing is
-   labelled "up" or "down", and no quality-weighted record is computed. Which
-   wins were better is the viewer's judgement; this shows them the data to make
-   it. Do not add a rank, a "moved up" label or a weighted record.
+   layout only. Nothing says one grade is above another, nothing is labelled
+   "up" or "down", no quality-weighted record is computed. Which wins were
+   better is the viewer's judgement. Do not add a rank or a weighted record.
 
    Measured on Kilsyth Junior Domestic Winter 2026 (8ff9f39e), 2026-11-23:
    6,790 games, 96.1% carrying a gid, zero grading grades, 792 teams of which
-   385 (48.6%) change grade across 13 change-weeks — 2 to 7 per age group. U7 is
-   the only group still moving after 22 June. Other associations differ: EDJBA
-   carries a gid on grading and finals ONLY, so its regular season is blank and
-   a move inside it cannot be seen. The panel says so when it detects that.
+   385 (48.6%) change grade across 13 change-weeks — 2 to 7 per age group.
+   EDJBA and CBL carry a gid on grading and finals ONLY, so a move inside their
+   regular season cannot be seen; the panel says so rather than drawing it.
 */
 
 const GR = {};            // sid -> computed model
-let GRFOCUS = null;       // Set of tids, or null for everything
-let GRCUR = null;         // {sid, groupKey}
+let GRSEL  = null;        // selected GRADE (gid) — filters to teams ever in it
+let GRTEAM = null;        // highlighted team (tid) — highlights, never filters
+let GRCUR  = null;        // {sid, key}
 
 function grNorm(s){ return String(s??'').replace(/\s+/g,' ').trim(); }
 
-/* Monday of the week containing a YYYY-MM-DD. Built from parts — never
+/* Monday of the week containing a YYYY-MM-DD, built from parts — never
    new Date(string), per the house rule. */
 function grWeek(ymd){
   const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd||''));
   if(!m)return '';
   const t=Date.UTC(+m[1],+m[2]-1,+m[3]);
-  const back=(new Date(t).getUTCDay()+6)%7;
-  return new Date(t-back*86400000).toISOString().slice(0,10);
+  return new Date(t-((new Date(t).getUTCDay()+6)%7)*86400000).toISOString().slice(0,10);
+}
+function grShift(ymd,days){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd||''));
+  if(!m)return ymd;
+  return new Date(Date.UTC(+m[1],+m[2]-1,+m[3])+days*86400000).toISOString().slice(0,10);
 }
 function grDayLabel(ymd){
   const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd||''));
@@ -2080,18 +2101,17 @@ function grDayLabel(ymd){
   return `${+m[3]} ${M[+m[2]-1]}`;
 }
 
-/* Grade names read "Saturday U15 Boys C", "Wednesday U12 Girls BRES",
-   "Tuesday U9 Girls CRES". The DAY is part of the grade's identity — a panel
-   keyed on age alone would merge Saturday U9 Boys with Tuesday U9 Girls. */
+/* Grade names read "Saturday U15 Boys C", "Wednesday U12 Girls BRES". The DAY
+   is part of the grade's identity — a panel keyed on age alone would merge
+   Saturday U9 Boys with Tuesday U9 Girls. */
 const GR_DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 function grParse(name){
   const s=grNorm(name);
   let day=null;
   for(const d of GR_DAYS){ if(new RegExp('\\b'+d+'\\b','i').test(s)){ day=d; break; } }
   let age=null, m=/\b(?:u|under\s*)(\d{1,2})\b/i.exec(s);
-  if(m) age='U'+Number(m[1]);
+  if(m) age='U'+Number(m[1]);                  // U09 and U9 are ONE age group
   else { m=/\b(\d{1,2})u\b/i.exec(s); if(m) age='U'+Number(m[1]); }
-  // "U09" and "U9" are the same age group and must not become two panels.
   let gender=null;
   if(/\bgirls?\b|\bwomen'?s?\b/i.test(s)) gender='Girls';
   else if(/\bboys?\b|\bmen'?s?\b/i.test(s)) gender='Boys';
@@ -2101,14 +2121,28 @@ function grParse(name){
 const grKey   = p => [p.day||'~',p.age||'~',p.gender||'~'].join('|');
 const grLabel = p => [p.day,p.age,p.gender].filter(Boolean).join(' ') || 'Ungrouped';
 
+/* The grade name minus its day/age/gender prefix — that prefix is the panel
+   heading, so repeating it in every row label wastes the gutter. The full name
+   is still the row's tooltip. */
+function grShort(name){
+  let s=grNorm(name);
+  for(const d of GR_DAYS) s=s.replace(new RegExp('\\b'+d+'\\b','ig'),'');
+  s=s.replace(/\b(?:u|under\s*)\d{1,2}\b/ig,'').replace(/\b\d{1,2}u\b/ig,'');
+  s=s.replace(/\b(boys?|girls?|mens?|womens?|mixed|open)\b/ig,'');
+  s=grNorm(s);
+  return s||grNorm(name);
+}
+
 /* ── Model ─────────────────────────────────────────────────────────────────*/
+const grPlayed = a => a.st==='FINAL' && Number.isFinite(Number(a.my)) && Number.isFinite(Number(a.their));
+
 async function grBuild(sid){
   if(GR[sid]) return GR[sid];
   const [gf,ts]=await Promise.all([sgj('games/bv',sid),sgj('team-stats/bv',sid)]);
   const games=(gf&&gf.games)||{};
 
-  // Grade name: the game carries `gn` right beside `gid`, so that is the first
-  // source. sports-index grades[] goes stale; team-stats meta.grade is a third.
+  // The game carries `gn` right beside `gid`, so that is the first source.
+  // sports-index grades[] goes stale; team-stats meta.grade is a third.
   const idxGrades=new Map();
   for(const gr of (S.idx?.seasons?.[sid]?.grades||[])) if(gr&&gr.id) idxGrades.set(gr.id,gr.name);
   const tsGrade=new Map(), tName=new Map();
@@ -2120,13 +2154,13 @@ async function grBuild(sid){
   const gradeOf=(gid,gn)=> grNorm(gn) || idxGrades.get(gid) || tsGrade.get(gid) || null;
 
   const byTeam=new Map();
-  let total=0, noGid=0, unnamed=new Set();
+  let total=0, noGid=0; const unnamed=new Set();
   for(const [gkey,g] of Object.entries(games)){
     total++;
     if(!g||!g.gid){ noGid++; continue; }
     const nm=gradeOf(g.gid,g.gn);
     if(!nm) unnamed.add(g.gid);
-    const h=hTid(g), a=aTid(g);          // T44: h/a OR t1/t2, never both
+    const h=hTid(g), a=aTid(g);           // T44: h/a OR t1/t2, never both
     const [hn,an]=teamNames(g);
     if(h&&hn&&!tName.has(h)) tName.set(h,hn);
     if(a&&an&&!tName.has(a)) tName.set(a,an);
@@ -2135,7 +2169,7 @@ async function grBuild(sid){
       if(!tid) continue;
       if(!byTeam.has(tid)) byTeam.set(tid,[]);
       byTeam.get(tid).push({
-        gid:g.gid, grade:nm||('grade '+String(g.gid).slice(0,8)), named:!!nm,
+        gid:g.gid, grade:nm||('grade '+String(g.gid).slice(0,8)),
         d:g.d||'', t:g.t||'', key:gkey, rn:g.rn||'', st:g.st||'',
         opp, oppName:(side?hn:an)||'',
         my:side?g.as:g.hs, their:side?g.hs:g.as, home:!side
@@ -2143,9 +2177,6 @@ async function grBuild(sid){
     }
   }
 
-  // Per team: appearances in played order, then collapse runs of one grade into
-  // segments. A hop is a segment boundary, dated at the FIRST GAME of the new
-  // segment — the game that was actually played in the new grade.
   const teams=new Map();
   for(const [tid,apps] of byTeam.entries()){
     apps.sort((x,y)=>{ const A=x.d+' '+x.t, B=y.d+' '+y.t; return A<B?-1:A>B?1:0; });
@@ -2155,15 +2186,15 @@ async function grBuild(sid){
       if(last&&last.gid===a.gid){ last.apps.push(a); last.to=a.d; }
       else segs.push({gid:a.gid,grade:a.grade,from:a.d,fromWeek:grWeek(a.d),to:a.d,apps:[a]});
     }
+    // A segment is "future" while none of its games have been played — a
+    // regrade that is known but has not happened on the court yet.
+    for(const s of segs) s.future=!s.apps.some(grPlayed);
     const hops=[];
-    for(let i=1;i<segs.length;i++){
-      hops.push({week:segs[i].fromWeek,date:segs[i].from,from:segs[i-1].gid,to:segs[i].gid,
-                 fromName:segs[i-1].grade,toName:segs[i].grade});
-    }
-    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops});
+    for(let i=1;i<segs.length;i++)
+      hops.push({week:segs[i].fromWeek,date:segs[i].from,from:segs[i-1].gid,to:segs[i].gid,future:segs[i].future});
+    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops,gids:new Set(segs.map(s=>s.gid))});
   }
 
-  // Group by day+age+gender, taken from the team's FIRST grade.
   const groups=new Map();
   for(const t of teams.values()){
     if(!t.segs.length) continue;
@@ -2176,25 +2207,32 @@ async function grBuild(sid){
   }
   for(const G of groups.values()) G.weekList=[...G.weeks].sort();
 
-  // EDJBA-shape detection, stated rather than hidden: when most games carry no
-  // grade id the regular season is blank and a move inside it is INVISIBLE.
-  const gidCoverage = total ? (total-noGid)/total : 0;
-
-  GR[sid]={sid,total,noGid,gidCoverage,unnamed:[...unnamed],teams,
+  GR[sid]={sid,total,noGid,gidCoverage:total?(total-noGid)/total:0,unnamed:[...unnamed],teams,
            groups:[...groups.values()].sort((a,b)=>b.movers-a.movers||a.label.localeCompare(b.label))};
   return GR[sid];
 }
 
-/* The grade a team was in at the start of a given week. Compared on WEEK, not
-   date: a hop dated Sat 16 May sits in week Mon 11 May, so a date comparison
-   would report the old grade for its own column. */
+/* Compared on WEEK, not date: a hop dated Sat 16 May sits in week Mon 11 May,
+   so a date comparison would report the old grade in the hop's own column. */
 function grGradeAtWeek(t,week){
   let cur=t.segs[0]||null;
   for(const s of t.segs){ if(s.fromWeek<=week) cur=s; else break; }
   return cur;
 }
 
-/* ── Rail panel ────────────────────────────────────────────────────────────*/
+/* The record a team has built up IN THAT GRADE, to the end of a column. Only
+   played games count — a scheduled fixture is not a result. */
+function grCum(t,gid,upto){
+  let p=0,w=0,l=0,d=0;
+  for(const a of t.apps){
+    if(a.gid!==gid || a.d>upto || !grPlayed(a)) continue;
+    const my=Number(a.my), th=Number(a.their);
+    p++; if(my>th)w++; else if(my<th)l++; else d++;
+  }
+  return {p,w,l,d,pct:p?Math.round(((w+d/2)/p)*100):null};
+}
+
+/* ── Rail: search first, pickers as the fallback ───────────────────────────*/
 function buildGradingPicker(){
   if(!S.idx) return;
   const sel=el('q-gsn'); if(!sel||sel.dataset.built) return;
@@ -2213,8 +2251,48 @@ function buildGradingPicker(){
   sel.dataset.built='1';
 }
 
-/* Several associations run a competition of the same name, so the key is
-   compId and the label names the association. */
+/* Season names are not memorable, so the way in is a TEAM name. team-index
+   carries {id,n,sid,comp} per season, which gives season AND competition in one
+   hit — no guessing which "Winter 2026" is the right one. */
+async function grSearchTeams(){
+  const q=(el('q-gtm').value||'').trim(), box=el('res-gr');
+  if(q.length<3){ box.innerHTML=q.length?'<div class="ri-empty">Keep typing…</div>':''; return; }
+  box.innerHTML='<div class="load-row">Searching teams…</div>';
+  await loadTeamIdx();
+  const hits=[];
+  outer:
+  for(const [season,list] of Object.entries(S.teamIdx||{})){
+    for(const t of list){
+      if(!t||!t.n||!tokenMatch(t.n,q)) continue;
+      const s=S.idx?.seasons?.[t.sid];
+      hits.push({tid:t.id,name:t.n,sid:t.sid,season,
+                 comp:(s&&(s.compName||s.fullName))||t.comp||season,
+                 org:(s&&s.orgName)||'', active:s?!s.locked:false});
+      if(hits.length>400) break outer;
+    }
+  }
+  if(!hits.length){ box.innerHTML='<div class="ri-empty">No team matches that.</div>'; return; }
+  hits.sort((a,b)=> a.active!==b.active ? (a.active?-1:1) : String(b.season).localeCompare(String(a.season)));
+  box.innerHTML=hits.slice(0,40).map(h=>{
+    const comp=h.org&&!String(h.comp).toLowerCase().includes(String(h.org).toLowerCase())?`${h.comp} — ${h.org}`:h.comp;
+    return `<div class="ri" onclick="grFromTeam('${esc(h.sid)}','${esc(h.tid)}')">
+      <div class="ri-name">${esc(h.name)}</div>
+      <div class="ri-sub">${esc(h.season)} · ${esc(comp)}</div></div>`;
+  }).join('')+(hits.length>40?`<div class="ri-empty">${hits.length-40} more — keep typing to narrow</div>`:'');
+}
+
+/* Straight from a searched team to its own age group, with it highlighted. */
+async function grFromTeam(sid,tid){
+  el('res-gr').innerHTML='<div class="load-row">Reading the season…</div>';
+  const M=await grBuild(sid);
+  if(!M.teams.get(tid)){ el('res-gr').innerHTML='<div class="ri-empty">That team has no games in this season’s data.</div>'; return; }
+  const G=M.groups.find(g=>g.teams.some(x=>x.tid===tid));
+  if(!G){ el('res-gr').innerHTML='<div class="ri-empty">That team could not be placed in an age group.</div>'; return; }
+  grListGroups(sid,M);
+  grOpen(sid,G.key);
+  GRTEAM=tid; grRender(); grTeamCard(tid);
+}
+
 function grBuildComps(){
   const name=el('q-gsn').value, cp=el('q-gcp');
   el('res-gr').innerHTML='';
@@ -2223,8 +2301,7 @@ function grBuildComps(){
   for(const s of Object.values(S.idx.seasons)){
     if(s.name!==name||s.removed) continue;
     const comp=s.compName||s.fullName||s.name, org=s.orgName||'';
-    const label=(org&&!comp.toLowerCase().includes(org.toLowerCase()))?`${comp} — ${org}`:comp;
-    rows.push({sid:s.id,label});
+    rows.push({sid:s.id,label:(org&&!comp.toLowerCase().includes(org.toLowerCase()))?`${comp} — ${org}`:comp});
   }
   rows.sort((a,b)=>a.label.localeCompare(b.label));
   cp.innerHTML='<option value="">Competition…</option>'+rows.map(r=>`<option value="${esc(r.sid)}">${esc(r.label)}</option>`).join('');
@@ -2235,7 +2312,11 @@ async function grPickComp(){
   const sid=el('q-gcp').value, box=el('res-gr');
   if(!sid){ box.innerHTML=''; return; }
   box.innerHTML='<div class="load-row">Reading the season…</div>';
-  const M=await grBuild(sid);
+  grListGroups(sid,await grBuild(sid));
+}
+
+function grListGroups(sid,M){
+  const box=el('res-gr');
   if(!M.teams.size){ box.innerHTML='<div class="ri-empty">No games held for this competition.</div>'; return; }
   let h='';
   if(M.gidCoverage<0.9){
@@ -2250,203 +2331,201 @@ async function grPickComp(){
 }
 
 function grReset(){
-  el('q-gsn').value=''; el('q-gcp').innerHTML='<option value="">Competition — select a season</option>';
-  el('q-gcp').disabled=true; el('res-gr').innerHTML=''; GRFOCUS=null;
+  el('q-gtm').value=''; el('q-gsn').value='';
+  el('q-gcp').innerHTML='<option value="">Competition — select a season</option>'; el('q-gcp').disabled=true;
+  el('res-gr').innerHTML=''; GRSEL=null; GRTEAM=null;
 }
 
 /* ── View ──────────────────────────────────────────────────────────────────*/
 function grOpen(sid,key,push=true){
-  GRCUR={sid,key}; GRFOCUS=null;
+  GRCUR={sid,key}; GRSEL=null; GRTEAM=null;
   if(push) navigate('grading',{sid,key});
   showV('view-grading');
   if(window.innerWidth<=768) el('rail').classList.add('mob-hide');
   grRender();
 }
 
+function grModel(){
+  if(!GRCUR) return null;
+  const M=GR[GRCUR.sid]; if(!M) return null;
+  const G=M.groups.find(g=>g.key===GRCUR.key); if(!G) return null;
+  // Selecting a grade shows every team that was EVER in it — the ones that
+  // started there and the ones that arrived later.
+  const teams=GRSEL?G.teams.filter(t=>t.gids.has(GRSEL)):G.teams;
+  const cols=['start',...G.weekList];
+  const colEnd=cols.map((c,i)=> i+1<cols.length?grShift(cols[i+1],-1):'9999-12-31');
+  const at=new Map();
+  for(const t of teams) at.set(t.tid,cols.map((c,i)=> i===0?t.segs[0]:grGradeAtWeek(t,c)));
+  return {M,G,teams,cols,colEnd,at};
+}
+
 function grRender(){
   const v=el('view-grading'); if(!v||!GRCUR) return;
-  const M=GR[GRCUR.sid]; if(!M){ v.innerHTML='<div class="ri-empty">Not loaded.</div>'; return; }
-  const G=M.groups.find(g=>g.key===GRCUR.key);
-  if(!G){ v.innerHTML='<div class="ri-empty">That age group is no longer in the data.</div>'; return; }
-
+  const D=grModel();
+  if(!D){ v.innerHTML='<div class="ri-empty">That age group is no longer in the data.</div>'; return; }
+  const {M,G,teams,cols,colEnd,at}=D;
   const season=S.idx?.seasons?.[GRCUR.sid];
-  const all=G.teams;
-  const teams=GRFOCUS?all.filter(t=>GRFOCUS.has(t.tid)):all;
 
-  // Columns: the start, then every week in which any team in this group moved.
-  // A week with no change gets no column, so once grading settles the diagram
-  // stops growing — which is the whole point of it.
-  const cols=['start',...G.weekList];
-
-  // Grade in force per team per column.
-  const at=new Map();
+  const cell=new Map(), flows=new Map();
   for(const t of teams){
-    const row=cols.map((c,i)=> i===0 ? t.segs[0] : grGradeAtWeek(t,c));
-    at.set(t.tid,row);
+    cols.forEach((c,i)=>{ const s=at.get(t.tid)[i]; if(!s)return;
+      const k=i+'|'+s.gid; if(!cell.has(k))cell.set(k,[]); cell.get(k).push(t); });
+    for(let i=1;i<cols.length;i++){
+      const a=at.get(t.tid)[i-1], b=at.get(t.tid)[i];
+      if(!a||!b||a.gid===b.gid) continue;
+      const k=i+'|'+a.gid+'|'+b.gid; if(!flows.has(k))flows.set(k,[]); flows.get(k).push(t);
+    }
   }
 
-  // Rows = grades present, by NAME. Sorting is layout, not ranking.
   const gradeNames=new Map();
   for(const t of teams) for(const s of t.segs) gradeNames.set(s.gid,s.grade);
   const rows=[...gradeNames.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),undefined,{numeric:true}));
   const rowIdx=new Map(rows.map(([gid],i)=>[gid,i]));
 
-  // Cell membership and the hops between adjacent columns.
-  const cell=new Map();     // `${col}|${gid}` -> [team]
-  for(const t of teams) cols.forEach((c,i)=>{
-    const s=at.get(t.tid)[i]; if(!s) return;
-    const k=i+'|'+s.gid; if(!cell.has(k)) cell.set(k,[]); cell.get(k).push(t);
-  });
-  const flows=new Map();    // `${i}|${from}|${to}` -> [team]
-  for(const t of teams) for(let i=1;i<cols.length;i++){
-    const a=at.get(t.tid)[i-1], b=at.get(t.tid)[i];
-    if(!a||!b||a.gid===b.gid) continue;
-    const k=i+'|'+a.gid+'|'+b.gid; if(!flows.has(k)) flows.set(k,[]); flows.get(k).push(t);
-  }
-
-  // Layout
-  const COLW=230, GAP=110, PADL=8, PADT=56, PERTEAM=13, MINH=34;
+  // Narrow columns; a box's HEIGHT is how many teams are in it.
+  const COLW=58, GAP=62, PADL=10, PADT=46, UNIT=11, MINBOX=9, ROWPAD=14;
   const rowH=rows.map(([gid])=>{
-    let max=0;
-    for(let i=0;i<cols.length;i++) max=Math.max(max,(cell.get(i+'|'+gid)||[]).length);
-    return Math.max(MINH, 26+max*PERTEAM);
+    let max=0; for(let i=0;i<cols.length;i++) max=Math.max(max,(cell.get(i+'|'+gid)||[]).length);
+    return Math.max(24,max*UNIT+ROWPAD);
   });
   const rowY=[]; let y=PADT;
-  for(let i=0;i<rows.length;i++){ rowY.push(y); y+=rowH[i]+16; }
-  const W=PADL+cols.length*COLW+(cols.length-1)*GAP+PADL, H=y+20;
+  for(let i=0;i<rows.length;i++){ rowY.push(y); y+=rowH[i]+10; }
+  const W=PADL+cols.length*COLW+(cols.length-1)*GAP+PADL, H=y+14;
   const colX=i=>PADL+i*(COLW+GAP);
+  const nAt=(i,gid)=>(cell.get(i+'|'+gid)||[]).length;
+  const boxH=n=>Math.max(MINBOX,n*UNIT);
+  const boxY=(r,n)=>rowY[r]+(rowH[r]-boxH(n))/2;
 
   let svg=`<svg class="gr-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
-  // ribbons first so boxes sit over them
   for(const [k,list] of flows.entries()){
     const [iS,from,to]=k.split('|'); const i=+iS;
-    const y1=rowY[rowIdx.get(from)]+rowH[rowIdx.get(from)]/2;
-    const y2=rowY[rowIdx.get(to)]+rowH[rowIdx.get(to)]/2;
-    const x1=colX(i-1)+COLW, x2=colX(i);
-    const w=Math.max(2,Math.min(22,list.length*2.2));
-    const mid=(x1+x2)/2;
-    svg+=`<path class="gr-flow" d="M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}" stroke-width="${w}"
+    const rf=rowIdx.get(from), rt=rowIdx.get(to);
+    if(rf===undefined||rt===undefined) continue;
+    const y1=boxY(rf,nAt(i-1,from))+boxH(nAt(i-1,from))/2;
+    const y2=boxY(rt,nAt(i,to))+boxH(nAt(i,to))/2;
+    const x1=colX(i-1)+COLW, x2=colX(i), mid=(x1+x2)/2;
+    const future=list.every(t=>{ const h=t.hops.find(h=>h.from===from&&h.to===to); return h&&h.future; });
+    const hot=GRTEAM&&list.some(t=>t.tid===GRTEAM);
+    svg+=`<path class="gr-flow${future?' fut':''}${hot?' hot':''}" d="M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}"
+          stroke-width="${Math.max(2,Math.min(26,list.length*UNIT*0.8))}"
           onmouseenter="grTip(event,'flow','${esc(k)}')" onmouseleave="grTipHide()"
-          onclick="grFocusFlow('${esc(k)}')"><title></title></path>`;
+          onclick="grPickGrade('${esc(to)}')"></path>`;
   }
-  // column headers
   cols.forEach((c,i)=>{
-    const label=i===0?'Start':grDayLabel(c);
-    const sub=i===0?'first game':'week of';
-    svg+=`<text class="gr-colh" x="${colX(i)+COLW/2}" y="26" text-anchor="middle">${esc(label)}</text>`+
-         `<text class="gr-cols" x="${colX(i)+COLW/2}" y="40" text-anchor="middle">${esc(sub)}</text>`;
+    svg+=`<text class="gr-colh" x="${colX(i)+COLW/2}" y="20" text-anchor="middle">${i===0?'Start':esc(grDayLabel(c))}</text>`+
+         `<text class="gr-cols" x="${colX(i)+COLW/2}" y="33" text-anchor="middle">${i===0?'first game':'week of'}</text>`;
   });
-  // boxes
   rows.forEach(([gid,name],r)=>{
     for(let i=0;i<cols.length;i++){
-      const list=cell.get(i+'|'+gid)||[];
-      if(!list.length) continue;
-      const short=String(name).length>30?String(name).slice(0,29)+'\u2026':String(name);
-      svg+=`<g class="gr-box" onmouseenter="grTip(event,'cell','${i}|${esc(gid)}')" onmouseleave="grTipHide()" onclick="grFocusCell('${i}|${esc(gid)}')">`+
-           `<title>${esc(name)}</title>`+
-           `<rect x="${colX(i)}" y="${rowY[r]}" width="${COLW}" height="${rowH[r]}" rx="6"></rect>`+
-           `<text class="gr-boxt" x="${colX(i)+10}" y="${rowY[r]+17}">${esc(short)}</text>`+
-           `<text class="gr-boxn" x="${colX(i)+COLW-10}" y="${rowY[r]+17}" text-anchor="end">${list.length}</text>`+
+      const list=cell.get(i+'|'+gid)||[]; if(!list.length) continue;
+      const future=list.every(t=>{ const s=at.get(t.tid)[i]; return s&&s.future; });
+      const hot=GRTEAM&&list.some(t=>t.tid===GRTEAM);
+      const h=boxH(list.length), yy=boxY(r,list.length);
+      svg+=`<g class="gr-box${GRSEL===gid?' sel':''}${future?' fut':''}${hot?' hot':''}"
+             onmouseenter="grTip(event,'cell','${i}|${esc(gid)}')" onmouseleave="grTipHide()"
+             onclick="grPickGrade('${esc(gid)}')"><title>${esc(name)}</title>`+
+           `<rect x="${colX(i)}" y="${yy}" width="${COLW}" height="${h}" rx="3"></rect>`+
+           (h>=15?`<text class="gr-boxn" x="${colX(i)+COLW/2}" y="${yy+h/2+4}" text-anchor="middle">${list.length}</text>`:'')+
            `</g>`;
     }
   });
   svg+='</svg>';
 
-  const movers=all.filter(t=>t.hops.length).length;
-  let h=`<div class="gr-head">
+  const gutter=`<div class="gr-gutter"><div style="height:${PADT}px"></div>`+
+    rows.map(([gid,name],r)=>`<div class="gr-grow${GRSEL===gid?' sel':''}" style="height:${rowH[r]}px;margin-bottom:10px"
+        title="${esc(name)}" onclick="grPickGrade('${esc(gid)}')"><span>${esc(grShort(name))}</span></div>`).join('')+`</div>`;
+
+  const movers=G.teams.filter(t=>t.hops.length).length;
+  const selName=GRSEL?gradeNames.get(GRSEL):null;
+  const teamOpts=G.teams.slice().sort((a,b)=>a.name.localeCompare(b.name))
+    .map(t=>`<option value="${esc(t.tid)}"${GRTEAM===t.tid?' selected':''}>${esc(t.name)}${t.hops.length?` (${t.hops.length} move${t.hops.length===1?'':'s'})`:''}</option>`).join('');
+
+  v.innerHTML=`<div class="gr-head">
       <button class="rbtn" onclick="goHome()">‹ Home</button>
       <div class="gr-title">${esc(G.label)}</div>
-      <div class="gr-sub">${esc(season?(season.fullName||season.name):'')} · ${all.length} teams · ${movers} changed grade · ${G.weekList.length} change week${G.weekList.length===1?'':'s'}</div>
-      <div class="gr-note">Rows are in name order. Nothing here ranks one grade above another — that is yours to judge.</div>
-      ${GRFOCUS?`<button class="rbtn gr-clear" onclick="GRFOCUS=null;grRender()">✕ Clear focus (${teams.length} of ${all.length} shown)</button>`:''}
+      <div class="gr-sub">${esc(season?(season.fullName||season.name):'')} · ${G.teams.length} teams · ${movers} changed grade · ${G.weekList.length} change week${G.weekList.length===1?'':'s'}</div>
+      <div class="gr-ctl">
+        <select class="sselect gr-tsel" onchange="grSelectTeam(this.value)">
+          <option value="">Highlight a team…</option>${teamOpts}
+        </select>
+        ${GRSEL?`<button class="rbtn gr-selbtn" onclick="grPickGrade('${esc(GRSEL)}')">✕ ${esc(selName||'grade')} · ${teams.length} of ${G.teams.length} teams</button>`:''}
+      </div>
+      <div class="gr-note">Rows are in name order; nothing here ranks one grade above another. Dashed = scheduled, not yet played. Click a grade to see every team that has ever been in it, and again to clear.</div>
     </div>
-    <div class="gr-scroll">${svg}</div>
-    <div class="gr-teamlist"><div class="rec-title">Teams — click for results and opposition grades</div>${
-      all.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>
-        `<button class="gr-chip${t.hops.length?' moved':''}" onclick="grTeam('${esc(t.tid)}')">${esc(t.name)}${t.hops.length?` <span class="gr-chipn">${t.hops.length}</span>`:''}</button>`
-      ).join('')}</div>
+    <div class="gr-wrap">${gutter}<div class="gr-scroll">${svg}</div></div>
     <div id="gr-team"></div>`;
-  v.innerHTML=h;
 }
 
-/* ── Tooltip / focus ───────────────────────────────────────────────────────*/
+function grSelectTeam(tid){
+  GRTEAM=tid||null;
+  grRender();
+  if(GRTEAM) grTeamCard(GRTEAM); else el('gr-team').innerHTML='';
+}
+
+/* ── Tooltip: who is here, and what they have done IN THIS GRADE so far ────*/
 function grTipList(kind,k){
-  const M=GR[GRCUR.sid], G=M.groups.find(g=>g.key===GRCUR.key);
-  const teams=GRFOCUS?G.teams.filter(t=>GRFOCUS.has(t.tid)):G.teams;
+  const D=grModel(); if(!D) return {list:[],gid:null,upto:'9999-12-31'};
   if(kind==='cell'){
     const [i,gid]=k.split('|');
-    return teams.filter(t=>{
-      const s=(+i===0)?t.segs[0]:grGradeAtWeek(t,G.weekList[+i-1]); return s&&s.gid===gid;
-    });
+    return {list:D.teams.filter(t=>{const s=D.at.get(t.tid)[+i];return s&&s.gid===gid;}),gid,upto:D.colEnd[+i]};
   }
   const [iS,from,to]=k.split('|'); const i=+iS;
-  return teams.filter(t=>{
-    const a=(i-1===0)?t.segs[0]:grGradeAtWeek(t,G.weekList[i-2]);
-    const b=grGradeAtWeek(t,G.weekList[i-1]);
-    return a&&b&&a.gid===from&&b.gid===to;
-  });
+  return {list:D.teams.filter(t=>{const a=D.at.get(t.tid)[i-1],b=D.at.get(t.tid)[i];return a&&b&&a.gid===from&&b.gid===to;}),
+          gid:to,upto:D.colEnd[i]};
 }
 function grTip(ev,kind,k){
-  const list=grTipList(kind,k);
+  const {list,gid,upto}=grTipList(kind,k);
   if(!list.length) return;
+  const rows=list.slice(0,26).map(t=>{
+    const c=grCum(t,gid,upto);
+    const rec=c.p?`${c.p} · ${c.w}-${c.l}${c.d?'-'+c.d:''} · ${c.pct}%`:'<span class="gr-tipm">no games yet</span>';
+    return `<div class="gr-tr${GRTEAM===t.tid?' hot':''}"><span class="gr-tn">${esc(t.name)}</span><span class="gr-tv">${rec}</span></div>`;
+  }).join('');
   const tip=el('gr-tip');
-  tip.innerHTML=`<div class="gr-tiph">${list.length} team${list.length===1?'':'s'}</div>`+
-    list.slice(0,40).map(t=>`<div>${esc(t.name)}</div>`).join('')+
-    (list.length>40?`<div class="gr-tipm">… and ${list.length-40} more</div>`:'');
+  tip.innerHTML=`<div class="gr-tiph">${list.length} team${list.length===1?'':'s'} · record in this grade</div>`+rows+
+    (list.length>26?`<div class="gr-tipm">… and ${list.length-26} more</div>`:'');
   tip.classList.add('on');
   const r=tip.getBoundingClientRect();
   tip.style.left=Math.min(ev.clientX+14,window.innerWidth-r.width-10)+'px';
   tip.style.top=Math.min(ev.clientY+14,window.innerHeight-r.height-10)+'px';
 }
 function grTipHide(){ el('gr-tip').classList.remove('on'); }
-function grFocusCell(k){ GRFOCUS=new Set(grTipList('cell',k).map(t=>t.tid)); grTipHide(); grRender(); }
-function grFocusFlow(k){ GRFOCUS=new Set(grTipList('flow',k).map(t=>t.tid)); grTipHide(); grRender(); }
 
-/* ── One team: results, and where each opponent sat then and now ───────────
-   The two grade columns are the whole point. No verdict is attached to either:
-   a win over a side that went one way and a win over a side that went another
-   are both just wins here, shown with the context to read them. */
-function grTeam(tid){
+/* Click selects the grade; clicking the same one again clears it. */
+function grPickGrade(gid){ GRSEL=(GRSEL===gid)?null:gid; grTipHide(); grRender(); if(GRTEAM) grTeamCard(GRTEAM); }
+
+/* ── One team: results, and where each opponent sat then and now ───────────*/
+function grTeamCard(tid){
   const M=GR[GRCUR.sid], t=M.teams.get(tid), box=el('gr-team');
   if(!t){ box.innerHTML=''; return; }
   const finalOf=o=>{ const x=M.teams.get(o); return x&&x.segs.length?x.segs[x.segs.length-1].grade:null; };
   const atOf=(o,week)=>{ const x=M.teams.get(o); if(!x)return null; const s=grGradeAtWeek(x,week); return s?s.grade:null; };
-
   let w=0,l=0,d=0;
   const rows=t.apps.map(a=>{
-    const mine=Number(a.my), theirs=Number(a.their);
+    const my=Number(a.my), th=Number(a.their);
     let res='',cls='';
-    if(Number.isFinite(mine)&&Number.isFinite(theirs)){
-      if(mine>theirs){res='W';cls='w';w++;} else if(mine<theirs){res='L';cls='l';l++;} else {res='D';cls='d';d++;}
-    }else res=a.st==='FINAL'?'':esc(a.st||'');
-    const wk=grWeek(a.d);
-    const oppThen=atOf(a.opp,wk), oppNow=finalOf(a.opp);
+    if(grPlayed(a)){ if(my>th){res='W';cls='w';w++;} else if(my<th){res='L';cls='l';l++;} else {res='D';cls='d';d++;} }
+    else { res=esc(a.st||'TBP'); cls='p'; }
+    const wk=grWeek(a.d), oppThen=atOf(a.opp,wk), oppNow=finalOf(a.opp);
     const moved=oppThen&&oppNow&&oppThen!==oppNow;
-    return `<tr>
-      <td class="gr-d">${esc(grDayLabel(a.d))}</td>
-      <td class="gr-r">${esc(a.rn)}</td>
+    return `<tr><td class="gr-d">${esc(grDayLabel(a.d))}</td><td class="gr-r">${esc(a.rn)}</td>
       <td>${esc(a.oppName||a.opp||'')}</td>
-      <td class="gr-sc">${Number.isFinite(mine)?mine:'–'}–${Number.isFinite(theirs)?theirs:'–'}</td>
-      <td class="gr-res ${cls}">${res}</td>
-      <td class="gr-g">${esc(a.grade||'')}</td>
+      <td class="gr-sc">${grPlayed(a)?`${my}–${th}`:'–'}</td>
+      <td class="gr-res ${cls}">${res}</td><td class="gr-g">${esc(a.grade||'')}</td>
       <td class="gr-g">${esc(oppThen||'–')}</td>
-      <td class="gr-g${moved?' gr-gmv':''}">${esc(oppNow||'–')}</td>
-    </tr>`;
+      <td class="gr-g${moved?' gr-gmv':''}">${esc(oppNow||'–')}</td></tr>`;
   }).join('');
-
-  const path=t.segs.map(s=>`${esc(s.grade)} <span class="gr-pd">(${esc(grDayLabel(s.from))})</span>`).join(' → ');
+  const path=t.segs.map(s=>`<span class="${s.future?'gr-pf':''}">${esc(s.grade)}</span> <span class="gr-pd">(${esc(grDayLabel(s.from))}${s.future?', scheduled':''})</span>`).join(' → ');
+  const played=w+l+d;
   box.innerHTML=`<div class="gr-tcard">
     <div class="rec-title">${esc(t.name)}</div>
     <div class="gr-path">${path}</div>
-    <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${t.apps.length} games</div>
+    <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}</div>
     <div class="gr-tablewrap"><table class="gr-table">
-      <thead><tr><th>Date</th><th>Round</th><th>Opponent</th><th>Score</th><th></th>
-      <th>Our grade</th><th>Their grade then</th><th>Their grade now</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
+      <thead><tr><th>Date</th><th>Round</th><th>Opponent</th><th>Score</th><th></th><th>Our grade</th><th>Their grade then</th><th>Their grade now</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
     <div class="gr-note">"Then" is the grade that opponent was playing in that week; "now" is their last grade of the season. A highlighted value means they moved after you played them.</div>
   </div>`;
-  box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 async function boot(){
@@ -7167,6 +7246,7 @@ function renderLB(allEntries,data){
 }
 /* ── Events ── */
 document.querySelectorAll('.stab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+el('q-gtm').addEventListener('input',debounce(grSearchTeams,260));
 el('q-pl').addEventListener('input',debounce(e=>searchPlayers(e.target.value.trim()),250));
 el('q-pl').addEventListener('focus',()=>{if(!el('q-pl').value.trim())showRecent('players',el('res-pl'),v=>{el('q-pl').value=v;searchPlayers(v);});});
 el('q-sn').addEventListener('change',()=>{buildCompPicker();searchTeams(el('q-tm').value.trim());});
