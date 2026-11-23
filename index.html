@@ -628,17 +628,16 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .gr-boxn{fill:var(--text2);font-size:10px;font-weight:700;pointer-events:none}
 .gr-boxn.out{fill:var(--text3);font-size:9px}
 .gr-selin{fill:var(--accent);opacity:0.8;pointer-events:none}
-.gr-flow.insel{stroke-opacity:0.55}
-.gr-flow.stay{stroke:var(--text3);stroke-opacity:0.3}
-.gr-flow.stay:hover{stroke-opacity:0.6}
-.gr-flow.stay.insel{stroke:var(--accent);stroke-opacity:0.4}
-.gr-flow.stay.hot{stroke:var(--accent);stroke-opacity:0.9}
+.gr-rib{fill:var(--accent);fill-opacity:0.20;stroke:none;cursor:pointer;transition:fill-opacity 0.12s}
+.gr-rib:hover{fill-opacity:0.55}
+.gr-rib.stay{fill:var(--text3);fill-opacity:0.22}
+.gr-rib.stay:hover{fill-opacity:0.45}
+.gr-rib.fut{fill:var(--text3);fill-opacity:0.10}
+.gr-rib.insel{fill:var(--accent);fill-opacity:0.45}
+.gr-rib.hot{fill:var(--accent);fill-opacity:0.85}
+.gr-colh.fut{fill:var(--text3)}
 .gr-tr.insel .gr-tn{color:var(--accent)}
 .gr-box.hot .gr-boxn{fill:#000}
-.gr-flow{fill:none;stroke:var(--accent);stroke-opacity:0.22;cursor:pointer;transition:stroke-opacity 0.12s}
-.gr-flow:hover{stroke-opacity:0.7}
-.gr-flow.fut{stroke-dasharray:5 4;stroke:var(--text3);stroke-opacity:0.5}
-.gr-flow.hot{stroke-opacity:0.95}
 .gr-tcard{padding:14px 16px;border-top:2px solid var(--border)}
 .gr-path{font-size:0.8rem;margin:4px 0 2px;line-height:1.6}
 .gr-pf{color:var(--text3);font-style:italic}
@@ -943,7 +942,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.84</span>
+      <span class="rail-ver">v1.85</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2208,7 +2207,17 @@ async function grBuild(sid){
   const groups=new Map();
   for(const t of teams.values()){
     if(!t.segs.length) continue;
-    const p=grParse(t.segs[0].grade), k=grKey(p);
+    // ⚠️ Group on the day/age/gender the team plays MOST, weighted by games —
+    // not on its first game. One make-up fixture in another grade's slot would
+    // otherwise file the whole team under a different panel, where it reads as
+    // a team missing from the grade it actually plays in.
+    const tally=new Map();
+    for(const sg of t.segs){
+      const kk=grKey(grParse(sg.grade));
+      tally.set(kk,(tally.get(kk)||0)+sg.apps.length);
+    }
+    const k=[...tally.entries()].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0])))[0][0];
+    const p=grParse(t.segs.find(sg=>grKey(grParse(sg.grade))===k).grade);
     if(!groups.has(k)) groups.set(k,{key:k,label:grLabel(p),teams:[],weeks:new Set(),movers:0});
     const G=groups.get(k);
     G.teams.push(t);
@@ -2421,13 +2430,20 @@ function grRender(){
     }
   }
 
+  // A column is in the future when not one game in that week has been played.
+  // This is a property of the COLUMN, not of a team's segment.
+  const colFuture=cols.map((c,i)=>{
+    if(i===0) return false;
+    return !teams.some(t=>t.apps.some(a=>grWeek(a.d)===c && grPlayed(a)));
+  });
+
   const gradeNames=new Map();
   for(const t of teams) for(const s of t.segs) gradeNames.set(s.gid,s.grade);
   const rows=[...gradeNames.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),undefined,{numeric:true}));
   const rowIdx=new Map(rows.map(([gid],i)=>[gid,i]));
 
   // Narrow columns; a box's HEIGHT is how many teams are in it.
-  const COLW=58, GAP=62, PADL=10, PADT=46, UNIT=11, ROWPAD=14;
+  const COLW=46, GAP=96, PADL=10, PADT=46, UNIT=9, ROWPAD=14;
   const rowH=rows.map(([gid])=>{
     let max=0; for(let i=0;i<cols.length;i++) max=Math.max(max,(cell.get(i+'|'+gid)||[]).length);
     return Math.max(24,max*UNIT+ROWPAD);
@@ -2457,35 +2473,36 @@ function grRender(){
   }
 
   let svg=`<svg class="gr-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
-  // stays first so the moves draw over them
+  // Filled ribbons, not thick strokes. A 70px stroke with round caps reads as
+  // clipart at an angle; a sankey band is the AREA between two curves.
   for(const L of links.slice().sort((a,b)=>(a.from===a.to?0:1)-(b.from===b.to?0:1))){
     const stay=L.from===L.to;
-    const future=L.list.every(t=>{ const h=t.hops.find(h=>h.from===L.from&&h.to===L.to); return h&&h.future; });
+    const fut=colFuture[L.i];
     const hot=GRTEAM&&L.list.some(t=>t.tid===GRTEAM);
     const insel=selSet&&L.list.some(t=>selSet.has(t.tid));
     const x1=colX(L.i-1)+COLW, x2=colX(L.i), mid=(x1+x2)/2;
-    const d=stay?`M${x1},${L.y1} L${x2},${L.y2}`
-                :`M${x1},${L.y1} C${mid},${L.y1} ${mid},${L.y2} ${x2},${L.y2}`;
-    svg+=`<path class="gr-flow${stay?' stay':''}${future&&!stay?' fut':''}${insel?' insel':''}${hot?' hot':''}" d="${d}"
-          stroke-width="${L.w}"
+    const a1=L.y1-L.w/2, b1=L.y1+L.w/2, a2=L.y2-L.w/2, b2=L.y2+L.w/2;
+    const d=`M${x1},${a1} C${mid},${a1} ${mid},${a2} ${x2},${a2}`+
+            ` L${x2},${b2} C${mid},${b2} ${mid},${b1} ${x1},${b1} Z`;
+    svg+=`<path class="gr-rib${stay?' stay':''}${fut?' fut':''}${insel?' insel':''}${hot?' hot':''}" d="${d}"
           onmouseenter="grTip(event,'flow','${esc(L.k)}')" onmouseleave="grTipHide()"
           onclick="grPickGrade('${esc(L.to)}')"></path>`;
   }
   cols.forEach((c,i)=>{
-    svg+=`<text class="gr-colh" x="${colX(i)+COLW/2}" y="20" text-anchor="middle">${i===0?'Start':esc(grDayLabel(c))}</text>`+
-         `<text class="gr-cols" x="${colX(i)+COLW/2}" y="33" text-anchor="middle">${i===0?'first game':'week of'}</text>`;
+    svg+=`<text class="gr-colh${colFuture[i]?' fut':''}" x="${colX(i)+COLW/2}" y="20" text-anchor="middle">${i===0?'Start':esc(grDayLabel(c))}</text>`+
+         `<text class="gr-cols" x="${colX(i)+COLW/2}" y="33" text-anchor="middle">${i===0?'first game':(colFuture[i]?'scheduled':'week of')}</text>`;
   });
   rows.forEach(([gid,name],r)=>{
     for(let i=0;i<cols.length;i++){
       const list=cell.get(i+'|'+gid)||[]; if(!list.length) continue;
-      const future=list.every(t=>{ const s=at.get(t.tid)[i]; return s&&s.future; });
+      const future=colFuture[i];
       const hot=GRTEAM&&list.some(t=>t.tid===GRTEAM);
       const nSel=selSet?list.filter(t=>selSet.has(t.tid)).length:0;
       const h=boxH(list.length), yy=boxY(r,list.length);
       // The number is ALWAYS drawn. It used to be suppressed under 15px, so a
       // one- or two-team box rendered as a blank bar with no label at all.
       const label=selSet?`${nSel}/${list.length}`:String(list.length);
-      const inside=h>=15&&label.length<=4;
+      const inside=h>=13&&label.length<=4;
       svg+=`<g class="gr-box${GRSEL===gid?' sel':''}${future?' fut':''}${hot?' hot':''}"
              onmouseenter="grTip(event,'cell','${i}|${esc(gid)}')" onmouseleave="grTipHide()"
              onclick="grPickGrade('${esc(gid)}')"><title>${esc(name)}</title>`+
