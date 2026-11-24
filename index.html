@@ -244,6 +244,14 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .bFF{background:rgba(244,67,54,0.2);color:var(--c-forfeit)}
 .bCX{background:rgba(121,85,72,0.3);color:#bcaaa4}
 .bNV{background:rgba(85,85,85,0.2);color:var(--text3)}
+/* A superseded fixture is SHOWN, greyed, never hidden. `sup` carries the id of the
+   game that replaced it, and the row is the only place that id is any use to a
+   person. Hiding it would also make a superseded fixture look identical to a
+   DELETED one, and those are two different facts about PlayHQ. */
+.bSUP{background:rgba(85,85,85,0.25);color:var(--text3);cursor:pointer}
+.bSUP:hover{color:var(--text1)}
+.sup-row{opacity:0.5}
+.sup-row:hover{opacity:0.85}
 
 .vtabs{display:flex;border-bottom:2px solid var(--border);padding:0 14px;gap:0}
 .vtab{padding:9px 14px;font-size:0.83rem;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px;transition:color 0.12s,border-color 0.12s;cursor:pointer}
@@ -1359,6 +1367,11 @@ function renderMode(g){
   // teams, the time and the court, and clicking it produced an empty sheet.
   // Placed AFTER the legacy test deliberately, so nothing that renders today
   // changes — this only catches what was already falling through.
+  // ⚠️ A SUPERSEDED FIXTURE IS NOT UPCOMING. `sup` holds the id of the game that
+  // replaced it after a regrade (written nightly; see TOOLING.md §6). Tested AFTER
+  // the score tests deliberately: if a game ever carries both a score and a stale
+  // flag, the score is the honest answer and the flag is the thing that is wrong.
+  if(typeof g.sup==='string'&&g.sup)return'superseded';
   if(g.st==='UPCOMING'||g.st==='PRE_GAME')return'upcoming';
   return'unknown';
 }
@@ -2204,7 +2217,8 @@ async function grBuild(sid){
         gid:g.gid, grade:nm||('grade '+String(g.gid).slice(0,8)),
         d:g.d||'', t:g.t||'', key:gkey, rn:g.rn||'', st:g.st||'',
         opp, oppName:(side?hn:an)||'',
-        my:side?g.as:g.hs, their:side?g.hs:g.as, home:!side
+        my:side?g.as:g.hs, their:side?g.hs:g.as, home:!side,
+        sup:(typeof g.sup==='string'&&g.sup)?g.sup:''
       });
     }
   }
@@ -2214,58 +2228,22 @@ async function grBuild(sid){
     let apps=apps0;
     apps.sort((x,y)=>{ const A=x.d+' '+x.t, B=y.d+' '+y.t; return A<B?-1:A>B?1:0; });
 
-    /* ⚠️ DELETED FIXTURES ARE STILL IN games/bv, AND THEY LOOK LIKE REGRADES.
-       When a team is moved, PlayHQ's fixtures for its OLD grade are superseded
-       but our copy keeps them. Maroondah Magic 1 (43878738) holds TWO fixtures
-       for every round from 6 on: one in AR and one in A. The AR ones for 13 Nov
-       and 20 Nov are still UPCOMING with dates in the past, while the A games
-       for those same rounds were played — which is the tell (Mark, 2026-11-23).
-       A team plays ONE game per round per grade, so for each round: keep every
-       game that was actually played, and when a round has only unplayed
-       fixtures keep the one in the grade the team last played in. */
-    const byRound=new Map();
-    for(const a of apps){
-      const k=a.rn||('@'+a.d);
-      if(!byRound.has(k)) byRound.set(k,[]);
-      byRound.get(k).push(a);
-    }
-    const playedAll=apps.filter(grPlayed);
-    const lastPlayedGid=playedAll.length?playedAll[playedAll.length-1].gid:null;
-    let superseded=0;
-    let keep=[];
-    for(const list of byRound.values()){
-      // Two PLAYED games in one round are both real — that case stands.
-      const term=list.filter(grPlayed);
-      if(term.length){ keep.push(...term); superseded+=list.length-term.length; continue; }
-      if(list.length===1){ keep.push(list[0]); continue; }
-      const match=list.filter(a=>a.gid===lastPlayedGid);
-      if(match.length){ keep.push(match[0]); superseded+=list.length-match.length; }
-      else { keep.push(list[0]); superseded+=list.length-1; }
-    }
-    keep.sort((x,y)=>{ const A=x.d+' '+x.t, B=y.d+' '+y.t; return A<B?-1:A>B?1:0; });
-
-    /* Rounds that exist ONLY in the grade the team has left survive the pass
-       above, because there is no paired fixture to prefer over them — Magic 1's
-       Rounds 11-16 sit under AR alone. When the remaining fixtures include BOTH
-       the team's current grade and a grade they have already left, the ones in
-       the old grade are residue. When every remaining fixture is in one OTHER
-       grade that is a genuine scheduled move and is kept; when none match the
-       current grade nothing is assumed.
-       ⚠️ This is inference from shape, and the pipeline deliberately refuses to
-       DELETE on that basis — see claude/fixture-refresh-and-withdrawals.md §3.
-       This only hides rows in this view; it removes nothing from games/bv. */
-    {
-      const kp=keep.filter(grPlayed), kf=keep.filter(a=>!grPlayed(a));
-      if(kp.length&&kf.length){
-        const cur=kp[kp.length-1].gid;
-        const futGids=new Set(kf.map(a=>a.gid));
-        if(futGids.size>1&&futGids.has(cur)){
-          superseded+=kf.filter(a=>a.gid!==cur).length;
-          keep=keep.filter(a=>grPlayed(a)||a.gid===cur);
-        }
-      }
-    }
-    apps=keep;
+    /* ⚠️ SUPERSEDED FIXTURES ARE RECORDED IN THE DATA NOW, NOT INFERRED HERE.
+       `sup` on the game entry in games/bv holds the GAME ID of the fixture that
+       replaced this one: past-dated, never played, still served by PlayHQ, and one
+       of its teams has a PLAYED game in a DIFFERENT grade that day. Written and
+       cleared every run by nightly-crawl.js.
+       The two inference passes that used to stand here - keep the played game per
+       round, then drop old-grade residue when the remaining fixtures name both the
+       current grade and one the team has left - are RETIRED, not kept alongside it.
+       Leaving inference beside a recorded field is how a regression hides: the two
+       agree today, and the day they diverge nobody finds out.
+       Superseded fixtures are excluded from segments, bands, counts and "still to
+       play", and kept in `sups` so the team card can show them greyed with the id
+       of the game that replaced them. */
+    const sups=apps.filter(a=>a.sup);
+    apps=apps.filter(a=>!a.sup);
+    const superseded=sups.length;
 
     /* ⚠️ A PLAYED GAME IS A FACT; AN UNPLAYED FIXTURE IS A PLAN, AND PLANS
        CONTRADICT EACH OTHER. PlayHQ carries future fixtures for a regraded
@@ -2310,7 +2288,7 @@ async function grBuild(sid){
     const hops=[];
     for(let i=1;i<segs.length;i++)
       hops.push({week:segs[i].fromWeek,date:segs[i].from,from:segs[i-1].gid,to:segs[i].gid,future:segs[i].future});
-    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,segs,hops,conflict,superseded,
+    teams.set(tid,{tid,name:tName.get(tid)||tid,apps,sups,segs,hops,conflict,superseded,
                    alt:[...(tAlt.get(tid)||new Map()).entries()],
                    gids:new Set(segs.map(s=>s.gid))});
   }
@@ -2700,14 +2678,22 @@ function grTeamCard(tid){
   const finalOf=o=>{ const x=M.teams.get(o); return x&&x.segs.length?x.segs[x.segs.length-1].grade:null; };
   const atOf=(o,week)=>{ const x=M.teams.get(o); if(!x)return null; const s=grGradeAtWeek(x,week); return s?s.grade:null; };
   let w=0,l=0,d=0;
-  const rows=t.apps.map(a=>{
+  // Superseded fixtures are OUT of t.apps, so every count above and every band is
+  // clean by construction. They are shown here, greyed, because the flag carries
+  // the id of the game that replaced it and this row is where that is useful.
+  const shown=t.apps.concat(t.sups||[]).sort((x,y)=>{const A=x.d+' '+x.t,B=y.d+' '+y.t;return A<B?-1:A>B?1:0;});
+  const rows=shown.map(a=>{
     const my=Number(a.my), th=Number(a.their);
+    const isSup=!!a.sup;
     let res='',cls='';
     if(grPlayed(a)){ if(my>th){res='W';cls='w';w++;} else if(my<th){res='L';cls='l';l++;} else {res='D';cls='d';d++;} }
+    else if(isSup){ res='\u21bb SUP'; cls='p'; }
     else { res=esc(a.st||'TBP'); cls='p'; }
     const wk=grWeek(a.d), oppThen=atOf(a.opp,wk), oppNow=finalOf(a.opp);
     const moved=oppThen&&oppNow&&oppThen!==oppNow;
-    const open=grPlayed(a)?` class="gr-trow" onclick="openSheet('${esc(a.key)}','${esc(GRCUR.sid)}')"`:'';
+    const open=grPlayed(a)?` class="gr-trow" onclick="openSheet('${esc(a.key)}','${esc(GRCUR.sid)}')"`
+             :isSup?` class="gr-trow sup-row" onclick="openSheet('${esc(a.sup)}','${esc(GRCUR.sid)}')" title="Replaced after a regrade \u2014 opens the game that was played"`
+             :'';
     return `<tr${open}><td class="gr-d">${esc(grDayLabel(a.d))}</td><td class="gr-r">${esc(a.rn)}</td>
       <td>${esc(a.oppName||a.opp||'')}</td>
       <td class="gr-sc">${grPlayed(a)?`${my}–${th}`:'–'}</td>
@@ -2720,7 +2706,7 @@ function grTeamCard(tid){
   box.innerHTML=`<div class="gr-tcard">
     <div class="rec-title gr-tlink" onclick="loadTeam('${esc(t.tid)}','${esc(GRCUR.sid)}')" title="Open this team">${esc(t.name)} ›</div>
     <div class="gr-path">${path}</div>
-    <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}${t.superseded?` · ${t.superseded} superseded fixture${t.superseded===1?'':'s'} hidden`:''}</div>
+    <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}${t.superseded?` · ${t.superseded} superseded, shown greyed and not counted`:''}</div>
     <div class="gr-tablewrap"><table class="gr-table">
       <thead><tr><th>Date</th><th>Round</th><th>Opponent</th><th>Score</th><th></th><th>Our grade</th><th>Their grade then</th><th>Their grade now</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
@@ -5560,10 +5546,16 @@ function renderTeam(td,tid,sid){
     h+=fixtures.map(f=>{
       const res=f.result;
       const fc=finalClass(f.rn);
-      const resH=res?`<div class="g-res r${res}">${res}</div>`:`<div class="g-res rU">\u2014</div>`;
+      // team-stats carries `sup` on the fixture entry (build-team-stats.js). The
+      // team card renders team-stats, not games/bv, which is why the flag had to
+      // be propagated into the build rather than skipped in the UI.
+      const sup=(typeof f.sup==='string'&&f.sup)?f.sup:null;
+      const resH=res?`<div class="g-res r${res}">${res}</div>`
+                :sup?`<div class="g-res rU"><span class="bdg bSUP" title="Replaced after a regrade \u2014 opens the game that was played">\u21bb SUP</span></div>`
+                :`<div class="g-res rU">\u2014</div>`;
       const pr=priors.get(f.gameId);
       const prH=pr&&pr.n?`<div class="fh2h" style="font-size:0.62rem;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">vs this team this season: ${wldChips(pr)}</div>`:'';
-      return`<div class="frow${fc?' '+fc:''}" data-gid="${esc(f.gameId)}" data-sid="${esc(sid)}"${f.result?' data-result="'+esc(f.result)+'"':''} >
+      return`<div class="frow${fc?' '+fc:''}${sup?' sup-row':''}" data-gid="${esc(f.gameId)}" data-sid="${esc(sid)}"${f.result?' data-result="'+esc(f.result)+'"':''}${sup?' data-sup="'+esc(sup)+'"':''} >
         <div><div class="frn">${esc(f.rn||'')}</div></div>
         <div><div class="fopp">${esc(f.oppName||'\u2014')}</div><div class="fdt">${esc(fmtD(f.date||''))}</div>${prH}</div>
         <div class="fsc">${esc(f.score||'')}</div>${resH}</div>`;
@@ -5597,6 +5589,9 @@ function renderTeam(td,tid,sid){
     const sid2=r.dataset.sid;
     const gid2=r.dataset.gid;
     if(r.dataset.result){openSheet(gid2,sid2);return;}
+    // Superseded: open the game that replaced it. It was never played, so the
+    // team-opp view would have opened on "Upcoming" for a date months gone.
+    if(r.dataset.sup){openSheet(r.dataset.sup,sid2);return;}
     // Upcoming — open team opp view; need team IDs from game file
     (async()=>{
       if(!S.games[sid2]){const d=await sgj('games/bv',sid2);S.games[sid2]=d||{games:{}};}
@@ -6323,6 +6318,9 @@ async function renderClubWeek(){
     // Same behaviour as the team Fixtures tab: a played game opens the box
     // score, an unplayed one opens the team-vs-team view.
     if(row.dataset.played === '1'){ openSheet(gid, sid); return; }
+    // A superseded fixture opens the game that REPLACED it, not a team-vs-team
+    // view flagged "upcoming" for a date in the past.
+    if(row.dataset.sup){ openSheet(row.dataset.sup, sid); return; }
     const g = S.games[sid]?.games?.[gid];
     const hh = hTid(g), aa = aTid(g);
     if(g && hh && aa){
@@ -6502,7 +6500,11 @@ function clubRowHTML(r){
 
   const score = played && mine !== null && theirs !== null ? `${mine}-${theirs}` : '';
   // An intra-club game has no "us" and "them", so a W/L badge would be a lie.
-  const resH  = both ? '<div class="g-res rU">—</div>'
+  // A superseded fixture is not a pending game. Rendering it as one is what made a
+  // week months gone still look like it had games to come.
+  const sup   = (typeof g.sup === 'string' && g.sup) ? g.sup : null;
+  const resH  = sup  ? '<div class="g-res rU"><span class="bdg bSUP" title="Replaced after a regrade — opens the game that was played">\u21bb SUP</span></div>'
+              : both ? '<div class="g-res rU">—</div>'
               : res  ? `<div class="g-res r${res}">${res}</div>`
                      : `<div class="g-res rU">${esc(g.st === 'UPCOMING' || g.st === 'PRE_GAME' ? '—' : (g.st || '—'))}</div>`;
 
@@ -6511,9 +6513,9 @@ function clubRowHTML(r){
      own column on a wide screen and they wrap to a second line on a phone, rather
      than one run-on string ellipsised into uselessness. */
   const det = [g.rn || '', g.vn || '', g.ct || ''];
-  const cls  = [finalClass(g.rn), both ? 'cmine2' : ''].filter(Boolean).join(' ');
+  const cls  = [finalClass(g.rn), both ? 'cmine2' : '', sup ? 'sup-row' : ''].filter(Boolean).join(' ');
 
-  return `<div class="crow${cls ? ' ' + cls : ''}" data-gid="${esc(r.gid)}" data-sid="${esc(r.sid)}" data-played="${played ? 1 : 0}" data-mytid="${esc(myTid)}">
+  return `<div class="crow${cls ? ' ' + cls : ''}" data-gid="${esc(r.gid)}" data-sid="${esc(r.sid)}" data-played="${played ? 1 : 0}"${sup ? ` data-sup="${esc(sup)}"` : ''} data-mytid="${esc(myTid)}">
     <div class="cmain">
       <span class="cteam">${esc(myName || '—')}</span><span class="copp">${both ? 'v ' : (myIsHome ? 'v ' : '@ ')}${esc(oppName || '—')}</span>${both ? '<span class="cboth">(club v club)</span>' : ''}
     </div>
@@ -6652,6 +6654,11 @@ function renderSheet(g,gid,sid,con){
     case'legacy':
       h+=`<div style="padding:7px 14px"><span class="bdg bLG">\u2b1c Historical</span></div>`;
       h+=`<div class="gmode-blk"><div class="gmode-msg">${t1n?esc(t1n)+' vs '+esc(t2n||'?'):'Teams unknown'}${g.d?`<br><span style="color:var(--text3)">${esc(fmtD(g.d))}</span>`:''}</div></div>`;break;
+    case'superseded':{
+      h+=`<div style="padding:7px 14px"><span class="bdg bSUP" onclick="openSheet('${esc(g.sup)}','${esc(sid)}')" title="Open the game that replaced this fixture">\u21bb Superseded</span></div>`;
+      h+=sb(null,null,t1n||'Team 1',t2n||'Team 2',t1mine,t2mine,'vs');
+      h+=`<div class="gmode-blk"><div class="gmode-msg">Replaced after a regrade and never played. PlayHQ still lists it.</div></div>`;
+      break;}
     case'upcoming':{
       // Surrogate pair, not \u1f5d3 — \uXXXX takes exactly four hex digits, so the
       // five-digit form parses as \u1f5d followed by a literal '3' and renders a
