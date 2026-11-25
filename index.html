@@ -630,6 +630,14 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .gr-grow.sel{color:var(--accent);font-weight:700}
 .gr-scroll{overflow-x:auto;padding:0 10px 10px}
 .gr-svg{display:block}
+/* An age band header in the gutter, and its rule across the diagram. Drawn only
+   when a panel actually holds more than one age — a team moved up or down an
+   age bracket. One age, no furniture. */
+.gr-age{display:flex;align-items:flex-end;justify-content:flex-end;padding:0 10px 3px;
+  font-size:0.58rem;letter-spacing:0.09em;color:var(--text3);text-transform:uppercase;font-weight:700}
+.gr-agerule{stroke:var(--border);stroke-width:1;stroke-dasharray:4 4}
+/* Third heading line: how wide the column is and what is in it. */
+.gr-colm{fill:var(--text3);font-size:8px;opacity:0.85}
 .gr-colh{fill:var(--text);font-size:11px;font-weight:700}
 .gr-cols{fill:var(--text3);font-size:9px}
 .gr-box{cursor:pointer}
@@ -960,7 +968,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.92</span>
+      <span class="rail-ver">v1.93</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -2532,18 +2540,48 @@ function grRender(){
 
   const gradeNames=new Map();
   for(const t of teams) for(const s of t.segs) gradeNames.set(s.gid,s.grade);
-  const rows=[...gradeNames.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),undefined,{numeric:true}));
+  /* ⚠️ ROWS SORT BY AGE FIRST, HIGHEST AT THE TOP.
+     The old sort was alphabetical on the FULL grade name, so "Saturday U14 Boys
+     ARes" landed BELOW "Saturday U13 Boys D" purely because "U14" > "U13" as
+     text — a team promoted an entire age bracket appeared at the bottom of the
+     diagram, labelled "ARES", indistinguishable from a U13 A Reserve. The row
+     label comes from grShort(), which strips the age by design (it is normally
+     the panel heading), so nothing on screen said which age it was.
+     Rows are keyed on gid, so the two grades were never merged in the data —
+     this was a reading problem, not a counting one.
+     Within an age, gradeRank() gives the real order (A, ARES, B, BRES, C …)
+     rather than the alphabetical one, which put ARES after A1 and C before
+     BRES. An unknown level ranks 999 and falls to the foot of its own band. */
+  const homeAge=ageNum(String(G.key||'').split('|')[1]);
+  const ageNumOf=name=>{ const n=ageNum(grParse(name).age); return (n&&n!==999)?n:homeAge; };
+  const ageTxtOf=name=>grParse(name).age||String(G.key||'').split('|')[1]||'';
+  const rows=[...gradeNames.entries()].sort((a,b)=>
+    ageNumOf(b[1])-ageNumOf(a[1]) ||
+    gradeRank(grShort(a[1]))-gradeRank(grShort(b[1])) ||
+    String(a[1]).localeCompare(String(b[1]),undefined,{numeric:true}));
   const rowIdx=new Map(rows.map(([gid],i)=>[gid,i]));
+  const rowAge=rows.map(([,name])=>ageTxtOf(name));
+  const multiAge=new Set(rowAge).size>1;
+  const AGEH=multiAge?20:0;
+  const newBand=rows.map((r,i)=>multiAge&&(i===0||rowAge[i]!==rowAge[i-1]));
 
   // Narrow columns; a box's HEIGHT is how many teams are in it.
-  const COLW=46, GAP=96, PADL=10, PADT=46, UNIT=9, ROWPAD=14;
+  // PADT holds the column heading: date, the span it covers, and what is in it.
+  // The gutter's top spacer reads the same constant, so the two stay aligned.
+  const COLW=46, GAP=96, PADL=10, PADT=62, UNIT=9, ROWPAD=14;
   const rowH=rows.map(([gid])=>{
     let max=0; for(let i=0;i<cols.length;i++) max=Math.max(max,(cell.get(i+'|'+gid)||[]).length);
     return Math.max(24,max*UNIT+ROWPAD);
   });
+  // The band header occupies real height, counted here so the gutter's divs and
+  // the SVG's rows stay on the same y — they are two renderings of one layout.
   const rowY=[]; let y=PADT;
-  for(let i=0;i<rows.length;i++){ rowY.push(y); y+=rowH[i]+10; }
-  const W=PADL+cols.length*COLW+(cols.length-1)*GAP+PADL, H=y+14;
+  for(let i=0;i<rows.length;i++){ if(newBand[i]) y+=AGEH; rowY.push(y); y+=rowH[i]+10; }
+  /* ⚠️ The headings are wider than COLW and are centred, so the last column's
+     text overhangs the right edge. With PADL on both sides it was CLIPPED —
+     "scheduled" rendered as "schedule". PADR is the overhang allowance. */
+  const PADR=78;
+  const W=PADL+cols.length*COLW+(cols.length-1)*GAP+PADR, H=y+14;
   const colX=i=>PADL+i*(COLW+GAP);
   const nAt=(i,gid)=>(cell.get(i+'|'+gid)||[]).length;
   const boxH=n=>n*UNIT;        // exactly one UNIT per team — bands stack to fill
@@ -2581,9 +2619,48 @@ function grRender(){
           onmouseenter="grTip(event,'flow','${esc(L.k)}')" onmouseleave="grTipHide()"
           onclick="grPickGrade('${esc(L.to)}')"></path>`;
   }
+  /* ⚠️ A COLUMN IS A SPAN, NOT A DATE. The heading read "9 Nov · week of", which
+     says when the column STARTS and nothing about what it covers — and the last
+     column covers everything from its week to the end of the season, which may
+     be months. Each heading now carries the date range it actually spans and how
+     much is inside it, so a wide column cannot read as a single week.
+     Games are counted by DISTINCT game id: both sides of a fixture are teams in
+     this panel, so counting appearances would double every number. */
+  const ymdUTC=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v||''));return m?Date.UTC(+m[1],+m[2]-1,+m[3]):null;};
+  let firstD='', lastD='';
+  for(const t of teams) for(const a of t.apps.concat(t.sups||[])){
+    if(!a.d) continue;
+    if(!firstD||a.d<firstD) firstD=a.d;
+    if(a.d>lastD) lastD=a.d;
+  }
+  /* ⚠️ cols[0] IS THE STRING 'start', NOT A DATE. It is a sentinel meaning "where
+     each team began", so it cannot be compared against a game date and cannot be
+     measured from: `a.d >= 'start'` is false for every real date, which reported
+     the Start column as holding 0 games. Its span begins at the FIRST GAME. */
+  const colFrom=cols.map((c,i)=> i===0?(firstD||c):c);
+  const colTo  =cols.map((c,i)=> i+1<cols.length?grShift(cols[i+1],-1):(lastD>colFrom[i]?lastD:colFrom[i]));
+  /* ⚠️ FLOOR, NOT ROUND. colTo is the INCLUSIVE LAST DAY of the span, not the
+     start of its final week. 26 Oct–1 Nov is six days and one week; rounding
+     6/7 to 1 and adding 1 called it two. */
+  const colWeeks=cols.map((c,i)=>{
+    const A=ymdUTC(colFrom[i]),B=ymdUTC(colTo[i]);
+    if(A===null||B===null||B<A) return 1;
+    return Math.max(1,Math.floor((B-A)/604800000)+1);
+  });
+  const colGames=cols.map((c,i)=>{
+    const seen=new Set();
+    for(const t of teams) for(const a of t.apps.concat(t.sups||[]))
+      if(a.d&&a.d>=colFrom[i]&&a.d<=colTo[i]) seen.add(a.key);
+    return seen.size;
+  });
   cols.forEach((c,i)=>{
-    svg+=`<text class="gr-colh${colFuture[i]?' fut':''}" x="${colX(i)+COLW/2}" y="20" text-anchor="middle">${i===0?'Start':esc(grDayLabel(c))}</text>`+
-         `<text class="gr-cols" x="${colX(i)+COLW/2}" y="33" text-anchor="middle">${i===0?'first game':(colFuture[i]?'scheduled':'week of')}</text>`;
+    const x=colX(i)+COLW/2;
+    const span=colTo[i]&&colTo[i]!==colFrom[i]?`${esc(grDayLabel(colFrom[i]))} \u2013 ${esc(grDayLabel(colTo[i]))}`:esc(grDayLabel(colFrom[i]));
+    const wk=`${colWeeks[i]} week${colWeeks[i]===1?'':'s'}`;
+    const gm=colFuture[i]?'scheduled':`${colGames[i]} game${colGames[i]===1?'':'s'}`;
+    svg+=`<text class="gr-colh${colFuture[i]?' fut':''}" x="${x}" y="20" text-anchor="middle">${i===0?'Start':esc(grDayLabel(c))}</text>`+
+         `<text class="gr-cols" x="${x}" y="33" text-anchor="middle">${span}</text>`+
+         `<text class="gr-colm" x="${x}" y="45" text-anchor="middle">${wk} \u00b7 ${gm}</text>`;
   });
   rows.forEach(([gid,name],r)=>{
     for(let i=0;i<cols.length;i++){
@@ -2606,10 +2683,22 @@ function grRender(){
            `</g>`;
     }
   });
+  // The boundary between two age brackets, carried across the whole diagram so
+  // the eye does not have to return to the gutter to find it. Not drawn above
+  // the first band — there is nothing above it to separate.
+  if(multiAge){
+    rows.forEach((_,i)=>{
+      if(!newBand[i]||i===0) return;
+      const yy=rowY[i]-AGEH/2-5;
+      svg+=`<line class="gr-agerule" x1="0" y1="${yy}" x2="${W}" y2="${yy}"></line>`;
+    });
+  }
   svg+='</svg>';
 
   const gutter=`<div class="gr-gutter"><div style="height:${PADT}px"></div>`+
-    rows.map(([gid,name],r)=>`<div class="gr-grow${GRSEL===gid?' sel':''}" style="height:${rowH[r]}px;margin-bottom:10px"
+    rows.map(([gid,name],r)=>
+      (newBand[r]?`<div class="gr-age" style="height:${AGEH}px">${esc(rowAge[r])}</div>`:'')+
+      `<div class="gr-grow${GRSEL===gid?' sel':''}" style="height:${rowH[r]}px;margin-bottom:10px"
         title="${esc(name)}" onclick="grPickGrade('${esc(gid)}')"><span>${esc(grShort(name))}</span></div>`).join('')+`</div>`;
 
   const movers=G.teams.filter(t=>t.hops.length).length;
@@ -2647,11 +2736,22 @@ function grTipList(kind,k){
     return {list:D.teams.filter(t=>{const s=D.at.get(t.tid)[+i];return s&&s.gid===gid;}),gid,upto:D.colEnd[+i],sel:D.selSet};
   }
   const [iS,from,to]=k.split('|'); const i=+iS;
+  /* ⚠️ A MOVE SHOWS THE RECORD IN THE GRADE BEING LEFT, NOT THE ONE BEING ENTERED.
+     This read `gid:to, upto:colEnd[i]` — the destination grade, cut off at the end
+     of the destination column. That column is frequently in the FUTURE, so
+     hovering a move into A showed "1 · 0-1 · 0%" built from a game that has not
+     been played, and for a wholly unplayed week it showed a record for a grade
+     the team has not yet played a minute in.
+     What makes a move legible is how the team FINISHED the grade it is leaving —
+     that is the result the move was made on. So a move reads `from`, up to the
+     end of the PREVIOUS column. A stay is not leaving anything, so it keeps the
+     later cutoff and shows more games rather than fewer. */
+  const moved=from!==to;
   return {list:D.teams.filter(t=>{const a=D.at.get(t.tid)[i-1],b=D.at.get(t.tid)[i];return a&&b&&a.gid===from&&b.gid===to;}),
-          gid:to,upto:D.colEnd[i],sel:D.selSet};
+          gid:moved?from:to, upto:moved?D.colEnd[i-1]:D.colEnd[i], sel:D.selSet, moved};
 }
 function grTip(ev,kind,k){
-  const {list,gid,upto,sel}=grTipList(kind,k);
+  const {list,gid,upto,sel,moved}=grTipList(kind,k);
   if(!list.length) return;
   // Selected teams sort to the top, but nobody is left out — the tooltip is
   // the grade's real membership at that point.
@@ -2664,7 +2764,9 @@ function grTip(ev,kind,k){
   const tip=el('gr-tip');
   const nSel=sel?list.filter(t=>sel.has(t.tid)).length:0;
   const verb=kind==='flow'?(k.split('|')[1]===k.split('|')[2]?'stayed':'moved here'):'';
-  tip.innerHTML=`<div class="gr-tiph">${list.length} team${list.length===1?'':'s'}${verb?' '+verb:''} · record in this grade${sel?` · ${nSel} marked`:''}</div>`+rows+
+  // Say WHICH grade the record is in. "record in this grade" beside a move was
+  // ambiguous even when it was the destination, and is wrong now it is not.
+  tip.innerHTML=`<div class="gr-tiph">${list.length} team${list.length===1?'':'s'}${verb?' '+verb:''} · record in ${moved?'the grade they left':'this grade'}${sel?` · ${nSel} marked`:''}</div>`+rows+
     (ordered.length>26?`<div class="gr-tipm">… and ${ordered.length-26} more</div>`:'');
   tip.classList.add('on');
   const r=tip.getBoundingClientRect();
