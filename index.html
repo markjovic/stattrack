@@ -252,6 +252,11 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .bSUP:hover{color:var(--text1)}
 .sup-row{opacity:0.5}
 .sup-row:hover{opacity:0.85}
+/* A cancelled fixture is struck through. The chip is exempt — striking its own
+   label through makes it unreadable at this opacity. */
+.sup-row td:not(.gr-res){text-decoration:line-through}
+.frow.sup-row,.crow.sup-row{text-decoration:line-through}
+.frow.sup-row .bdg,.crow.sup-row .bdg{text-decoration:none}
 
 .vtabs{display:flex;border-bottom:2px solid var(--border);padding:0 14px;gap:0}
 .vtab{padding:9px 14px;font-size:0.83rem;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px;transition:color 0.12s,border-color 0.12s;cursor:pointer}
@@ -2672,6 +2677,34 @@ function grTipHide(){ el('gr-tip').classList.remove('on'); }
 function grPickGrade(gid){ GRSEL=(GRSEL===gid)?null:gid; grTipHide(); grRender(); if(GRTEAM) grTeamCard(GRTEAM); }
 
 /* ── One team: results, and where each opponent sat then and now ───────────*/
+/* ⚠️ A CANCELLED FIXTURE IS LISTED DIRECTLY ABOVE THE GAME THAT REPLACED IT.
+   Both carry the same DATE, so sorting by date alone puts them either way round,
+   and the ↓ on the chip becomes a lie the moment the replacement sorts first.
+   The replacing game always has this team as a side — that is how `sup` was
+   derived — so it is always somewhere in the same list, just not always next.
+   A row whose replacement is NOT in the list is returned in `orphans` and keeps
+   its date position, so it can be drawn WITHOUT the arrow rather than pointing
+   at whatever happens to follow it. ONE implementation, two callers. */
+function supOrder(list, idOf, supOf){
+  const keep=list.filter(x=>!supOf(x)), sups=list.filter(x=>supOf(x));
+  const at=new Map(); keep.forEach((x,i)=>at.set(String(idOf(x)),i));
+  const before=new Map(), orphans=new Set();
+  for(const sp of sups){
+    const i=at.get(String(supOf(sp)));
+    if(i===undefined){ orphans.add(sp); continue; }
+    if(!before.has(i)) before.set(i,[]);
+    before.get(i).push(sp);
+  }
+  const out=[];
+  for(let i=0;i<keep.length;i++){ for(const sp of (before.get(i)||[])) out.push(sp); out.push(keep[i]); }
+  const stamp=r=>String((r.d||r.date||'')+' '+(r.t||''));
+  for(const sp of orphans){
+    const k=out.findIndex(r=>stamp(r)>stamp(sp));
+    out.splice(k<0?out.length:k,0,sp);
+  }
+  return { rows: out, orphans };
+}
+
 function grTeamCard(tid){
   const M=GR[GRCUR.sid], t=M.teams.get(tid), box=el('gr-team');
   if(!t){ box.innerHTML=''; return; }
@@ -2681,18 +2714,22 @@ function grTeamCard(tid){
   // Superseded fixtures are OUT of t.apps, so every count above and every band is
   // clean by construction. They are shown here, greyed, because the flag carries
   // the id of the game that replaced it and this row is where that is useful.
-  const shown=t.apps.concat(t.sups||[]).sort((x,y)=>{const A=x.d+' '+x.t,B=y.d+' '+y.t;return A<B?-1:A>B?1:0;});
+  const ord=supOrder(t.apps.concat(t.sups||[]).sort((x,y)=>{const A=x.d+' '+x.t,B=y.d+' '+y.t;return A<B?-1:A>B?1:0;}),
+                     a=>a.key, a=>a.sup);
+  const shown=ord.rows;
   const rows=shown.map(a=>{
     const my=Number(a.my), th=Number(a.their);
     const isSup=!!a.sup;
     let res='',cls='';
     if(grPlayed(a)){ if(my>th){res='W';cls='w';w++;} else if(my<th){res='L';cls='l';l++;} else {res='D';cls='d';d++;} }
-    else if(isSup){ res='\u21bb SUP'; cls='p'; }
+    // ↓ means "the game that replaced this one is the next row". With no
+    // replacement in this list there is nothing to point at, so no arrow.
+    else if(isSup){ res=ord.orphans.has(a)?'RGRD':'\u2193 RGRD'; cls='p'; }
     else { res=esc(a.st||'TBP'); cls='p'; }
     const wk=grWeek(a.d), oppThen=atOf(a.opp,wk), oppNow=finalOf(a.opp);
     const moved=oppThen&&oppNow&&oppThen!==oppNow;
     const open=grPlayed(a)?` class="gr-trow" onclick="openSheet('${esc(a.key)}','${esc(GRCUR.sid)}')"`
-             :isSup?` class="gr-trow sup-row" onclick="openSheet('${esc(a.sup)}','${esc(GRCUR.sid)}')" title="Replaced after a regrade \u2014 opens the game that was played"`
+             :isSup?` class="gr-trow sup-row" onclick="openSheet('${esc(a.sup)}','${esc(GRCUR.sid)}')" title="${ord.orphans.has(a)?'Cancelled by a regrade \u2014 click to open the game played instead':'Cancelled by a regrade \u2014 the game played instead is the next row; click to open it'}"`
              :'';
     return `<tr${open}><td class="gr-d">${esc(grDayLabel(a.d))}</td><td class="gr-r">${esc(a.rn)}</td>
       <td>${esc(a.oppName||a.opp||'')}</td>
@@ -2706,7 +2743,7 @@ function grTeamCard(tid){
   box.innerHTML=`<div class="gr-tcard">
     <div class="rec-title gr-tlink" onclick="loadTeam('${esc(t.tid)}','${esc(GRCUR.sid)}')" title="Open this team">${esc(t.name)} ›</div>
     <div class="gr-path">${path}</div>
-    <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}${t.superseded?` · ${t.superseded} superseded, shown greyed and not counted`:''}</div>
+    <div class="gr-rec">${w}W ${l}L${d?` ${d}D`:''} over ${played} played${t.apps.length>played?` · ${t.apps.length-played} still to play`:''}${t.superseded?` · ${t.superseded} regraded, struck through above their replacements and not counted`:''}</div>
     <div class="gr-tablewrap"><table class="gr-table">
       <thead><tr><th>Date</th><th>Round</th><th>Opponent</th><th>Score</th><th></th><th>Our grade</th><th>Their grade then</th><th>Their grade now</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
@@ -5543,7 +5580,8 @@ function renderTeam(td,tid,sid){
   if(!fixtures.length){h+='<div class="empty">No fixture data</div>';}
   else{
     const priors=fixturePriors(td,tid);
-    h+=fixtures.map(f=>{
+    const ford=supOrder(fixtures, f=>f.gameId, f=>(typeof f.sup==='string'&&f.sup)?f.sup:null);
+    h+=ford.rows.map(f=>{
       const res=f.result;
       const fc=finalClass(f.rn);
       // team-stats carries `sup` on the fixture entry (build-team-stats.js). The
@@ -5551,7 +5589,7 @@ function renderTeam(td,tid,sid){
       // be propagated into the build rather than skipped in the UI.
       const sup=(typeof f.sup==='string'&&f.sup)?f.sup:null;
       const resH=res?`<div class="g-res r${res}">${res}</div>`
-                :sup?`<div class="g-res rU"><span class="bdg bSUP" title="Replaced after a regrade \u2014 opens the game that was played">\u21bb SUP</span></div>`
+                :sup?`<div class="g-res rU"><span class="bdg bSUP" title="${ford.orphans.has(f)?'Cancelled by a regrade \u2014 opens the game played instead':'Cancelled by a regrade \u2014 the game played instead is the next row'}">${ford.orphans.has(f)?'RGRD':'\u2193 RGRD'}</span></div>`
                 :`<div class="g-res rU">\u2014</div>`;
       const pr=priors.get(f.gameId);
       const prH=pr&&pr.n?`<div class="fh2h" style="font-size:0.62rem;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">vs this team this season: ${wldChips(pr)}</div>`:'';
@@ -6503,7 +6541,9 @@ function clubRowHTML(r){
   // A superseded fixture is not a pending game. Rendering it as one is what made a
   // week months gone still look like it had games to come.
   const sup   = (typeof g.sup === 'string' && g.sup) ? g.sup : null;
-  const resH  = sup  ? '<div class="g-res rU"><span class="bdg bSUP" title="Replaced after a regrade — opens the game that was played">\u21bb SUP</span></div>'
+  // No arrow here on purpose: the club week view is one week across clubs, not a
+  // single team's fixture list, so the replacing game is NOT reliably the next row.
+  const resH  = sup  ? '<div class="g-res rU"><span class="bdg bSUP" title="Cancelled by a regrade — opens the game played instead">RGRD</span></div>'
               : both ? '<div class="g-res rU">—</div>'
               : res  ? `<div class="g-res r${res}">${res}</div>`
                      : `<div class="g-res rU">${esc(g.st === 'UPCOMING' || g.st === 'PRE_GAME' ? '—' : (g.st || '—'))}</div>`;
@@ -6655,7 +6695,7 @@ function renderSheet(g,gid,sid,con){
       h+=`<div style="padding:7px 14px"><span class="bdg bLG">\u2b1c Historical</span></div>`;
       h+=`<div class="gmode-blk"><div class="gmode-msg">${t1n?esc(t1n)+' vs '+esc(t2n||'?'):'Teams unknown'}${g.d?`<br><span style="color:var(--text3)">${esc(fmtD(g.d))}</span>`:''}</div></div>`;break;
     case'superseded':{
-      h+=`<div style="padding:7px 14px"><span class="bdg bSUP" onclick="openSheet('${esc(g.sup)}','${esc(sid)}')" title="Open the game that replaced this fixture">\u21bb Superseded</span></div>`;
+      h+=`<div style="padding:7px 14px"><span class="bdg bSUP" onclick="openSheet('${esc(g.sup)}','${esc(sid)}')" title="Open the game that replaced this fixture">\u21bb Regraded</span></div>`;
       h+=sb(null,null,t1n||'Team 1',t2n||'Team 2',t1mine,t2mine,'vs');
       h+=`<div class="gmode-blk"><div class="gmode-msg">Replaced after a regrade and never played. PlayHQ still lists it.</div></div>`;
       break;}
