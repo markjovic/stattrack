@@ -638,6 +638,26 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .gr-agerule{stroke:var(--border);stroke-width:1;stroke-dasharray:4 4}
 /* Third heading line: how wide the column is and what is in it. */
 .gr-colm{fill:var(--text3);font-size:8px;opacity:0.85}
+/* Club leaders */
+.clb-bar{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 4px}
+.clb-cat{padding:4px 11px;border-radius:6px;border:1px solid var(--border);background:transparent;
+  color:var(--text2);font-size:0.75rem;cursor:pointer}
+.clb-cat.on{color:var(--accent);border-color:var(--accent);font-weight:700}
+.clb-seabar{padding-top:2px}
+.clb-sea{max-width:22em}
+.clb-prog{padding:6px 12px;font-size:0.72rem;color:var(--text3)}
+.clb-prog.warn{color:var(--loss)}
+.clb-wrap{overflow-x:auto;padding:0 12px}
+.clb-tbl{width:100%;border-collapse:collapse;font-size:0.8rem}
+.clb-tbl th{text-align:left;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;
+  color:var(--text3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
+.clb-tbl td{padding:5px 8px;border-bottom:1px solid var(--border)}
+.clb-rk{color:var(--text3);width:2.5em;font-variant-numeric:tabular-nums}
+.clb-nm{cursor:pointer}
+.clb-nm:hover{color:var(--accent)}
+.clb-v{font-variant-numeric:tabular-nums;font-weight:700}
+.clb-s{font-variant-numeric:tabular-nums;color:var(--text3)}
+.clb-foot{padding:8px 12px 14px;font-size:0.7rem;color:var(--text3)}
 .gr-colh{fill:var(--text);font-size:11px;font-weight:700}
 .gr-cols{fill:var(--text3);font-size:9px}
 .gr-box{cursor:pointer}
@@ -968,7 +988,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.93</span>
+      <span class="rail-ver">v1.95</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -6285,6 +6305,11 @@ function renderClubShell(){
   ve.innerHTML = `<div class="vhdr"><button class="vback" onclick="history.back()">←</button>
     <div><div class="vtitle">${esc(S.clubName || club.n || S.clubId)}</div>
     <div class="vsub">${nTeams.toLocaleString()} team${nTeams === 1 ? '' : 's'} across ${sids.length} season${sids.length === 1 ? '' : 's'}</div></div></div>
+  <div class="vtabs">
+    <button class="vtab on" onclick="switchTTab(this,'cw-pane','cl-pane')">Week</button>
+    <button class="vtab" onclick="switchTTab(this,'cl-pane','cw-pane');clubLeadersLoad()">Leaders</button>
+  </div>
+  <div id="cw-pane" class="tpane on">
   <div class="cweek-nav">
     <button onclick="shiftClubWeek(-1)">← Prev</button>
     <span class="cwk-lbl" id="cwk-lbl">${esc(clubWeekLabel(S.clubWeek))}</span>
@@ -6298,7 +6323,154 @@ function renderClubShell(){
       <button style="padding:3px 10px;border-radius:5px;border:1px solid var(--border);font-size:0.75rem;color:var(--text2)" onclick="jumpClubWeek('${esc(mkDate(new Date()))}')">This week</button>
     </span>
   </div>
-  <div id="cweek-body"></div>`;
+  <div id="cweek-body"></div>
+  </div>
+  <div id="cl-pane" class="tpane"><div id="club-lead"></div></div>`;
+}
+
+/* ── Club leaders ──────────────────────────────────────────────────────────
+   NO BUILD STEP AND NO NEW DATA. Both artifacts are already published and
+   already fetched elsewhere in this page:
+     clubs/{cid}.json          seasons → [tid]   (loadClub already has it)
+     team-stats/bv/{sid}.json  teams[tid].roster[truncUuid] =
+                               { name, gp, pts, fg, ft, threePt, fouls }
+   — the same file and the same roster the team card renders.
+
+   ⚠ IMMUNE TO T20 BY CONSTRUCTION. build-team-stats.js resolves ONE
+   registration per (sid, tid) through extractRegStats and never sums siblings,
+   so a roster entry cannot carry the regrade double-count that a naive sum over
+   players/ registrations produces. Summing roster entries across teams and
+   seasons is therefore correct.
+
+   ⚠ LOADED NEWEST FIRST, RENDERED AS IT ARRIVES. A club can span twenty-odd
+   seasons and team-stats files are the largest artifacts in the repo, so the
+   table paints after each season rather than after all of them, and says how
+   far through it is. A season that fails to load is COUNTED and named in the
+   footer — a short table and a complete one must not look alike. */
+const CLUB_CATS = [['gp','Games'],['pts','Points'],['threePt','3-pointers'],['fouls','Fouls'],['fg','Field goals'],['ft','Free throws']];
+
+function clubSeasonStart(sid){
+  const se = S.idx?.seasons?.[sid];
+  return (se && (se.startDate || se.endDate)) ? String(se.startDate || se.endDate).slice(0,10) : '';
+}
+
+async function clubLeadersLoad(){
+  const cid = S.clubId, club = S.clubs[cid] || {};
+  if(S.clubLead && S.clubLead.cid === cid){ clubLeadersRender(); return; }
+  const sids = Object.keys(club.seasons || {})
+    .sort((a,b)=>String(clubSeasonStart(b)).localeCompare(String(clubSeasonStart(a))) || String(b).localeCompare(String(a)));
+  // sid:'' is ALL SEASONS and is the default — the all-time table is the point,
+  // the filter is a narrowing of it. `order` keeps the newest-first season list
+  // for the dropdown so it does not have to be re-derived on every render.
+  S.clubLead = { cid, rows:new Map(), done:0, total:sids.length, cat:'gp', per:false, failed:[], sid:'', order:sids, loaded:new Set() };
+  clubLeadersRender();
+  for(const sid of sids){
+    // A club viewed, left and reopened must not restart a half-finished load.
+    if(!S.clubLead || S.clubLead.cid !== cid) return;
+    // ⚠ 'team-stats/bv', not 'team-stats'. sgj() takes the whole directory and
+    // every other caller in this file passes the /bv. Without it each fetch 404s
+    // on both origins and every season reports as failed.
+    const ts = await sgj('team-stats/bv', sid);
+    if(!ts){ S.clubLead.failed.push(sid); }
+    else {
+      for(const tid of (club.seasons[sid] || [])){
+        const t = ts[tid]; if(!t || !t.roster) continue;
+        for(const [key, r] of Object.entries(t.roster)){
+          let a = S.clubLead.rows.get(key);
+          if(!a) S.clubLead.rows.set(key, a = { uuid:key, name:r.name || key, bySid:new Map() });
+          // Kept per season so the filter is a slice of the same numbers the
+          // all-time table shows, never a second aggregation that could drift.
+          let b = a.bySid.get(sid);
+          if(!b) a.bySid.set(sid, b = { gp:0, pts:0, threePt:0, fouls:0, fg:0, ft:0, teams:0 });
+          b.gp += r.gp || 0; b.pts += r.pts || 0; b.threePt += r.threePt || 0;
+          b.fouls += r.fouls || 0; b.fg += r.fg || 0; b.ft += r.ft || 0; b.teams++;
+          if(r.name && a.name === key) a.name = r.name;
+        }
+      }
+    }
+    S.clubLead.loaded.add(sid);
+    S.clubLead.done++;
+    clubLeadersRender();
+  }
+}
+
+function clubLeadersPick(cat){ if(S.clubLead){ S.clubLead.cat = cat; clubLeadersRender(); } }
+function clubLeadersSeason(sid){ if(S.clubLead){ S.clubLead.sid = sid || ''; clubLeadersRender(); } }
+function clubLeadersPer(){ if(S.clubLead){ S.clubLead.per = !S.clubLead.per; clubLeadersRender(); } }
+
+function clubLeadersRender(){
+  const host = el('club-lead'); if(!host) return;
+  const L = S.clubLead; if(!L){ host.innerHTML = ''; return; }
+  const cat = L.cat, per = L.per && cat !== 'gp';
+  const only = L.sid;
+  /* The season filter is a SLICE of the same per-season numbers the all-time
+     table sums, so the two can never disagree. A player with nothing in the
+     chosen season simply has no entry and does not appear. */
+  const all = [...L.rows.values()].map(r => {
+    const t = { uuid:r.uuid, name:r.name, gp:0, pts:0, threePt:0, fouls:0, fg:0, ft:0, seasons:0, teams:0 };
+    for(const [sid, b] of r.bySid){
+      if(only && sid !== only) continue;
+      t.gp += b.gp; t.pts += b.pts; t.threePt += b.threePt;
+      t.fouls += b.fouls; t.fg += b.fg; t.ft += b.ft;
+      t.teams += b.teams; t.seasons++;
+    }
+    return t;
+  }).filter(r => r.seasons > 0);
+  /* ⚠ A ZERO HERE IS NOT A MEASUREMENT. build-team-stats.js writes
+     `gp: stats?.gp ?? 0`, so a player carrying a registration with no stats is
+     indistinguishable from one who genuinely played none. Those rows are held
+     OUT of the ranking and counted in the footer rather than padding the bottom
+     of it as though they were real noughts. */
+  const ranked = all.filter(r => r.gp > 0);
+  const unranked = all.length - ranked.length;
+  const val = r => per ? (r.gp ? r[cat] / r.gp : 0) : r[cat];
+  ranked.sort((a,b)=> val(b)-val(a) || b.gp-a.gp || a.name.localeCompare(b.name) || a.uuid.localeCompare(b.uuid));
+  const fmt = v => per ? (Math.round(v*10)/10).toFixed(1) : v.toLocaleString();
+  const catLabel = (CLUB_CATS.find(c=>c[0]===cat)||['','?'])[1];
+
+  const tabs = CLUB_CATS.map(([k,lbl])=>
+    `<button class="clb-cat${k===cat?' on':''}" onclick="clubLeadersPick('${k}')">${esc(lbl)}</button>`).join('');
+  const perBtn = cat === 'gp' ? '' :
+    `<button class="clb-cat${per?' on':''}" onclick="clubLeadersPer()" title="Per game instead of totals">per game</button>`;
+
+  /* Every season the club has is listed, not just the loaded ones — a season
+     missing from the list because it has not arrived yet would read as a season
+     the club never had. One still loading says so in its own label. */
+  const seasonOpts = ['<option value="">All seasons — all time</option>'].concat(
+    L.order.map(sid => {
+      const nm = (S.idx?.seasons?.[sid] && (S.idx.seasons[sid].name || S.idx.seasons[sid].fullName)) || sid;
+      const state = L.failed.includes(sid) ? ' \u2014 could not load' : (L.loaded.has(sid) ? '' : ' \u2014 loading\u2026');
+      return `<option value="${esc(sid)}"${L.sid === sid ? ' selected' : ''}>${esc(nm)}${state}</option>`;
+    })).join('');
+  const seasonSel = `<select class="sselect clb-sea" onchange="clubLeadersSeason(this.value)">${seasonOpts}</select>`;
+
+  const prog = L.done < L.total
+    ? `<div class="clb-prog">Loading season ${L.done + 1} of ${L.total}… the table fills in as each one arrives, newest first.</div>`
+    : '';
+  const fail = L.failed.length
+    ? `<div class="clb-prog warn">⚠ ${L.failed.length} season file(s) could not be loaded, so these totals are INCOMPLETE: ${L.failed.map(esc).join(', ')}</div>`
+    : '';
+
+  const scope = only
+    ? ((S.idx?.seasons?.[only] && (S.idx.seasons[only].name || S.idx.seasons[only].fullName)) || only)
+    : `all time, ${L.done} of ${L.total} season(s)`;
+  const rows = ranked.slice(0,50).map((r,i)=>
+    `<tr><td class="clb-rk">${i+1}</td>
+      <td class="clb-nm" onclick="loadPlayer('${esc(r.uuid)}')" title="Open ${esc(r.name)}">${esc(r.name)}</td>
+      <td class="clb-v">${fmt(val(r))}</td>
+      <td class="clb-s">${r.gp.toLocaleString()}</td>
+      <td class="clb-s">${only ? r.teams : r.seasons}</td></tr>`).join('');
+
+  host.innerHTML = `<div class="clb-bar">${tabs}${perBtn}</div>
+    <div class="clb-bar clb-seabar">${seasonSel}</div>${prog}${fail}
+    <div class="clb-wrap"><table class="clb-tbl">
+      <thead><tr><th></th><th>Player</th><th>${esc(catLabel)}${per?' /g':''}</th><th>Games</th><th>${only?'Teams':'Seasons'}</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5" class="clb-prog">No ranked players yet.</td></tr>'}</tbody>
+    </table></div>
+    <div class="clb-foot">${ranked.length.toLocaleString()} ranked player(s) \u00b7 ${esc(scope)}`
+    + (ranked.length > 50 ? ` · showing the top 50` : '')
+    + (unranked ? ` · ${unranked.toLocaleString()} held out with no games credited — a registration with no stats reads as 0 here and is NOT treated as a real nought` : '')
+    + `</div>`;
 }
 
 /* Stepping through weeks REPLACES the history entry rather than pushing one.
