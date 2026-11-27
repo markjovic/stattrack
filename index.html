@@ -648,6 +648,20 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .clb-prog{padding:6px 12px;font-size:0.72rem;color:var(--text3)}
 .clb-prog.warn{color:var(--loss)}
 .clb-wrap{overflow-x:auto;padding:0 12px}
+.clb-find{display:flex;align-items:center;gap:10px;padding:4px 12px 8px;flex-wrap:wrap}
+.clb-q{flex:1 1 16em;max-width:26em}
+.clb-fmsg{font-size:0.72rem;color:var(--text2)}
+/* The leading block is pinned and the remainder scrolls under it. Both tables
+   are table-layout:fixed over the same colgroup, so the columns line up
+   whatever the names do. */
+/* No position:sticky — the block is pinned by sitting OUTSIDE the scrolling
+   container, and sticky on top of that only let it overlap the row beneath when
+   the page itself scrolled. */
+.clb-pin{padding:0 12px;background:var(--surface)}
+.clb-scroll{padding:0 12px;max-height:52vh;overflow-y:auto}
+.clb-tbl{table-layout:fixed}
+.clb-hit td{background:rgba(0,200,160,0.14)}
+.clb-hit .clb-nm{color:var(--accent);font-weight:700}
 .clb-tbl{width:100%;border-collapse:collapse;font-size:0.8rem}
 .clb-tbl th{text-align:left;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;
   color:var(--text3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
@@ -991,7 +1005,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.97</span>
+      <span class="rail-ver">v1.99</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -6358,8 +6372,9 @@ function renderClubShell(){
    CLUB_STEP per click, so no one render is ever larger than CLUB_STEP rows and
    the cost is always something the person asked for. Neither number is a
    measurement — do not treat them as one. */
-const CLUB_TOP  = 50;    // rows on first paint
-const CLUB_STEP = 200;   // rows added per click
+const CLUB_TOP   = 100;  // rows on first paint
+const CLUB_STEP  = 100;  // rows added per click, and the block the search jumps to
+const CLUB_STICK = 10;   // leading rows pinned above the scrolling remainder
 const CLUB_CATS = [['gp','Games'],['pts','Points'],['threePt','3-pointers'],['fouls','Fouls'],['fg','Field goals'],['ft','Free throws']];
 
 function clubSeasonStart(sid){
@@ -6375,7 +6390,7 @@ async function clubLeadersLoad(){
   // sid:'' is ALL SEASONS and is the default — the all-time table is the point,
   // the filter is a narrowing of it. `order` keeps the newest-first season list
   // for the dropdown so it does not have to be re-derived on every render.
-  S.clubLead = { cid, rows:new Map(), done:0, total:sids.length, cat:'gp', per:false, failed:[], sid:'', order:sids, loaded:new Set(), show:CLUB_TOP };
+  S.clubLead = { cid, rows:new Map(), done:0, total:sids.length, cat:'gp', per:false, failed:[], sid:'', order:sids, loaded:new Set(), show:CLUB_TOP, find:'', hit:null, findMsg:'' };
   clubLeadersRender();
   for(const sid of sids){
     // A club viewed, left and reopened must not restart a half-finished load.
@@ -6408,19 +6423,76 @@ async function clubLeadersLoad(){
 }
 
 function clubLeadersPick(cat){ if(S.clubLead){ S.clubLead.cat = cat; clubLeadersRender(); } }
-function clubLeadersSeason(sid){ if(S.clubLead){ S.clubLead.sid = sid || ''; S.clubLead.show = CLUB_TOP; clubLeadersRender(); } }
+function clubLeadersSeason(sid){ if(S.clubLead){ S.clubLead.sid = sid || ''; S.clubLead.show = CLUB_TOP; S.clubLead.hit = null; S.clubLead.findMsg = ''; clubLeadersRender(); } }
 function clubLeadersMore(){ if(S.clubLead){ S.clubLead.show += CLUB_STEP; clubLeadersRender(); } }
-function clubLeadersLess(){ if(S.clubLead){ S.clubLead.show = CLUB_TOP; clubLeadersRender(); } }
-function clubLeadersPer(){ if(S.clubLead){ S.clubLead.per = !S.clubLead.per; clubLeadersRender(); } }
+function clubLeadersLess(){ if(S.clubLead){ S.clubLead.show = CLUB_TOP; S.clubLead.hit = null; clubLeadersRender(); } }
 
-function clubLeadersRender(){
-  const host = el('club-lead'); if(!host) return;
-  const L = S.clubLead; if(!L){ host.innerHTML = ''; return; }
-  const cat = L.cat, per = L.per && cat !== 'gp';
-  const only = L.sid;
-  /* The season filter is a SLICE of the same per-season numbers the all-time
-     table sums, so the two can never disagree. A player with nothing in the
-     chosen season simply has no entry and does not appear. */
+/* ── Find a player in the ranking ───────────────────────────────────────
+   Searching a ranked list is not filtering it: the point is WHERE someone sits,
+   so the table is left whole and the row is scrolled to and marked. The rows
+   between here and them are rendered too — jumping to row 3,400 without the
+   3,399 above it would show a rank with nothing to read it against — so the
+   search expands to the CLUB_STEP block that contains them and no further.
+   ⚠ It searches the WHOLE ranking, not the rendered rows. Searching only what
+   is on screen would answer "not found" for anyone past the first block, which
+   is the opposite of what this is for. */
+function clubLeadersFind(q){
+  const L = S.clubLead; if(!L) return;
+  L.find = String(q || '').trim();
+  L.hit = null; L.findMsg = '';
+  if(!L.find){ clubLeadersRender(); return; }
+  const { ranked } = clubLeadersRanked(L);
+  /* ⚠ tokenMatch, not a substring. It is the page's own name matcher (L1257):
+     the normName v2 fold on BOTH operands — curly and straight apostrophes, the
+     dash family, accents — and then every whitespace-separated token must
+     appear. A raw toLowerCase().includes() missed "squire louis" for Louis
+     SQUIRE because the order differs, and missed O’Brien typed with a straight
+     apostrophe. The repo solved this at seven comparison sites in August; this
+     is the eighth and it uses the same function rather than a ninth copy. */
+  const hits = [];
+  for(let i = 0; i < ranked.length; i++) if(tokenMatch(String(ranked[i].name), L.find)) hits.push(i);
+  if(!hits.length){
+    /* ⚠ A MISS IS NOT NECESSARILY AN ABSENCE. Three different facts read the
+       same otherwise: not in this club at all; in the club but not in the season
+       being filtered to; or in a season whose file has not arrived yet. The
+       message names whichever of those is actually in play. */
+    const scopeBits = [];
+    if(L.sid){
+      const nm = (S.idx?.seasons?.[L.sid] && (S.idx.seasons[L.sid].name || S.idx.seasons[L.sid].fullName)) || L.sid;
+      scopeBits.push(`in ${esc(nm)}`);
+    }
+    if(L.done < L.total) scopeBits.push(`and only ${L.done} of ${L.total} season(s) have loaded — try again when it finishes`);
+    else if(!L.sid) scopeBits.push('across all seasons');
+    L.findMsg = `no one matching “${esc(L.find)}” ${scopeBits.join(' ')}`;
+    clubLeadersRender(); return;
+  }
+  const i = hits[0], rank = i + 1;
+  L.show = Math.max(L.show, Math.max(CLUB_TOP, Math.ceil(rank / CLUB_STEP) * CLUB_STEP));
+  L.hit = ranked[i].uuid;
+  L.findMsg = `${esc(ranked[i].name)} — #${rank.toLocaleString()} of ${ranked.length.toLocaleString()}`
+            + (hits.length > 1 ? ` · ${hits.length} names match, this is the highest` : '');
+  clubLeadersRender();
+  // After paint, not before: the row does not exist until the render that the
+  // expansion above triggered has run.
+  //
+  // ⚠ SCROLL THE LIST, NOT THE PAGE. scrollIntoView() moves every scrollable
+  // ancestor, so it dragged the whole club view up and took the heading, the
+  // category buttons and the search box off the top of the screen — searching
+  // from a box you can no longer see. Only the list container is moved, by the
+  // difference between the row and the container, so everything else stays put.
+  requestAnimationFrame(() => {
+    const wrap = document.querySelector('#club-lead .clb-scroll');
+    const row  = document.querySelector('#club-lead .clb-hit');
+    if(!wrap || !row || !wrap.contains(row)) return;   // a hit inside the pinned block needs no scroll
+    const r = row.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+    wrap.scrollTop += (r.top - w.top) - (w.height / 2 - r.height / 2);
+  });
+}
+
+/* ONE ranking, used by the render and by the search. Two copies would be two
+   answers to "who is #347". */
+function clubLeadersRanked(L){
+  const cat = L.cat, per = L.per && cat !== 'gp', only = L.sid;
   const all = [...L.rows.values()].map(r => {
     const t = { uuid:r.uuid, name:r.name, gp:0, pts:0, threePt:0, fouls:0, fg:0, ft:0, seasons:0, teams:0 };
     for(const [sid, b] of r.bySid){
@@ -6431,15 +6503,18 @@ function clubLeadersRender(){
     }
     return t;
   }).filter(r => r.seasons > 0);
-  /* ⚠ A ZERO HERE IS NOT A MEASUREMENT. build-team-stats.js writes
-     `gp: stats?.gp ?? 0`, so a player carrying a registration with no stats is
-     indistinguishable from one who genuinely played none. Those rows are held
-     OUT of the ranking and counted in the footer rather than padding the bottom
-     of it as though they were real noughts. */
   const ranked = all.filter(r => r.gp > 0);
-  const unranked = all.length - ranked.length;
   const val = r => per ? (r.gp ? r[cat] / r.gp : 0) : r[cat];
   ranked.sort((a,b)=> val(b)-val(a) || b.gp-a.gp || a.name.localeCompare(b.name) || a.uuid.localeCompare(b.uuid));
+  return { ranked, unranked: all.length - ranked.length, val, per, only, cat };
+}
+function clubLeadersPer(){ if(S.clubLead){ S.clubLead.per = !S.clubLead.per; clubLeadersRender(); } }
+
+function clubLeadersRender(){
+  const host = el('club-lead'); if(!host) return;
+  const L = S.clubLead; if(!L){ host.innerHTML = ''; return; }
+  // ONE ranking, shared with the search — see clubLeadersRanked.
+  const { ranked, unranked, val, per, only, cat } = clubLeadersRanked(L);
   const fmt = v => per ? (Math.round(v*10)/10).toFixed(1) : v.toLocaleString();
   const catLabel = (CLUB_CATS.find(c=>c[0]===cat)||['','?'])[1];
 
@@ -6470,19 +6545,38 @@ function clubLeadersRender(){
     ? ((S.idx?.seasons?.[only] && (S.idx.seasons[only].name || S.idx.seasons[only].fullName)) || only)
     : `all time, ${L.done} of ${L.total} season(s)`;
   const shown = ranked.slice(0, Math.max(CLUB_TOP, L.show));
-  const rows = shown.map((r,i)=>
-    `<tr><td class="clb-rk">${i+1}</td>
+  /* ⚠ Games is BOTH a category and the context column. Ranking by Games showed
+     the same number twice under two headings both reading GAMES. The context
+     column is dropped when it would repeat the value. */
+  const showGP = !(cat === 'gp' && !per);
+  const row = (r,i) =>
+    `<tr class="${L.hit === r.uuid ? 'clb-hit' : ''}"><td class="clb-rk">${i+1}</td>
       <td class="clb-nm" onclick="loadPlayer('${esc(r.uuid)}')" title="Open ${esc(r.name)}">${esc(r.name)}</td>
       <td class="clb-v">${fmt(val(r))}</td>
-      <td class="clb-s">${r.gp.toLocaleString()}</td>
-      <td class="clb-s">${only ? r.teams : r.seasons}</td></tr>`).join('');
+      ${showGP ? `<td class="clb-s">${r.gp.toLocaleString()}</td>` : ''}
+      <td class="clb-s">${only ? r.teams : r.seasons}</td></tr>`;
+  /* ⚠ TWO TABLES, NOT ONE WITH STICKY ROWS. The leading block stays put while
+     the rest scrolls, and position:sticky on ten separate <tr> elements needs a
+     per-row offset that breaks the moment a name wraps to two lines. Two tables
+     sharing an identical <colgroup> under table-layout:fixed stay aligned by
+     construction, whatever the content does. */
+  const COLS = `<colgroup><col style="width:3.2em"><col><col style="width:7em">`
+             + (showGP ? `<col style="width:5em">` : '') + `<col style="width:5em"></colgroup>`;
+  const head = shown.slice(0, CLUB_STICK).map(row).join('');
+  const rest = shown.slice(CLUB_STICK).map((r,i)=>row(r, i + CLUB_STICK)).join('');
 
   host.innerHTML = `<div class="clb-bar">${tabs}${perBtn}</div>
     <div class="clb-bar clb-seabar">${seasonSel}</div>${prog}${fail}
-    <div class="clb-wrap"><table class="clb-tbl">
-      <thead><tr><th></th><th>Player</th><th>${esc(catLabel)}${per?' /g':''}</th><th>Games</th><th>${only?'Teams':'Seasons'}</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="5" class="clb-prog">No ranked players yet.</td></tr>'}</tbody>
+    <div class="clb-find">
+      <input class="sinput clb-q" type="search" placeholder="Find a player in this ranking…" value="${esc(L.find || '')}"
+             oninput="clubLeadersFind(this.value)">
+      ${L.findMsg ? `<span class="clb-fmsg">${L.findMsg}</span>` : ''}
+    </div>
+    <div class="clb-pin"><table class="clb-tbl">${COLS}
+      <thead><tr><th></th><th>Player</th><th>${esc(catLabel)}${per?' /g':''}</th>${showGP?'<th>Games</th>':''}<th>${only?'Teams':'Seasons'}</th></tr></thead>
+      <tbody>${head || `<tr><td colspan="${showGP?5:4}" class="clb-prog">No ranked players yet.</td></tr>`}</tbody>
     </table></div>
+    <div class="clb-scroll"><table class="clb-tbl">${COLS}<tbody>${rest}</tbody></table></div>
     <div class="clb-foot">${ranked.length.toLocaleString()} ranked player(s) \u00b7 ${esc(scope)}`
     + (ranked.length > shown.length || shown.length > CLUB_TOP
         ? ` · showing ${shown.length.toLocaleString()} of ${ranked.length.toLocaleString()}`
