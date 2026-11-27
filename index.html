@@ -658,6 +658,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .clb-v{font-variant-numeric:tabular-nums;font-weight:700}
 .clb-s{font-variant-numeric:tabular-nums;color:var(--text3)}
 .clb-foot{padding:8px 12px 14px;font-size:0.7rem;color:var(--text3)}
+.clb-more{margin-left:6px;padding:2px 9px;border-radius:5px;border:1px solid var(--border);
+  background:transparent;color:var(--text2);font-size:0.7rem;cursor:pointer}
+.clb-more:hover{color:var(--accent);border-color:var(--accent)}
 .gr-colh{fill:var(--text);font-size:11px;font-weight:700}
 .gr-cols{fill:var(--text3);font-size:9px}
 .gr-box{cursor:pointer}
@@ -988,7 +991,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.95</span>
+      <span class="rail-ver">v1.97</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -6347,6 +6350,16 @@ function renderClubShell(){
    table paints after each season rather than after all of them, and says how
    far through it is. A season that fails to load is COUNTED and named in the
    footer — a short table and a complete one must not look alike. */
+/* ⚠ THE ROW COUNT IS BOUNDED ON PURPOSE AND "SHOW ALL" DOES NOT EXIST.
+   A club is not necessarily small: PlayHQ records a rep team as belonging to its
+   league, so VJBL alone owns 10,371 teams and a club like that has players in
+   the tens of thousands. Rendering every ranked row in one go would build a DOM
+   that size from a single click. The table opens at CLUB_TOP and grows by
+   CLUB_STEP per click, so no one render is ever larger than CLUB_STEP rows and
+   the cost is always something the person asked for. Neither number is a
+   measurement — do not treat them as one. */
+const CLUB_TOP  = 50;    // rows on first paint
+const CLUB_STEP = 200;   // rows added per click
 const CLUB_CATS = [['gp','Games'],['pts','Points'],['threePt','3-pointers'],['fouls','Fouls'],['fg','Field goals'],['ft','Free throws']];
 
 function clubSeasonStart(sid){
@@ -6362,7 +6375,7 @@ async function clubLeadersLoad(){
   // sid:'' is ALL SEASONS and is the default — the all-time table is the point,
   // the filter is a narrowing of it. `order` keeps the newest-first season list
   // for the dropdown so it does not have to be re-derived on every render.
-  S.clubLead = { cid, rows:new Map(), done:0, total:sids.length, cat:'gp', per:false, failed:[], sid:'', order:sids, loaded:new Set() };
+  S.clubLead = { cid, rows:new Map(), done:0, total:sids.length, cat:'gp', per:false, failed:[], sid:'', order:sids, loaded:new Set(), show:CLUB_TOP };
   clubLeadersRender();
   for(const sid of sids){
     // A club viewed, left and reopened must not restart a half-finished load.
@@ -6395,7 +6408,9 @@ async function clubLeadersLoad(){
 }
 
 function clubLeadersPick(cat){ if(S.clubLead){ S.clubLead.cat = cat; clubLeadersRender(); } }
-function clubLeadersSeason(sid){ if(S.clubLead){ S.clubLead.sid = sid || ''; clubLeadersRender(); } }
+function clubLeadersSeason(sid){ if(S.clubLead){ S.clubLead.sid = sid || ''; S.clubLead.show = CLUB_TOP; clubLeadersRender(); } }
+function clubLeadersMore(){ if(S.clubLead){ S.clubLead.show += CLUB_STEP; clubLeadersRender(); } }
+function clubLeadersLess(){ if(S.clubLead){ S.clubLead.show = CLUB_TOP; clubLeadersRender(); } }
 function clubLeadersPer(){ if(S.clubLead){ S.clubLead.per = !S.clubLead.per; clubLeadersRender(); } }
 
 function clubLeadersRender(){
@@ -6454,7 +6469,8 @@ function clubLeadersRender(){
   const scope = only
     ? ((S.idx?.seasons?.[only] && (S.idx.seasons[only].name || S.idx.seasons[only].fullName)) || only)
     : `all time, ${L.done} of ${L.total} season(s)`;
-  const rows = ranked.slice(0,50).map((r,i)=>
+  const shown = ranked.slice(0, Math.max(CLUB_TOP, L.show));
+  const rows = shown.map((r,i)=>
     `<tr><td class="clb-rk">${i+1}</td>
       <td class="clb-nm" onclick="loadPlayer('${esc(r.uuid)}')" title="Open ${esc(r.name)}">${esc(r.name)}</td>
       <td class="clb-v">${fmt(val(r))}</td>
@@ -6468,7 +6484,15 @@ function clubLeadersRender(){
       <tbody>${rows || '<tr><td colspan="5" class="clb-prog">No ranked players yet.</td></tr>'}</tbody>
     </table></div>
     <div class="clb-foot">${ranked.length.toLocaleString()} ranked player(s) \u00b7 ${esc(scope)}`
-    + (ranked.length > 50 ? ` · showing the top 50` : '')
+    + (ranked.length > shown.length || shown.length > CLUB_TOP
+        ? ` · showing ${shown.length.toLocaleString()} of ${ranked.length.toLocaleString()}`
+          + (ranked.length > shown.length
+              ? ` <button class="clb-more" onclick="clubLeadersMore()">Show ${Math.min(CLUB_STEP, ranked.length - shown.length).toLocaleString()} more</button>`
+              : '')
+          + (shown.length > CLUB_TOP
+              ? ` <button class="clb-more" onclick="clubLeadersLess()">Back to top ${CLUB_TOP}</button>`
+              : '')
+        : '')
     + (unranked ? ` · ${unranked.toLocaleString()} held out with no games credited — a registration with no stats reads as 0 here and is NOT treated as a real nought` : '')
     + `</div>`;
 }
