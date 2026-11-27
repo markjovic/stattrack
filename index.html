@@ -646,6 +646,21 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 .clb-seabar{padding-top:2px}
 .clb-sea{max-width:22em}
 .clb-prog{padding:6px 12px;font-size:0.72rem;color:var(--text3)}
+/* Loading bar. Visible enough to be read at a glance, and it STAYS at 100% so
+   "provisional" and "complete" are distinguishable states rather than the
+   absence of a message. */
+.clb-load{padding:8px 12px 10px}
+.clb-load-hd{display:flex;align-items:baseline;gap:10px;font-size:0.74rem;color:var(--text2);margin-bottom:5px}
+.clb-load-hd b{color:var(--text1);font-variant-numeric:tabular-nums}
+.clb-load-pct{margin-left:auto;font-size:0.72rem;color:var(--text3);font-variant-numeric:tabular-nums}
+.clb-load-sub{margin-top:5px;font-size:0.68rem;color:var(--text3)}
+.clb-track{height:7px;border-radius:4px;background:var(--border);overflow:hidden}
+.clb-fill{height:100%;border-radius:4px;background:var(--accent);width:0;
+  transition:width 220ms ease-out}
+.clb-load.done .clb-load-hd{color:var(--text3)}
+.clb-load.done .clb-fill{opacity:0.45}
+.clb-load.bad .clb-load-hd{color:var(--loss)}
+.clb-load.bad .clb-fill{background:var(--loss);opacity:1}
 .clb-prog.warn{color:var(--loss)}
 .clb-wrap{overflow-x:auto;padding:0 12px}
 .clb-find{display:flex;align-items:center;gap:10px;padding:4px 12px 8px;flex-wrap:wrap}
@@ -1005,7 +1020,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v1.99</span>
+      <span class="rail-ver">v2.02</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -6422,8 +6437,24 @@ async function clubLeadersLoad(){
   }
 }
 
-function clubLeadersPick(cat){ if(S.clubLead){ S.clubLead.cat = cat; clubLeadersRender(); } }
-function clubLeadersSeason(sid){ if(S.clubLead){ S.clubLead.sid = sid || ''; S.clubLead.show = CLUB_TOP; S.clubLead.hit = null; S.clubLead.findMsg = ''; clubLeadersRender(); } }
+/* The search is a STANDING query, not a one-off. Changing the category or the
+   per-game toggle re-sorts the whole ranking, so a player at #109 by games can
+   be #3,200 by points: keeping the highlight without re-running the search
+   would leave a marked row outside the rendered block and a message quoting a
+   rank that no longer exists. Every control that changes the ordering re-runs
+   it instead of merely re-rendering. */
+function clubLeadersRefind(){
+  const L = S.clubLead; if(!L) return;
+  if(L.find) clubLeadersFind(L.find); else clubLeadersRender();
+}
+function clubLeadersPick(cat){ if(S.clubLead){ S.clubLead.cat = cat; clubLeadersRefind(); } }
+function clubLeadersSeason(sid){
+  if(!S.clubLead) return;
+  S.clubLead.sid = sid || '';
+  S.clubLead.show = CLUB_TOP;          // a different population starts at the default
+  S.clubLead.hit = null; S.clubLead.findMsg = '';
+  clubLeadersRefind();                  // and the standing search is re-answered against it
+}
 function clubLeadersMore(){ if(S.clubLead){ S.clubLead.show += CLUB_STEP; clubLeadersRender(); } }
 function clubLeadersLess(){ if(S.clubLead){ S.clubLead.show = CLUB_TOP; S.clubLead.hit = null; clubLeadersRender(); } }
 
@@ -6508,11 +6539,31 @@ function clubLeadersRanked(L){
   ranked.sort((a,b)=> val(b)-val(a) || b.gp-a.gp || a.name.localeCompare(b.name) || a.uuid.localeCompare(b.uuid));
   return { ranked, unranked: all.length - ranked.length, val, per, only, cat };
 }
-function clubLeadersPer(){ if(S.clubLead){ S.clubLead.per = !S.clubLead.per; clubLeadersRender(); } }
+function clubLeadersPer(){ if(S.clubLead){ S.clubLead.per = !S.clubLead.per; clubLeadersRefind(); } }
 
 function clubLeadersRender(){
   const host = el('club-lead'); if(!host) return;
   const L = S.clubLead; if(!L){ host.innerHTML = ''; return; }
+  /* ⚠⚠ THIS FUNCTION REBUILDS THE SEARCH BOX, so it must put the person back
+     where they were. Replacing host.innerHTML destroys the input they are
+     typing into: focus went to the body and the field reset, so typing
+     "Lovelace" left "L" and the box went dead after one character. The search
+     now runs on Enter rather than per keystroke, which removes most of those
+     renders — but not all of them: Enter itself renders, clearing the box
+     renders, and changing category or season re-answers the standing search.
+     Focus and caret are carried across so none of those lose the cursor.
+     The feature was untestable by its own unit tests, which called
+     clubLeadersFind() directly and never typed a key. */
+  const q0 = host.querySelector('.clb-q');
+  const refocus = !!(q0 && document.activeElement === q0);
+  const caret = refocus ? q0.selectionStart : null;
+  const restore = () => {
+    if(!refocus) return;
+    const q1 = host.querySelector('.clb-q');
+    if(!q1) return;
+    q1.focus();
+    try { q1.setSelectionRange(caret, caret); } catch(_) {}
+  };
   // ONE ranking, shared with the search — see clubLeadersRanked.
   const { ranked, unranked, val, per, only, cat } = clubLeadersRanked(L);
   const fmt = v => per ? (Math.round(v*10)/10).toFixed(1) : v.toLocaleString();
@@ -6534,9 +6585,35 @@ function clubLeadersRender(){
     })).join('');
   const seasonSel = `<select class="sselect clb-sea" onchange="clubLeadersSeason(this.value)">${seasonOpts}</select>`;
 
-  const prog = L.done < L.total
-    ? `<div class="clb-prog">Loading season ${L.done + 1} of ${L.total}… the table fills in as each one arrives, newest first.</div>`
-    : '';
+  /* ⚠ THE BAR STAYS AT 100% WHEN IT FINISHES, IT DOES NOT VANISH. While it is
+     filling, every figure on screen is provisional — the ranking covers only the
+     seasons that have arrived, and a long career in older seasons climbs as it
+     completes. "All N seasons loaded" is therefore not decoration: it is the
+     difference between a provisional table and a final one, and removing the
+     bar on completion would delete the only thing that says which you are
+     looking at. */
+  const pct = L.total ? Math.round((L.done / L.total) * 100) : 100;
+  const doneAll = L.done >= L.total;
+  /* ⚠ done counts ATTEMPTS, not successes — clubLeadersLoad increments it on a
+     failed season too, which is right, because otherwise one dead file leaves
+     the bar stuck short forever. So the finished state must not say "complete"
+     when something failed: it reaches 100%, turns red and says INCOMPLETE, and
+     the warn line underneath names the files. */
+  const bad = L.failed.length;
+  const prog = `<div class="clb-load${doneAll ? ' done' : ''}${doneAll && bad ? ' bad' : ''}">
+      <div class="clb-load-hd">
+        <span>${doneAll
+          ? (bad
+              ? `All ${L.total.toLocaleString()} season${L.total === 1 ? '' : 's'} attempted — ${bad} could not be loaded, so these totals are INCOMPLETE`
+              : `All ${L.total.toLocaleString()} season${L.total === 1 ? '' : 's'} loaded — these totals are complete`)
+          : `Loading seasons — <b>${L.done.toLocaleString()} of ${L.total.toLocaleString()}</b>, newest first`}</span>
+        <span class="clb-load-pct">${pct}%</span>
+      </div>
+      <div class="clb-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+        <div class="clb-fill" style="width:${pct}%"></div>
+      </div>
+      ${doneAll ? '' : '<div class="clb-load-sub">The ranking covers the seasons loaded so far, so positions can still change.</div>'}
+    </div>`;
   const fail = L.failed.length
     ? `<div class="clb-prog warn">⚠ ${L.failed.length} season file(s) could not be loaded, so these totals are INCOMPLETE: ${L.failed.map(esc).join(', ')}</div>`
     : '';
@@ -6568,8 +6645,17 @@ function clubLeadersRender(){
   host.innerHTML = `<div class="clb-bar">${tabs}${perBtn}</div>
     <div class="clb-bar clb-seabar">${seasonSel}</div>${prog}${fail}
     <div class="clb-find">
-      <input class="sinput clb-q" type="search" placeholder="Find a player in this ranking…" value="${esc(L.find || '')}"
-             oninput="clubLeadersFind(this.value)">
+      <!-- ⚠ THE SEARCH RUNS ON ENTER, NOT ON EVERY KEYSTROKE. Finding a player
+           means ranking every player in the club — tens of thousands of rows for
+           a big one — and then rebuilding this whole panel, including the box
+           being typed into. Doing that per character made the field jump and
+           fight the typist even with the caret carried across. The only
+           exception is emptying the box, which clears the highlight at once:
+           that is one render, and a cleared box that still shows a highlight
+           reads as a stuck result. -->
+      <input class="sinput clb-q" type="search" placeholder="Find a player — press Enter" value="${esc(L.find || '')}"
+             onkeydown="if(event.key==='Enter'){ event.preventDefault(); clubLeadersFind(this.value); }"
+             oninput="if(!this.value) clubLeadersFind('');">
       ${L.findMsg ? `<span class="clb-fmsg">${L.findMsg}</span>` : ''}
     </div>
     <div class="clb-pin"><table class="clb-tbl">${COLS}
@@ -6589,6 +6675,7 @@ function clubLeadersRender(){
         : '')
     + (unranked ? ` · ${unranked.toLocaleString()} held out with no games credited — a registration with no stats reads as 0 here and is NOT treated as a real nought` : '')
     + `</div>`;
+  restore();
 }
 
 /* Stepping through weeks REPLACES the history entry rather than pushing one.
