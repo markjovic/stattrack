@@ -1046,7 +1046,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v2.06</span>
+      <span class="rail-ver">v2.07</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -4610,7 +4610,8 @@ async function buildMates(uuid,btn){
       }
     }
   }
-  /* ⚠️ TWO ID NAMESPACES, AND THIS PANEL READ ONLY ONE.
+  /* ── TEAM-MATE ID REPAIR (v2.07) ─────────────────────────
+     ⚠️ TWO ID NAMESPACES, AND THIS PANEL READ ONLY ONE.
      A team sheet is keyed by the api id: build-team-stats.js writes the roster
      key as truncateUuid() of the full player uuid. g.p[] carries the SPECTATOR
      id: nightly-crawl.js phase 3 writes truncateUuid(p.profileID) straight off
@@ -8419,12 +8420,37 @@ async function buildOppStats(uuid, btn) {
   }
   if(container)container.innerHTML='<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Matching opponents\u2026</div>';
 
-  // For each game the player was in, tally opponents and results
-  // g.p[] entries have {id} (UUID string); hp/ap entries have {profileID}
+  /* ── OPPONENT MATCHING (v2.07) ───────────────────────────────────────────
+     ⚠️ TWO FAULTS, BOTH OF THEM SILENT.
+     (1) The fallback used to be resolveCachedUuid(), which reads the shard maps
+         ALREADY in memory and never fetches. So whether a diverged opponent was
+         counted depended on which shard maps something else had happened to
+         load — the same player, the same page, a different answer depending on
+         the click path that got you there. v2.07's team-mate repair made that
+         worse, because it populates those maps as a side effect.
+     (2) skippedIds was incremented in two places and read in none, so every
+         dropped opponent was invisible; and the g.p[] branch dropped an id that
+         DID resolve but landed on neither sheet without even counting it.
+     The walk is now collect → resolve once → tally. The ids that miss the team
+     sheets are deduplicated into a Set first, so this resolves the handful of
+     distinct diverged ids in a career rather than calling the resolver once per
+     opposing player per game, which is what made the old version take a minute.
+     Both counters now reach the footer. A diverged TEAM-MATE is also caught
+     here: the old g.p[] branch tested team-mates with an api-keyed roster test
+     against a spectator id, so Oscar Gleadow was not recognised as Toby Jovic's
+     team-mate in this walk at all. */
   const oppRecord = {}; // oppUuid → {w, l, d}
-  let skippedIds = 0;     // game-side ids no loaded index could place
+  let skippedIds = 0;       // game-side ids no index or alias could place
+  let droppedOffSheet = 0;  // ids that resolved to a player on neither team sheet
+  let foldedIds = 0;        // appearances placed only by folding a second id
   const oppNames = {};    // uuid -> name, straight off the opposing team sheet
   const playerGames = new Set(player.games || []);
+
+  // PASS 1 — walk every game once, decide the sides once, and set aside the ids
+  // the team sheets could not place. Side determination lives here and nowhere
+  // else, so there is no second copy of it to drift.
+  const pending = [];
+  const unplaced = new Set();
 
   for (const sid of sids) {
     const gamesInSid = S.games[sid]?.games || {};
@@ -8449,19 +8475,19 @@ async function buildOppStats(uuid, btn) {
       const td = S.teamStats[sid] || {};
       const oppRosterKeys = Object.keys(td[otherTid]?.roster || {});
       const myRosterKeys  = Object.keys(td[myTid]?.roster    || {});
-      const oppRosterSet  = new Set(oppRosterKeys);
       const oppSide = isHome ? (g.ap || []) : (g.hp || []);
 
-      // Collect opponents as CANONICAL full uuids. Game-side ids are mostly
-      // trunc13 (of the player's own uuid) and won't equal the full-uuid roster
-      // keys, so match on the 13-char prefix; fall back to the alias index for
-      // diverged spectator ids not present in the roster.
-      let oppUuids = [];
+      // Game-side ids are trunc13 and the roster keys are trunc13 of the API
+      // uuid, so the cheap test is a prefix match against the sheet. Anything
+      // that misses is deferred, never guessed at and never dropped here.
+      const rec = { sid, gid, g, res, otherTid, oppKeys: oppRosterKeys, myKeys: myRosterKeys, uuids: [], miss: [] };
       if (oppSide.length) {
         for (const bp of oppSide) {
-          const k2=t13(bp.profileID);
-          const hit=oppRosterKeys.find(uu=>t13(uu)===k2) || resolveCachedUuid(bp.profileID);
-          if (hit) oppUuids.push(hit); else skippedIds++;
+          if (!bp.profileID) continue;
+          const k2 = t13(bp.profileID);
+          const hit = oppRosterKeys.find(uu => t13(uu) === k2);
+          if (hit) rec.uuids.push(hit);
+          else { rec.miss.push({ pid: bp.profileID, box: true }); unplaced.add(String(bp.profileID)); }
         }
       } else if (g.p?.length) {
         for (const entry of g.p) {
@@ -8470,32 +8496,68 @@ async function buildOppStats(uuid, btn) {
           const k = t13(pid);
           if (myRosterKeys.some(uu => t13(uu) === k)) continue;   // teammate
           const oppKey = oppRosterKeys.find(uu => t13(uu) === k);
-          if (oppKey) { oppUuids.push(oppKey); continue; }
-          const r = resolveCachedUuid(pid);           // cached maps only; see resolveCachedUuid
-          if (r && oppRosterSet.has(r)) oppUuids.push(r);
-          else if (!r) skippedIds++;
+          if (oppKey) { rec.uuids.push(oppKey); continue; }
+          rec.miss.push({ pid, box: false }); unplaced.add(String(pid));
         }
       } else {
         continue;
       }
+      pending.push(rec);
+    }
+  }
 
-      const oppRosterBlock = (S.teamStats[sid]||{})[otherTid]?.roster || {};
-      for (const oppUuid of oppUuids) {
-        if (!oppUuid || oppUuid === uuid) continue;
-        // The name is in the roster block this loop already read. Fetching a
-        // player file per opponent for it cost one request each, and every miss
-        // then pulled that shard's whole index and alias file — a 220 kB pair
-        // per shard. That is the 550 requests; none of them were needed.
-        if (!(oppUuid in oppNames)) {
-          const nm = oppRosterBlock[oppUuid]?.name;
-          if (nm) oppNames[oppUuid] = nm;
-        }
-        if (!oppRecord[oppUuid]) oppRecord[oppUuid] = { w: 0, l: 0, d: 0, games: [] };
-        if (res === 'W') oppRecord[oppUuid].w++;
-        else if (res === 'L') oppRecord[oppUuid].l++;
-        else oppRecord[oppUuid].d++;
-        oppRecord[oppUuid].games.push({ gid, sid, g });
+  // PASS 2 — resolve the DISTINCT unplaced ids, once each. resolveToFullUuid is
+  // memoised and its shard maps are cached, so the cost is the shards a career
+  // touches, not the number of appearances in it.
+  const placed = new Map();
+  const toPlace = [...unplaced];
+  for (let i = 0; i < toPlace.length; i += 8) {
+    await Promise.all(toPlace.slice(i, i + 8).map(async pid => {
+      const full = await resolveToFullUuid(pid);
+      if (full) placed.set(String(pid), full);
+    }));
+    if (container) container.innerHTML = '<div style="font-size:0.8rem;color:var(--text3);padding:8px 0">Matching opponents… ' +
+      Math.min(i + 8, toPlace.length) + ' of ' + toPlace.length + ' ids</div>';
+  }
+
+  // PASS 3 — finish each game with the full picture, then tally.
+  for (const rec of pending) {
+    const { sid, gid, g, res, otherTid } = rec;
+    for (const m of rec.miss) {
+      const r = placed.get(String(m.pid));
+      if (!r) { skippedIds++; continue; }
+      const rk = t13(r);
+      // A team-mate under a second id is a team-mate, not an opponent. The box
+      // score already names the side, so that branch needs no sheet to agree.
+      if (!m.box && rec.myKeys.some(uu => t13(uu) === rk)) continue;
+      // ⚠️ KEY IT THE WAY THE SHEET KEYS IT. oppRecord and the name lookup are
+      // both keyed by the roster key (trunc13); pushing the full uuid the
+      // resolver returns would tally the SAME opponent twice, once per route,
+      // and leave the second copy nameless. The pre-v2.07 code compared a full
+      // uuid against a Set of trunc13 keys, which is never true — that is why
+      // the g.p[] fold path never fired at all.
+      const hitKey = rec.oppKeys.find(uu => t13(uu) === rk);
+      if (hitKey) { rec.uuids.push(hitKey); foldedIds++; continue; }
+      if (m.box) { rec.uuids.push(r); foldedIds++; continue; }   // box score names the side; no sheet entry to key on
+      droppedOffSheet++;
+    }
+
+    const oppRosterBlock = (S.teamStats[sid]||{})[otherTid]?.roster || {};
+    for (const oppUuid of rec.uuids) {
+      if (!oppUuid || oppUuid === uuid) continue;
+      // The name is in the roster block this loop already read. Fetching a
+      // player file per opponent for it cost one request each, and every miss
+      // then pulled that shard's whole index and alias file — a 220 kB pair
+      // per shard. That is the 550 requests; none of them were needed.
+      if (!(oppUuid in oppNames)) {
+        const nm = oppRosterBlock[oppUuid]?.name;
+        if (nm) oppNames[oppUuid] = nm;
       }
+      if (!oppRecord[oppUuid]) oppRecord[oppUuid] = { w: 0, l: 0, d: 0, games: [] };
+      if (res === 'W') oppRecord[oppUuid].w++;
+      else if (res === 'L') oppRecord[oppUuid].l++;
+      else oppRecord[oppUuid].d++;
+      oppRecord[oppUuid].games.push({ gid, sid, g });
     }
   }
 
@@ -8559,6 +8621,14 @@ async function buildOppStats(uuid, btn) {
     </select>
     <div id="${searchDetailId}" class="opp-game-detail hidden" style="margin-top:4px"></div>
   </div>`;
+
+  // What this walk could not do is said out loud. A shortfall nobody can see is
+  // the fault both halves of v2.07 were written to end.
+  const oppNotes = [];
+  if (foldedIds) oppNotes.push(`${foldedIds} appearance${foldedIds===1?'':'s'} matched through a second PlayHQ id`);
+  if (skippedIds) oppNotes.push(`${skippedIds} game-side id${skippedIds===1?'':'s'} no index or alias could place`);
+  if (droppedOffSheet) oppNotes.push(`${droppedOffSheet} resolved to a player on neither team sheet`);
+  if (oppNotes.length) h += `<div style="font-size:0.68rem;color:var(--text3);margin-top:10px;border-top:0.5px solid var(--border);padding-top:8px">${esc(oppNotes.join(' \u00b7 '))}.</div>`;
 
   container.innerHTML = h;
   if(btn){btn.textContent = 'Refresh \u2197'; btn.disabled = false;}
