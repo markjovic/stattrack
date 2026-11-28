@@ -1055,7 +1055,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v2.09</span>
+      <span class="rail-ver">v2.10</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -6000,7 +6000,19 @@ function tcRounds(key,fixtures){
    One season game file, then g.p[] against the roster. A filled cell is a name
    on that game's sheet; an outlined one is a game the squad played without
    them. Rows a player could not have been part of are not distinguished from
-   ones they missed, because the data does not say which. */
+   ones they missed, because the data does not say which.
+
+   ⚠️ 2026-11-28 — A SHEET ID IS NOT A ROSTER UUID, AND THIS WAS THE ONE PLACE
+   THAT ASSUMED IT WAS. This compared t13(sheet id) against t13(roster uuid) and
+   nothing else, so a player whose sheets carry a DIVERGED spectator id scored a
+   near-empty row. Ned Thompson in 2ea45b5f read 1/20 beside a GP column of 19:
+   his file carries spectatorIds ['7a5dd0ff-f419','cbd889ea-615c'] and 18 of the
+   20 sheets name the second one. The alias file resolves it and games[] already
+   folds it — only this grid did not, which made a correct 19 GP look like a lie.
+   matchP/playerIdSet is the app's answer to this and is used at thirty-odd other
+   call sites; nothing here needed inventing. It needs the player's FILE loaded,
+   so the roster files are awaited first — the same S.players cache tcHydrate
+   fills for the career rows, so this adds no request, it only waits for one. */
 async function tcAvail(key,tid,sid,btn){
   const host=el('tc-avail-'+key); if(!host)return;
   const box=host.querySelector('.av-body')||host;
@@ -6013,16 +6025,16 @@ async function tcAvail(key,tid,sid,btn){
   if(btn)btn.disabled=false;
   if(!fx.length){box.innerHTML='<div class="av-msg">The season game file holds none of this team\u2019s played fixtures.</div>';return;}
   const roster=st.roster||[];
+  box.innerHTML='<div class="av-msg">Reading the team sheets\u2026</div>';
+  await Promise.all(roster.map(r=>playerFile(r.uuid)));
   const present=fx.map(f=>{
     const g=gf[f.gameId];
-    const ids=new Set((Array.isArray(g.p)?g.p:[]).map(e=>t13(typeof e==='string'?e:(e&&e.id))).filter(Boolean));
-    return ids;
+    return (Array.isArray(g.p)?g.p:[]).map(e=>typeof e==='string'?e:(e&&e.id)).filter(Boolean);
   });
-  const any=present.some(s=>s.size);
+  const any=present.some(a=>a.length);
   if(!any){box.innerHTML='<div class="av-msg">These game records carry no team sheet, so who played cannot be read from them.</div>';return;}
   const rows=roster.map(r=>{
-    const k=t13(r.uuid);
-    const cells=present.map(s=>s.has(k));
+    const cells=present.map(a=>a.some(id=>matchP(id,r.uuid)));
     return{name:r.name,uuid:r.uuid,cells,n:cells.filter(Boolean).length};
   }).sort((a,b)=>b.n-a.n);
   box.innerHTML=`<div class="av-hd">${rows.length} player${rows.length===1?'':'s'} \u00b7 ${fx.length} game${fx.length===1?'':'s'}</div>
