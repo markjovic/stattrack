@@ -1055,7 +1055,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
     <div class="rail-hd">
       <div class="rail-logo">StatTrack<sup>BV</sup></div>
       <span class="help-dot" onclick="openHelp()" title="What the numbers mean">?</span>
-      <span class="rail-ver">v2.11</span>
+      <span class="rail-ver">v2.12</span>
     </div>
     <div class="stabs">
       <button class="stab on" data-tab="players">Players</button>
@@ -3095,10 +3095,19 @@ function extractGradeLevel(gn){
   return last;
 }
 
+/* ⚠️ COMPUTED, NOT A LOOKUP TABLE. The old table listed A–E plus ARES–DRES, so
+   every other real GEBC grade — AR, BR, CR (the short reserve spelling), F, G,
+   H, I, and combined grades like A/A2 and A/AR — fell through to 999 and sorted
+   to the BOTTOM of its age band. A U13 panel rendered as B, C, D, E, A/A2, AR.
+   Rank = letter * 1000 + number * 10 + 50 for a reserve, so within a letter the
+   order is A, A1, A2, A3, AR/ARES — the old table's order, extended to Z.
+   A combined grade ranks on its FIRST component (A/A2 sits with A); the caller's
+   alphabetical tiebreak then separates it from plain A. */
 function gradeRank(lv){
-  return({'A':10,'A1':11,'A2':12,'A3':13,'B':20,'B1':21,'B2':22,'B3':23,
-          'C':30,'C1':31,'C2':32,'D':40,'D1':41,'D2':42,'E':50,'E1':51,
-          'ARES':15,'BRES':25,'CRES':35,'DRES':45})[( lv||'').toUpperCase()]??999;
+  const first=String(lv||'').toUpperCase().split('/')[0].replace(/\s+/g,'');
+  const m=/^([A-Z])(\d{0,2})(RES|R)?$/.exec(first);
+  if(!m) return 99999;
+  return (m[1].charCodeAt(0)-65)*1000 + (m[2]?+m[2]*10:0) + (m[3]?50:0);
 }
 
 function ageNum(a){return parseInt((a||'').replace(/\D/g,''))||999;}
