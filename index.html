@@ -4568,6 +4568,7 @@ async function buildMates(uuid,btn){
   for(const s of (p.seasons||[]))for(const r of (s.regs||[]))if(r.tid&&r.tn)tnOf[r.tid]=r.tn;
   const mineGames=new Set(Array.isArray(p.games)?p.games:[]);
   const tally=new Map();
+  const matesBySid=new Map();   // sid -> that season's mates map, kept for the repair pass below
   let rosters=0;
   for(const sid of sids){
     const ts=S.teamStats[sid]||{};
@@ -4586,11 +4587,13 @@ async function buildMates(uuid,btn){
       }
     }
     if(!mates.size)continue;
+    matesBySid.set(sid,mates);
     const per=pOf[sid];
     for(const[k,m]of mates){
-      if(!tally.has(k))tally.set(k,{id:m.id,name:m.name,g:0,per:new Set(),tn:{}});
+      if(!tally.has(k))tally.set(k,{key:k,id:m.id,name:m.name,g:0,per:new Set(),tn:{},sg:{}});
       const o=tally.get(k);
       if(!o.name&&m.name)o.name=m.name;
+      if(!(sid in o.sg))o.sg[sid]=0;   // on the sheet this season; 0 until a game says otherwise
       if(per!=null){o.per.add(per); if(m.tn)o.tn[per]=m.tn;}
     }
     const gf=(S.games[sid]&&S.games[sid].games)||{};
@@ -4601,7 +4604,66 @@ async function buildMates(uuid,btn){
         if(!pid)continue;
         const k=t13(pid);
         const o=tally.get(k);
-        if(o&&mates.has(k))o.g++;
+        if(o&&mates.has(k)){o.g++; o.sg[sid]=(o.sg[sid]||0)+1;}
+      }
+    }
+  }
+  /* ⚠️ TWO ID NAMESPACES, AND THIS PANEL READ ONLY ONE.
+     A team sheet is keyed by the api id: build-team-stats.js writes the roster
+     key as truncateUuid() of the full player uuid. g.p[] carries the SPECTATOR
+     id: nightly-crawl.js phase 3 writes truncateUuid(p.profileID) straight off
+     the spectator box score. For most players those two strings are identical
+     and the direct match above is correct. For a player whose ids diverged they
+     never match, so the strip lit every season while the count read 0 — and
+     nothing on screen said a count had been impossible.
+     Oscar Gleadow (api 3acb17d9-a166, spectator 78c18dca-5923) read 2 games
+     alongside Toby Jovic where the true figure is 43, the missing 41 sitting in
+     three seasons whose box scores carry only his spectator id (2026-11-28).
+     The repair asks what the rest of the app already asks: match against the
+     player's own spectatorIds, the same field gameIdMatchesPlayer() uses. It
+     runs ONLY for a team-mate who shared a sheet in a season and was credited
+     nothing in that season - a handful per career - so it is not the
+     per-opposing-player resolve walk that made the opponents view take a
+     minute. A team-mate whose file will not load is counted and said out loud
+     in the header, never left silently at 0. */
+  const suspect=[...tally.values()].filter(o=>Object.keys(o.sg).some(sid=>!o.sg[sid]));
+  let repaired=0, unchecked=0;
+  if(suspect.length){
+    panelBusy(host,`Checking ${suspect.length} team-mate id${suspect.length===1?'':'s'}\u2026`);
+    const alt=new Map();   // alternate id (trunc13) -> the tally entry it belongs to
+    for(let i=0;i<suspect.length;i+=6){
+      await Promise.all(suspect.slice(i,i+6).map(async o=>{
+        const full=await resolveToFullUuid(o.key);
+        if(!full){unchecked++;return;}
+        let rec=S.players[full];
+        if(!rec){rec=await gj(BASE+'/players/'+full.slice(0,2)+'/'+full+'.json'); if(rec)S.players[full]=rec;}
+        if(!rec){unchecked++;return;}
+        if(!o.name&&rec.name)o.name=rec.name;
+        for(const sp of (rec.spectatorIds||[])){
+          const k=t13(sp);
+          // never let an alternate id shadow a key that is itself a team-mate
+          if(k&&k!==o.key&&!tally.has(k)&&!alt.has(k))alt.set(k,o);
+        }
+      }));
+      panelBusy(host,`Checking team-mate ids\u2026 ${Math.min(i+6,suspect.length)} of ${suspect.length}`);
+    }
+    if(alt.size){
+      for(const sid of sids){
+        const mates=matesBySid.get(sid); if(!mates)continue;
+        const gf=(S.games[sid]&&S.games[sid].games)||{};
+        for(const gid of mineGames){
+          const g=gf[gid]; if(!g||!Array.isArray(g.p))continue;
+          const ids=new Set();
+          for(const e of g.p){const pid=typeof e==='string'?e:(e&&e.id); if(pid)ids.add(t13(pid));}
+          const seen=new Set();
+          for(const k of ids){
+            const o=alt.get(k); if(!o)continue;
+            if(!mates.has(o.key))continue;   // not on the sheet together that season
+            if(ids.has(o.key))continue;      // this game already counted under the api id
+            if(seen.has(o.key))continue;     // two alternate ids, one game
+            seen.add(o.key); o.g++; o.sg[sid]=(o.sg[sid]||0)+1; repaired++;
+          }
+        }
       }
     }
   }
@@ -4640,7 +4702,9 @@ async function buildMates(uuid,btn){
   const PER_ROW=5, ROWS=3, SHOWN=PER_ROW*ROWS;
   const first=core.slice(0,SHOWN), more=core.slice(SHOWN);
   host.innerHTML=`<div class="mt-hd">${list.length} team-mate${list.length===1?'':'s'} \u00b7 ${rosters} team sheet${rosters===1?'':'s'} \u00b7 ${periods.length} season${periods.length===1?'':'s'}${
-    noShared?` \u00b7 ${noShared} more on a squad list with no game recorded alongside`:''}</div>
+    noShared?` \u00b7 ${noShared} more on a squad list with no game recorded alongside`:''}${
+    repaired?` \u00b7 ${repaired} game${repaired===1?'':'s'} matched through a second PlayHQ id`:''}${
+    unchecked?` \u00b7 ${unchecked} team-mate${unchecked===1?'':'s'} could not be checked for a second id`:''}</div>
     ${core.length?`<div class="mt-key"><span class="mt-ke">${esc(periods[0]||'')}</span>
       <span class="mt-kt">${core.length} played more than one season with this player \u00b7 one cell per season, oldest to newest, filled where they shared a team</span>
       <span class="mt-ke">${esc(periods[periods.length-1]||'')}</span></div>
