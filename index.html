@@ -4569,6 +4569,7 @@ async function buildMates(uuid,btn){
   const mineGames=new Set(Array.isArray(p.games)?p.games:[]);
   const tally=new Map();
   const matesBySid=new Map();   // sid -> that season's mates map, kept for the repair pass below
+  const mineBySid={};           // sid -> how many of THIS player's games that season file holds
   let rosters=0;
   for(const sid of sids){
     const ts=S.teamStats[sid]||{};
@@ -4599,6 +4600,7 @@ async function buildMates(uuid,btn){
     const gf=(S.games[sid]&&S.games[sid].games)||{};
     for(const gid of mineGames){
       const g=gf[gid]; if(!g||!Array.isArray(g.p))continue;
+      mineBySid[sid]=(mineBySid[sid]||0)+1;
       for(const e of g.p){
         const pid=typeof e==='string'?e:(e&&e.id);
         if(!pid)continue;
@@ -4626,7 +4628,7 @@ async function buildMates(uuid,btn){
      per-opposing-player resolve walk that made the opponents view take a
      minute. A team-mate whose file will not load is counted and said out loud
      in the header, never left silently at 0. */
-  const suspect=[...tally.values()].filter(o=>Object.keys(o.sg).some(sid=>!o.sg[sid]));
+  const suspect=[...tally.values()].filter(o=>Object.keys(o.sg).some(sid=>o.sg[sid]<(mineBySid[sid]||0)));
   let repaired=0, unchecked=0;
   if(suspect.length){
     panelBusy(host,`Checking ${suspect.length} team-mate id${suspect.length===1?'':'s'}\u2026`);
